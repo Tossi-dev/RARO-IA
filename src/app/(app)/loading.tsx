@@ -1,4 +1,4 @@
-// Estado de carregamento geral do app (dashboard, CRM, lancamentos, conteudo,
+// Estado de carregamento geral do app (dashboard, CRM, conteudo,
 // integracoes). O modulo Financeiro tem o seu proprio, mais especifico.
 //
 // Toda tela do sistema e `force-dynamic` e le a planilha no servidor. Sem

@@ -16,22 +16,17 @@ import {
   Clapperboard,
   FileText,
   Film,
-  HandCoins,
-  Landmark,
   LayoutDashboard,
-  Layers,
   LineChart,
   ListChecks,
   Megaphone,
   Plug,
-  Rocket,
   TrendingUp,
   Trophy,
   Undo2,
   Upload,
   Users,
   Wallet,
-  Workflow,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -40,26 +35,24 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { badgeValido, ordenarApps, type AppCatalogo, type NomeIcone, type SubApp } from "@/lib/apps";
 import { cx } from "./ui";
 
+// Rocket, Layers, Workflow, Landmark e HandCoins saíram do mapa: eram os
+// ícones de Lançamentos, Capital de giro, Comissões e Coleta de dados — as
+// quatro telas que saíram do catálogo na virada para mentoria.
 const ICONES: Record<NomeIcone, LucideIcon> = {
   LayoutDashboard,
   CalendarDays,
   Wallet,
   Users,
-  Rocket,
   Clapperboard,
   TrendingUp,
   ArrowLeftRight,
   LineChart,
   FileText,
-  Landmark,
   Undo2,
-  HandCoins,
   Film,
   Megaphone,
   Trophy,
-  Layers,
   ListChecks,
-  Workflow,
   Upload,
   Plug,
 };

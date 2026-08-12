@@ -39,12 +39,7 @@ export const ROTAS_FIN: RotaFin[] = [
     pergunta: "A operação deu lucro no mês, independente de já ter recebido?",
     regime: "competencia",
   },
-  {
-    href: "/financeiro/capital-de-giro",
-    rotulo: "Capital de giro",
-    pergunta: "Quanto tenho a receber, quanto devo e quando cada um cai?",
-    regime: "caixa",
-  },
+  // "Capital de giro" saiu daqui na virada para mentoria (rota removida).
   {
     href: "/financeiro/reembolsos",
     rotulo: "Reembolsos",
@@ -54,12 +49,7 @@ export const ROTAS_FIN: RotaFin[] = [
     pergunta: "Quanto do faturamento está voltando, e por qual produto?",
     regime: "misto",
   },
-  {
-    href: "/financeiro/comissoes",
-    rotulo: "Comissões",
-    pergunta: "Quanto devo para a rede hoje e quem já está atrasado?",
-    regime: "caixa",
-  },
+  // "Comissões" saiu daqui na virada para mentoria (rota removida).
 ];
 
 export const REGIME_LABEL: Record<RegimeFin, string> = {

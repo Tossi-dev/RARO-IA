@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { ABAS } from "./abas";
-import { ROTAS_COLETA, TELAS, rotaPrincipal, rotasQueAlimentam, telasQueUsam } from "./coleta";
+import { ROTAS_COLETA, rotaPrincipal, rotasQueAlimentam } from "./coleta";
 
 const NOMES = new Set(ABAS.map((a) => a.nome));
 const ENTRADA = new Set(ABAS.filter((a) => a.papel === "entrada").map((a) => a.nome));
@@ -46,31 +46,13 @@ describe("contrato de coleta", () => {
   });
 });
 
-describe("casamento de dados", () => {
-  it("toda aba lida por uma tela existe no contrato", () => {
-    for (const t of TELAS) {
-      for (const aba of t.le) {
-        expect(NOMES.has(aba), `tela ${t.href} le aba inexistente ${aba}`).toBe(true);
-      }
-    }
-  });
+// O describe "casamento de dados" (TELAS/telasQueUsam) saiu daqui: testava
+// um catalogo que so a tela /coleta usava, removida na virada para mentoria.
 
-  it("href de tela e unico", () => {
-    const hrefs = TELAS.map((t) => t.href);
-    expect(new Set(hrefs).size).toBe(hrefs.length);
-  });
-
+describe("toda aba de entrada tem coleta", () => {
   it("toda aba de entrada tem pelo menos uma rota que a alimenta", () => {
     for (const aba of ENTRADA) {
       expect(rotasQueAlimentam(aba).length, `aba ${aba} nao tem rota de coleta`).toBeGreaterThan(0);
-    }
-  });
-
-  it("telasQueUsam e o inverso exato de TELAS.le", () => {
-    for (const t of TELAS) {
-      for (const aba of t.le) {
-        expect(telasQueUsam(aba).map((x) => x.href)).toContain(t.href);
-      }
     }
   });
 });

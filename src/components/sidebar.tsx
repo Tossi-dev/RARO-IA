@@ -11,11 +11,9 @@ import {
   LayoutGrid,
   ListChecks,
   Plug,
-  Rocket,
   Upload,
   Users,
   Wallet,
-  Workflow,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -41,7 +39,7 @@ const GRUPOS = [
     itens: [
       { href: "/financeiro", rotulo: "Financeiro", Icone: Wallet },
       { href: "/crm", rotulo: "Central de Clientes", Icone: Users },
-      { href: "/lancamentos", rotulo: "Lançamentos", Icone: Rocket },
+      // "Lançamentos" saiu daqui na virada para mentoria (rota removida).
     ],
   },
   {
@@ -52,10 +50,10 @@ const GRUPOS = [
     titulo: "Sistema",
     itens: [
       { href: "/comecar", rotulo: "Começar", Icone: ListChecks },
-      { href: "/coleta", rotulo: "Coleta de dados", Icone: Workflow },
-      // Ferramenta de entrada de dado (como "Coleta de dados"), não um dos
-      // seis apps de trabalho do catálogo de /inicio — ver comentário em
-      // src/lib/apps.ts sobre o que entra e o que fica só na sidebar.
+      // "Coleta de dados" saiu daqui na virada para mentoria (rota removida).
+      // Ferramenta de entrada de dado, não um dos apps de trabalho do
+      // catálogo de /inicio — ver comentário em src/lib/apps.ts sobre o que
+      // entra e o que fica só na sidebar.
       { href: "/extrato", rotulo: "Importar extrato", Icone: Upload },
       { href: "/integracoes", rotulo: "Integrações", Icone: Plug },
     ],

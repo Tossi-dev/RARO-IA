@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export interface ItemPalette {
-  grupo: string; // "Navegação" | "Ações" | "Clientes" | "Lançamentos" | "Conteúdos"
+  grupo: string; // "Navegação" | "Ações" | "Clientes" | "Conteúdos"
   rotulo: string;
   href: string;
   extra?: string; // texto auxiliar pesquisável (ex.: e-mail, plataforma)

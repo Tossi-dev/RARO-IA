@@ -22,21 +22,16 @@ export type NomeIcone =
   | "CalendarDays"
   | "Wallet"
   | "Users"
-  | "Rocket"
   | "Clapperboard"
   | "TrendingUp"
   | "ArrowLeftRight"
   | "LineChart"
   | "FileText"
-  | "Landmark"
   | "Undo2"
-  | "HandCoins"
   | "Film"
   | "Megaphone"
   | "Trophy"
-  | "Layers"
   | "ListChecks"
-  | "Workflow"
   | "Upload"
   | "Plug";
 
@@ -66,21 +61,23 @@ export interface AppCatalogo {
 // (src/lib/cores.ts). Aquela paleta continua violeta/magenta de propósito:
 // é a cor SEMÂNTICA dos gráficos ("entrou" é sempre a mesma cor, em toda
 // tela, então não pode mudar com o rebrand — ver o comentário do bloco 4 no
-// cabeçalho de globals.css). Mas os DEZ ícones da tela inicial (os seis
-// apps abaixo + os quatro de CATALOGO_SISTEMA) não carregam significado de
+// cabeçalho de globals.css). Mas os OITO ícones da tela inicial (os cinco
+// apps abaixo + os três de CATALOGO_SISTEMA) não carregam significado de
 // dado nenhum — são só identidade visual, então são eles que precisavam
 // virar para a família nova (azul-marinho + dourado do cliente), e não a
 // paleta de gráfico.
 //
-// Critério de cada cor (todas as dez precisam ficar DISTINGUÍVEIS entre si,
+// Critério de cada cor (todas as oito precisam ficar DISTINGUÍVEIS entre si,
 // senão o usuário erra o clique):
-//   - Dashboard, Agenda e Lançamentos ficam nos TRÊS tons oficiais de
-//     --primaria (claro/base/escuro) — são os três apps mais "centrais" do
-//     dia a dia, então herdam a cor mais forte da marca, cada um num degrau.
+//   - Dashboard e Agenda ficam em dois tons oficiais de --primaria
+//     (claro/base) — são os apps mais "centrais" do dia a dia, então herdam
+//     a cor mais forte da marca. Lançamentos usava o terceiro tom (escuro)
+//     desse trio; saiu do catálogo na virada para mentoria (ver comentário
+//     de CATALOGO_APPS), e o tom não foi realocado, pra não confundir com
+//     outra área de trabalho.
 //   - Conteúdo & Redes ganha um quarto tom de azul (céu, mais aberto) em vez
-//     de repetir um dos três de cima: mídia/vídeo/transmissão já associa
-//     com essa família, e assim não fica um quarto ícone indistinguível dos
-//     outros três azuis-marca.
+//     de repetir um dos de cima: mídia/vídeo/transmissão já associa com essa
+//     família, e assim não fica um ícone indistinguível dos outros azuis-marca.
 //   - Financeiro é verde: já é a cor semântica de "positivo" no resto do
 //     produto (--positivo, CORES_CAIXA.entrada), então reaproveitar aqui
 //     mantém "verde = dinheiro indo bem" em vez de introduzir um quinto azul.
@@ -88,16 +85,16 @@ export interface AppCatalogo {
 //     dourado do cliente (--dourado) é acento de marca, não área, então um
 //     módulo só (o de relacionamento com quem paga) é o bastante para ele
 //     aparecer sem virar "alerta" por repetição.
-// Os quatro utilitários de CATALOGO_SISTEMA (extrato, coleta, começar,
-// integrações) usam tons de SLATE — neutros de propósito, porque são telas
-// de configuração/entrada de dado, acessadas uma vez por semana ou uma vez
-// na vida, não área de trabalho. Cor viva ali competiria por atenção com os
-// seis apps de cima sem motivo de negócio.
+// Os três utilitários de CATALOGO_SISTEMA (extrato, começar, integrações)
+// usam tons de SLATE — neutros de propósito, porque são telas de
+// configuração/entrada de dado, acessadas uma vez por semana ou uma vez na
+// vida, não área de trabalho. Cor viva ali competiria por atenção com os
+// apps de cima sem motivo de negócio. ("Coleta de dados" saiu do grupo na
+// virada para mentoria — ver comentário de CATALOGO_SISTEMA.)
 const COR_DASHBOARD = "#2563eb"; // azul-marinho base (--primaria)
 const COR_AGENDA = "#3b82f6"; // azul claro (--primaria-2)
 const COR_FINANCEIRO = "#10b981"; // verde — mesma leitura de "positivo" do resto do produto
 const COR_CRM = "#f59e0b"; // dourado do cliente (--dourado) — único do grupo principal
-const COR_LANCAMENTOS = "#1d4ed8"; // azul escuro/royal (--primaria-press)
 const COR_CONTEUDO = "#0ea5e9"; // azul-céu — quarto tom de azul, mais aberto (mídia/transmissão)
 
 /**
@@ -105,6 +102,8 @@ const COR_CONTEUDO = "#0ea5e9"; // azul-céu — quarto tom de azul, mais aberto
  * módulo — usado aqui ao pé da letra, na mesma ordem, com a MESMA pergunta
  * de negócio de cada rota como frase do ícone).
  */
+// "Capital de giro" e "Comissões" saíram deste catálogo na virada para
+// mentoria (rota removida — ver docs/DESENHO-MENTOROS.md, seção 8).
 const SUBAPPS_FINANCEIRO: SubApp[] = [
   {
     id: "financeiro-resultado",
@@ -139,28 +138,12 @@ const SUBAPPS_FINANCEIRO: SubApp[] = [
     frase: "A operação deu lucro no mês, independente de já ter recebido?",
   },
   {
-    id: "financeiro-capital-de-giro",
-    nome: "Capital de giro",
-    href: "/financeiro/capital-de-giro",
-    icone: "Landmark",
-    cor: COR_FINANCEIRO,
-    frase: "Quanto tenho a receber, quanto devo e quando cada um cai?",
-  },
-  {
     id: "financeiro-reembolsos",
     nome: "Reembolsos",
     href: "/financeiro/reembolsos",
     icone: "Undo2",
     cor: COR_FINANCEIRO,
     frase: "Quanto do faturamento está voltando, e por qual produto?",
-  },
-  {
-    id: "financeiro-comissoes",
-    nome: "Comissões",
-    href: "/financeiro/comissoes",
-    icone: "HandCoins",
-    cor: COR_FINANCEIRO,
-    frase: "Quanto devo para a rede hoje e quem já está atrasado?",
   },
 ];
 
@@ -194,42 +177,14 @@ const SUBAPPS_CONTEUDO: SubApp[] = [
 ];
 
 /**
- * Lançamentos (src/app/(app)/lancamentos/page.tsx) NÃO tem duas rotas: é uma
- * página só, com dois assuntos empilhados sob dois PageHeader — "Fontes de
- * renda" (categoria/agrupamento/lista de produto) e "Lançamentos" (campanhas
- * com início e fim). Os dois sub-apps abaixo apontam para o MESMO /lancamentos
- * de propósito: inventar uma rota "/lancamentos/fontes" que não existe seria
- * pior do que dois ícones levando ao mesmo lugar — a tela em si já rola até o
- * bloco certo pelo título. Se um dia a página ganhar âncora própria, os href
- * daqui viram "/lancamentos#fontes-de-renda" etc.
- */
-const SUBAPPS_LANCAMENTOS: SubApp[] = [
-  {
-    id: "lancamentos-fontes",
-    nome: "Fontes de renda",
-    href: "/lancamentos",
-    icone: "Layers",
-    cor: COR_LANCAMENTOS,
-    frase: "Cada fonte de receita — cursos, mentorias, serviços, produtos, assinaturas e eventos.",
-  },
-  {
-    id: "lancamentos-campanhas",
-    nome: "Campanhas",
-    href: "/lancamentos",
-    icone: "Rocket",
-    cor: COR_LANCAMENTOS,
-    frase: "Campanhas com início e fim, do planejamento ao pós-venda",
-  },
-];
-
-/**
  * O catálogo. Ordem = a mesma da sidebar (Visão geral → Gestão → Marketing).
- * "Começar", "Coleta de dados", "Importar extrato" e "Integrações" (grupo
- * "Sistema" da sidebar) ficaram FORA de propósito: são tela de configuração/
- * utilitário de entrada de dado, não área de trabalho do dia a dia — o pedido
- * do cliente listou os seis apps de trabalho ("Dashboard, Agenda, Financeiro,
- * Central de Clientes, Lançamentos, Conteúdo e Redes"), e essas quatro
- * continuam acessíveis só pela sidebar, como sempre.
+ * "Começar", "Importar extrato" e "Integrações" (grupo "Sistema" da sidebar)
+ * ficaram FORA de propósito: são tela de configuração/utilitário de entrada
+ * de dado, não área de trabalho do dia a dia — o pedido do cliente listou os
+ * apps de trabalho ("Dashboard, Agenda, Financeiro, Central de Clientes,
+ * Conteúdo e Redes"), e essas continuam acessíveis só pela sidebar, como
+ * sempre. ("Lançamentos" também listava aqui — saiu do catálogo inteiro na
+ * virada para mentoria, rota removida; ver docs/DESENHO-MENTOROS.md, seção 8.)
  */
 export const CATALOGO_APPS: AppCatalogo[] = [
   {
@@ -258,7 +213,7 @@ export const CATALOGO_APPS: AppCatalogo[] = [
     href: "/financeiro",
     icone: "Wallet",
     cor: COR_FINANCEIRO,
-    frase: "Resultado, caixa, projeção, DRE, capital de giro, reembolso e comissão.",
+    frase: "Resultado, caixa, projeção, DRE e reembolso.",
     subApps: SUBAPPS_FINANCEIRO,
   },
   {
@@ -268,15 +223,6 @@ export const CATALOGO_APPS: AppCatalogo[] = [
     icone: "Users",
     cor: COR_CRM,
     frase: "Alunos, estágio do funil e o histórico de cada um.",
-  },
-  {
-    id: "lancamentos",
-    nome: "Lançamentos",
-    href: "/lancamentos",
-    icone: "Rocket",
-    cor: COR_LANCAMENTOS,
-    frase: "Fontes de renda e campanhas de lançamento.",
-    subApps: SUBAPPS_LANCAMENTOS,
   },
   {
     id: "conteudo",
@@ -305,14 +251,7 @@ export const CATALOGO_SISTEMA: AppCatalogo[] = [
     cor: "#64748b", // slate-500 — ver comentário sobre a paleta acima de CATALOGO_APPS
     frase: "O extrato do banco vira lançamento no caixa, sem digitar linha por linha.",
   },
-  {
-    id: "coleta",
-    nome: "Coleta de dados",
-    href: "/coleta",
-    icone: "Workflow",
-    cor: "#94a3b8", // slate-400, mais claro que o de cima
-    frase: "De onde cada número entra no sistema.",
-  },
+  // "Coleta de dados" saiu daqui na virada para mentoria (rota removida).
   {
     id: "comecar",
     nome: "Começar",
@@ -340,9 +279,8 @@ function ehMesmaRotaOuFilha(pathname: string, href: string): boolean {
 /**
  * Acha qual app (e, se for o caso, qual sub-app) responde por uma rota.
  * Em empate de especificidade — a própria rota do app É a rota de um dos
- * sub-apps, caso de "/financeiro" e "/lancamentos" — o app-nível vence e
- * `subApp` volta `null`: é a rota "de entrada" da pasta, não de um cômodo
- * específico dela.
+ * sub-apps, caso de "/financeiro" — o app-nível vence e `subApp` volta
+ * `null`: é a rota "de entrada" da pasta, não de um cômodo específico dela.
  */
 export function acharAppPorRota(
   pathname: string,
