@@ -20,12 +20,30 @@
 //    fingir sucesso.
 //
 // O QUE A PLANILHA NAO REPRESENTA (e por isso vira excecao ou lista vazia):
-//  - VENDAS nao tem coluna de aluno nem de lancamento. A venda existe, mas nao
-//    da para dizer QUEM comprou. `Matricula.alunoId` fica vazio, `getAluno`
-//    devolve matriculas vazias e `isUpsell` e sempre falso.
+//  - VENDAS nao tem coluna de lancamento (so de aluno, ver ID_Aluno abaixo):
+//    `getLancamento` nao sabe quais vendas pertencem a uma janela.
 //  - Nao existe aba de notas, transcricoes, orcamentos, turmas, tarefas de
 //    turma, pontos de retencao nem pilares de video.
 //  - CONFIG e somente leitura por decisao do contrato.
+//
+// VENDAS -> ALUNOS (coluna ID_Aluno, acrescentada em 2026-08): antes disso a
+// aba VENDAS registrava o QUE, QUANTO e QUANDO de uma venda mas nunca o QUEM
+// -- toda matricula nascia orfa de aluno. Com a coluna, `alunoId` vem direto
+// da linha (`linhaParaMatricula`) e o `alunoPorId` deste arquivo resolve o
+// nome. Venda com ID_Aluno vazio, ou apontando para um id que nao existe (mais)
+// em ALUNOS, NAO e erro: e a venda de um cliente cujo cadastro nunca foi
+// preenchido, ou foi preenchido depois. O dinheiro entrou de verdade, entao
+// ela continua contando no faturamento -- so fica sem nome exibido.
+//
+// O QUE O ID_ALUNO NAO DESTRAVOU (de proposito, por ora): `isUpsell`
+// continua sempre `false` e `recorrente` continua nunca calculado, mesmo os
+// dois dependendo so de contar matriculas pagas por aluno -- tecnicamente
+// baratos agora. Ficaram de fora porque a regra de negocio por tras dos dois
+// nao esta fechada (ex.: um aluno marcado "Perdido" que comprou duas vezes
+// deveria virar "recorrente"? isUpsell conta reembolso/pendente ou so
+// pago?), e os quatro providers do `DataProvider` (planilha, Supabase, demo,
+// vazio) precisam concordar na mesma resposta -- ver o comentario em
+// `setStatusAluno` para o detalhe da decisao de nao implementar.
 
 import {
   atualizarLinha,
@@ -206,19 +224,26 @@ function naoRepresentavel(operacao: string, motivo: string): never {
  * VENDAS guarda `Responsavel` e `Produto` como TEXTO, nao como id. Estes indices
  * fazem a ponte texto -> entidade, que e justamente o que `mapear.ts` nao faz
  * (ele e puro e nao le outras abas).
+ *
+ * `alunoPorId` e diferente dos outros dois: VENDAS.ID_Aluno ja e id, nao
+ * texto -- entao o indice e por id, nao por nome normalizado. Ele existe
+ * mesmo assim porque `linhaParaMatricula` (puro) so sabe o id; quem sabe o
+ * NOME do aluno e a aba ALUNOS, e resolver isso e trabalho de provider.
  */
 type Indice = {
   produtoPorNome: Map<string, Produto>;
   afiliadoPorNome: Map<string, Afiliado>;
+  alunoPorId: Map<string, Aluno>;
 };
 
 function indiceVazio(): Indice {
-  return { produtoPorNome: new Map(), afiliadoPorNome: new Map() };
+  return { produtoPorNome: new Map(), afiliadoPorNome: new Map(), alunoPorId: new Map() };
 }
 
 function montarIndice(
   produtos: Record<string, string>[],
-  responsaveis: Record<string, string>[]
+  responsaveis: Record<string, string>[],
+  alunos: Record<string, string>[] = []
 ): Indice {
   const idx = indiceVazio();
   for (const l of comId(produtos)) {
@@ -228,6 +253,10 @@ function montarIndice(
   for (const l of comId(responsaveis)) {
     const a = linhaParaAfiliado(l);
     if (a.nome !== "") idx.afiliadoPorNome.set(normalizar(a.nome), a);
+  }
+  for (const l of comId(alunos)) {
+    const a = linhaParaAluno(l);
+    idx.alunoPorId.set(a.id, a);
   }
   return idx;
 }
@@ -276,6 +305,12 @@ function montarMatriculas(
     const afiliado = m.afiliadoNome
       ? idx.afiliadoPorNome.get(normalizar(m.afiliadoNome))
       : undefined;
+    // m.alunoId pode ser "" (venda sem ID_Aluno preenchido) ou um id que nao
+    // bate com nenhuma linha de ALUNOS (cadastro apagado, digitado errado,
+    // ou ainda nao existia quando a venda foi lancada). Os dois casos caem
+    // aqui como `undefined` e viram alunoNome "" -- a venda continua contando
+    // no faturamento normalmente, so aparece sem dono na tela.
+    const aluno = m.alunoId ? idx.alunoPorId.get(m.alunoId) : undefined;
 
     return {
       ...m,
@@ -284,8 +319,7 @@ function montarMatriculas(
       // O braco da venda e herdado do responsavel: VENDAS nao tem coluna de braco
       // e o responsavel e o unico vinculo estrutural que a linha carrega.
       braco: afiliado?.braco ?? null,
-      // `alunoNome` fica vazio de proposito: VENDAS nao tem coluna de aluno.
-      alunoNome: "",
+      alunoNome: aluno?.nome ?? "",
     };
   });
 }
@@ -462,7 +496,18 @@ function leadsLembrados(): { id: string; telefone: string }[] {
   return vivos;
 }
 
-const ABAS_DATASET = ["VENDAS", "RECEBIVEIS", "DESPESAS", "INVESTIMENTO", "PRODUTOS", "RESPONSAVEIS"];
+const ABAS_DATASET = [
+  "VENDAS",
+  "RECEBIVEIS",
+  "DESPESAS",
+  "INVESTIMENTO",
+  "PRODUTOS",
+  "RESPONSAVEIS",
+  // ALUNOS entra aqui so para resolver o alunoNome de cada matricula (ver
+  // `montarIndice`/`alunoPorId`) -- LTV e historico de compra por cliente
+  // dependem de saber o nome, nao so o id.
+  "ALUNOS",
+];
 const ABAS_CAIXA = ["CONTAS", "MOVIMENTOS", "RECEBIVEIS", "DESPESAS", "INVESTIMENTO", "CHARGEBACKS"];
 
 export const sheetsProvider: DataProvider = {
@@ -483,12 +528,20 @@ export const sheetsProvider: DataProvider = {
   },
 
   async getAluno(id: string): Promise<AlunoDetalhe | null> {
-    const linhas = await linhasDa("ALUNOS");
-    const linha = comId(linhas).find((l) => celulaDe(l, "ID") === id);
+    const abas = await linhasDe(["ALUNOS", "VENDAS", "RECEBIVEIS", "PRODUTOS", "RESPONSAVEIS"]);
+    const linha = comId(abas.ALUNOS).find((l) => celulaDe(l, "ID") === id);
     if (!linha) return null;
-    // Matriculas vazias NAO e omissao: VENDAS nao tem coluna de aluno, entao nao
-    // existe forma de dizer quais vendas sao desta pessoa sem inventar o vinculo.
-    return { aluno: linhaParaAluno(linha), matriculas: [] };
+
+    // Com ID_Aluno em VENDAS a ficha ganha a lista de compras da pessoa --
+    // a base do LTV por cliente e do historico de compras do Portal do
+    // Mentorado, que antes nao existia porque a venda nao tinha dono.
+    // Mais recente primeiro: e o que interessa ver de cara na ficha.
+    const idx = montarIndice(abas.PRODUTOS, abas.RESPONSAVEIS, abas.ALUNOS);
+    const matriculas = montarMatriculas(abas.VENDAS, abas.RECEBIVEIS, idx)
+      .filter((m) => m.alunoId === id)
+      .sort(porDataDesc);
+
+    return { aluno: linhaParaAluno(linha), matriculas };
   },
 
   async listProdutos(): Promise<Produto[]> {
@@ -497,8 +550,11 @@ export const sheetsProvider: DataProvider = {
   },
 
   async listMatriculas(): Promise<Matricula[]> {
-    const abas = await linhasDe(["VENDAS", "RECEBIVEIS", "PRODUTOS", "RESPONSAVEIS"]);
-    const idx = montarIndice(abas.PRODUTOS, abas.RESPONSAVEIS);
+    // ALUNOS entra na leitura so para resolver o nome de quem comprou (ver
+    // `alunoPorId` em `montarIndice`) -- sem ela toda venda com ID_Aluno
+    // preenchido ficaria com id certo e nome vazio na tela.
+    const abas = await linhasDe(["VENDAS", "RECEBIVEIS", "PRODUTOS", "RESPONSAVEIS", "ALUNOS"]);
+    const idx = montarIndice(abas.PRODUTOS, abas.RESPONSAVEIS, abas.ALUNOS);
     return montarMatriculas(abas.VENDAS, abas.RECEBIVEIS, idx).sort(porDataDesc);
   },
 
@@ -541,7 +597,7 @@ export const sheetsProvider: DataProvider = {
 
   async dataset(): Promise<DatasetFinanceiro> {
     const abas = await linhasDe(ABAS_DATASET);
-    const idx = montarIndice(abas.PRODUTOS, abas.RESPONSAVEIS);
+    const idx = montarIndice(abas.PRODUTOS, abas.RESPONSAVEIS, abas.ALUNOS);
     const matriculas = montarMatriculas(abas.VENDAS, abas.RECEBIVEIS, idx);
     return {
       matriculas,
@@ -588,6 +644,18 @@ export const sheetsProvider: DataProvider = {
     if (etapa === null) {
       // `recorrente` e CALCULADO pela contagem de matriculas, nunca digitado.
       // Gravar a etapa congelaria um estado que o proprio dado deve produzir.
+      //
+      // DECISAO (2026-08, junto da coluna ID_Aluno): o calculo em si ficou
+      // barato -- contar matriculas pagas por `alunoId` e um `Map` a mais no
+      // indice que `listAlunos`/`getAluno` ja tem disponivel. NAO foi
+      // implementado porque a REGRA em volta do calculo nao esta fechada:
+      // precedencia sobre uma etapa explicita ("Perdido" com duas compras
+      // vira recorrente ou continua inativo?), se conta so `pago` ou tambem
+      // `pendente`/`reembolsado`, e se o resultado deveria ser IDENTICO nos
+      // quatro `DataProvider` (aqui, supabase-db.ts, demo-db.ts, vazio-db.ts)
+      // -- hoje so demo-db.ts promove, e por transicao na escrita, nao por
+      // contagem na leitura. Implementar so aqui criaria uma segunda logica
+      // divergente. Metade da regra de negocio e pior do que nenhuma.
       naoRepresentavel(
         "Marcar o aluno como recorrente",
         "o status `recorrente` e derivado da segunda compra do aluno em VENDAS e nao tem etapa correspondente na planilha."
@@ -621,7 +689,10 @@ export const sheetsProvider: DataProvider = {
     const valor = nova.valor || produto?.precoBase || 0;
     const parcelas = parcelasDaForma(nova.formaPgto);
 
-    // A venda entra em VENDAS...
+    // A venda entra em VENDAS, ja com o ID_Aluno -- e o formulario que chama
+    // este metodo obriga a escolher o aluno, entao aqui o dado nasce certo:
+    // nao ha caso de matricula nova sem dono, so venda ANTIGA (lida direto da
+    // planilha, digitada por fora do sistema) pode vir sem.
     const insercao = exigirEscrita(
       await inserirLinhas("VENDAS", [
         {
@@ -635,6 +706,7 @@ export const sheetsProvider: DataProvider = {
           "N de parcelas": parcelas,
           Comissao: afiliado ? +((valor * afiliado.pctPadrao) / 100).toFixed(2) : 0,
           Status: "fechada",
+          ID_Aluno: nova.alunoId,
         },
       ]),
       "registro da venda"
@@ -656,8 +728,9 @@ export const sheetsProvider: DataProvider = {
       "criacao dos recebiveis da venda"
     );
 
-    // A unica forma de ligar a venda ao aluno: VENDAS nao tem coluna de aluno,
-    // entao o vinculo fica na linha do tempo dele.
+    // Alem do ID_Aluno na propria venda, registra tambem na linha do tempo
+    // do aluno (ATIVIDADES) -- e o que alimenta a ficha dele com o evento
+    // "comprou X", nao so o numero da matricula.
     const aluno = comId(abas.ALUNOS)
       .map(linhaParaAluno)
       .find((a) => a.id === nova.alunoId);

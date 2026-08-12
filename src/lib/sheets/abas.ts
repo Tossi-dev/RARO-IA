@@ -63,7 +63,14 @@ export const ABAS: DefinicaoAba[] = [
       ["nDeParcelas", "N de parcelas"],
       ["recebimentoCartao", "Recebimento cartao"],
       ["comissao", "Comissao"],
-      ["status", "Status"]
+      ["status", "Status"],
+      // Acrescentada em 2026-08: antes disso VENDAS registrava o QUE, QUANTO
+      // e QUANDO mas nunca o QUEM -- toda matricula nascia sem dono. Vai ao
+      // FIM da lista de proposito, para nao remexer no numero de coluna do
+      // que a planilha do dono ja tinha (cabecalho por titulo, mas evita
+      // suspresa em quem le por posicao). Celula vazia e caso normal: venda
+      // sem ID_Aluno continua contando no faturamento, so fica sem nome.
+      ["idAluno", "ID_Aluno"]
     ),
   },
   {

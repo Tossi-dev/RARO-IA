@@ -553,8 +553,12 @@ export function linhaParaMatricula(linha: Record<string, string>, ctx: ContextoV
 
   return {
     id: celulaDe(linha, "ID"),
-    // Referencias resolvidas pelo provider (precisam de ALUNOS/PRODUTOS/RESPONSAVEIS).
-    alunoId: "",
+    // ID_Aluno vem direto da linha (coluna propria de VENDAS, acrescentada em
+    // 2026-08). Celula vazia vira "" -- NUNCA inventamos id: venda sem dono
+    // e caso normal (dinheiro entrou, so nao sabemos de quem), nao erro.
+    // O NOME do aluno ainda depende de ALUNOS, entao continua resolvido pelo
+    // provider (que tem o indice alunoPorId).
+    alunoId: celulaDe(linha, "ID_Aluno"),
     produtoId: "",
     lancamentoId: null,
     afiliadoId: null,
@@ -597,6 +601,9 @@ export function matriculaParaLinha(m: Matricula): Record<string, unknown> {
     "N de parcelas": num(parcelasDaForma(m.formaPgto)),
     "Recebimento cartao": num(m.valorLiquido),
     Status: statusPagamentoParaPlanilha(m.statusPagamento),
+    // Grava o id tal como veio -- "" para venda sem dono. Nao inventamos
+    // ALU-fantasma so para a celula nao ficar vazia.
+    ID_Aluno: txt(m.alunoId),
   };
 }
 
