@@ -376,7 +376,7 @@ export default async function Integracoes() {
             <Tabela>
               <thead>
                 <tr>
-                  <Th>Produto na Raro.ia</Th>
+                  <Th>Produto na MentorOS</Th>
                   <Th>ID no gateway</Th>
                   <Th>Status</Th>
                 </tr>

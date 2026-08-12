@@ -26,7 +26,7 @@ import Link from "next/link";
 import { Marca } from "@/components/sidebar";
 
 export const metadata: Metadata = {
-  title: "Política de Privacidade — raro.ia",
+  title: "Política de Privacidade — MentorOS",
   // Mesma razão do robots do layout raiz: página institucional, não precisa
   // de resultado de busca — e como ainda tem campo a preencher (ver aviso no
   // topo), indexar agora publicaria uma versão incompleta.
@@ -63,14 +63,14 @@ export default function PoliticaDePrivacidadePage() {
             <P>
               Esta política é da <Preencher>razão social</Preencher>, inscrita no CNPJ{" "}
               <Preencher>CNPJ</Preencher>, com sede em <Preencher>endereço completo</Preencher>{" "}
-              ("nós"). Ela vale para o sistema raro.ia que você está usando — seja como aluno,
+              ("nós"). Ela vale para o sistema MentorOS que você está usando — seja como aluno,
               responsável/afiliado ou integrante do time.
             </P>
           </Secao>
 
           <Secao titulo="O que este sistema faz, em uma frase">
             <P>
-              O raro.ia é o painel de gestão interno da mentoria: ele organiza quem são os alunos,
+              O MentorOS é o painel de gestão interno da mentoria: ele organiza quem são os alunos,
               o que cada um comprou, quem paga o quê, as reuniões marcadas e o andamento
               financeiro do negócio. Ele não é uma rede social nem um produto voltado ao público —
               é uma ferramenta de uso da própria empresa.

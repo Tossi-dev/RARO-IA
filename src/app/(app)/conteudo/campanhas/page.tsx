@@ -209,7 +209,7 @@ export default async function Campanhas() {
 
         <Card titulo="Copy de anúncio com IA">
           <p className="mb-3 text-sm text-texto-2">
-            Gera headline + corpo + CTA para o próximo criativo, no tom da Raro.ia.
+            Gera headline + corpo + CTA para o próximo criativo, no tom da MentorOS.
           </p>
           <GerarTextoIA prompt={promptCopy} rotulo="Gerar copy de campanha" />
         </Card>

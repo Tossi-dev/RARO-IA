@@ -206,7 +206,7 @@ export default async function Lancamentos() {
         <PainelForm titulo="Planejar novo lançamento">
           <form action={criarLancamento} className="grid gap-3 sm:grid-cols-2">
             <Campo label="Nome do lançamento" className="sm:col-span-2">
-              <Input name="nome" required placeholder="Ex.: Mentoria Raro.ia — Turma 2" />
+              <Input name="nome" required placeholder="Ex.: Mentoria MentorOS — Turma 2" />
             </Campo>
             <Campo label="Produto ofertado">
               <Select name="produtoId" required>

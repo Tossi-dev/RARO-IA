@@ -19,7 +19,7 @@ import { rotaSegura } from "@/lib/portao";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Acesso — raro.ia",
+  title: "Acesso — MentorOS",
 };
 
 export default async function AcessoPage({

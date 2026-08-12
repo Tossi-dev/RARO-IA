@@ -65,9 +65,12 @@ const GRUPOS = [
 const TODOS_ITENS = GRUPOS.flatMap((g) => g.itens);
 
 export function Marca() {
+  // "Mentor" + "OS" no lugar de "raro" + ".ia": o ponto que separava o nome
+  // antigo virava só uma letra maiúscula no nome novo, então quem carrega a
+  // cor de destaque muda de sufixo para sigla — mesma ideia, peça nova.
   return (
     <span className="font-display text-xl font-fino tracking-tight">
-      raro<span className="text-primaria-2">.ia</span>
+      Mentor<span className="text-primaria-2">OS</span>
     </span>
   );
 }

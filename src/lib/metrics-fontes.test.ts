@@ -31,7 +31,7 @@ function mat(over: Partial<Matricula>): Matricula {
 
 const PRODUTOS: Produto[] = [
   { id: "p-curso", nome: "Protocolo Raro", tipo: "low_ticket", precoBase: 297, ativo: true, braco: null, categoria: "curso" },
-  { id: "p-mentoria", nome: "Mentoria Raro.ia", tipo: "mentoria", precoBase: 2997, ativo: true, braco: null, categoria: "mentoria" },
+  { id: "p-mentoria", nome: "Mentoria MentorOS", tipo: "mentoria", precoBase: 2997, ativo: true, braco: null, categoria: "mentoria" },
   { id: "p-premium", nome: "Acompanhamento Premium", tipo: "high_ticket", precoBase: 9900, ativo: true, braco: "mente", categoria: "servico" },
 ];
 

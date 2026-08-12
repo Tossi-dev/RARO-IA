@@ -1,7 +1,7 @@
 "use client";
 
-// Gráficos da Raro.ia (Recharts) — tema unificado "Premium Dark"
-// (Blueprint v3, Anexo A: data-viz sobre superfície #16161F):
+// Gráficos da MentorOS (Recharts) — tema unificado "Premium Dark"
+// (Blueprint v3, Anexo A: data-viz sobre superfície #16203c, o --painel novo):
 //   categórica em ordem de máxima separação:
 //     #8D70FF · #E4C077 · #46B6F0 · #35D6A0 · #FF7A5C · #F5A524 · #E86FC4 · #6E7BF2
 //   grid rgba(255,255,255,.05) · eixos texto-3 · tooltip em surface-3
@@ -75,7 +75,10 @@ const SERIE_1 = "#8D70FF"; // violeta (marca, cat-1)
 const SERIE_2 = "#E4C077"; // ouro (premium, cat-2)
 const GRID = "rgba(255,255,255,0.05)";
 const TICK = { fill: "#6F6D7E", fontSize: 11 } as const;
-const SURFACE = "#16161F";
+// Precisa casar com --painel (globals.css) — é o `stroke` entre as fatias do
+// donut, pra fatia parecer "recortada" contra o fundo do card, e não contra
+// um cinza-roxo que já não existe.
+const SURFACE = "#16203c";
 const META = "#A6A4B5"; // linha de meta (neutra, tracejada)
 
 

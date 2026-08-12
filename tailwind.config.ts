@@ -72,13 +72,22 @@ const cores = {
   "texto-3": canal("texto-3"),
   "texto-4": canal("texto-4"),
 
-  // marca — violeta
+  // marca — azul
   primaria: canal("primaria"),
   "primaria-2": canal("primaria-2"),
   "primaria-hover": canal("primaria-hover"),
   "primaria-press": canal("primaria-press"),
 
-  // ouro (premium / high-ticket)
+  // dourado (acento da marca MentorOS — ver comentário ao lado de --dourado
+  // em globals.css sobre a diferença para --ouro logo abaixo). Faltava aqui:
+  // o token existia em globals.css mas nunca foi exposto ao Tailwind, então
+  // `text-dourado`/`border-dourado`/`bg-dourado-2` compilavam para NADA —
+  // falha silenciosa, sem erro de build.
+  dourado: canal("dourado"),
+  "dourado-2": canal("dourado-2"),
+
+  // ouro (premium / high-ticket — dourado mais suave que já existia no
+  // produto antes do rebrand; ver o comentário em globals.css)
   ouro: canal("ouro"),
   "ouro-2": canal("ouro-2"),
   "ouro-3": canal("ouro-3"),

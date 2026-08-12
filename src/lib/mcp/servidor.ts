@@ -29,7 +29,7 @@ import {
 /** O que o cliente vê no `serverInfo`. */
 export const INFO_SERVIDOR = {
   name: "raro-ia",
-  title: "Raro.ia — negócio e CRM",
+  title: "MentorOS — negócio e CRM",
   version: "1.0.0",
 } as const;
 
@@ -43,7 +43,7 @@ export const INFO_SERVIDOR = {
  * o sistema tivesse calculado.
  */
 const INSTRUCOES = [
-  "Ferramentas de LEITURA do Raro.ia, o sistema de gestão e CRM desta mentoria. Não existe nenhuma ferramenta de escrita: nada aqui cria, altera, aprova ou envia — se o dono pedir uma ação, explique que esta versão só lê e descreva o que ele mesmo precisa fazer no sistema.",
+  "Ferramentas de LEITURA da MentorOS, o sistema de gestão e CRM desta mentoria. Não existe nenhuma ferramenta de escrita: nada aqui cria, altera, aprova ou envia — se o dono pedir uma ação, explique que esta versão só lê e descreva o que ele mesmo precisa fazer no sistema.",
   "Todo resultado traz uma linha 'Origem:' dizendo de qual base e de qual função o número veio. REPITA essa linha ao dono. Se ela disser DEMONSTRAÇÃO, avise em primeiro lugar que os números são fictícios, antes de comentar qualquer valor.",
   "Não recalcule, não some e não projete nada por conta própria a partir destes resultados: os números vêm do mesmo núcleo de métricas que desenha o painel, e um total inventado por você seria uma segunda verdade que o dono não tem como conferir.",
   "Quando um resultado disser que falta base (sem extrato, sem meta cadastrada, nenhuma conversa registrada), diga isso ao dono em vez de tratar zero como resposta.",
@@ -161,7 +161,7 @@ async function chamarFerramenta(params: Record<string, unknown>): Promise<Record
       content: [
         {
           type: "text",
-          text: `Não foi possível ler a base para atender "${nome}" agora. Tente de novo em alguns instantes; se persistir, verifique a conexão da base no próprio Raro.ia.`,
+          text: `Não foi possível ler a base para atender "${nome}" agora. Tente de novo em alguns instantes; se persistir, verifique a conexão da base na própria MentorOS.`,
         },
       ],
       isError: true,

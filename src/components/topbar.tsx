@@ -3,7 +3,7 @@
 // Topbar 64px (vidro, sticky).
 //
 // FAXINA PEDIDA PELO CLIENTE: a fileira de pílulas de fonte de renda ("Todos ·
-// Protocolo Raro · Mentoria Raro.ia · …") saiu da barra. Ela era a coisa mais
+// Protocolo Raro · Mentoria MentorOS · …") saiu da barra. Ela era a coisa mais
 // pesada da tela e competia com o conteúdo da página. A FUNÇÃO ficou: virou um
 // seletor compacto, do mesmo tamanho do de período, ao lado dele. Filtrar por
 // produto continua sendo um clique — só não ocupa mais meia barra.

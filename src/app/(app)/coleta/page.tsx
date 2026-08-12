@@ -88,7 +88,7 @@ function CartaoRota({ rota, linhasPorAba }: { rota: RotaDeColeta; linhasPorAba: 
         <div className="flex flex-wrap items-center gap-1.5">
           <Elo forte>{rota.gatilho}</Elo>
           <Seta />
-          <Elo>Raro.ia</Elo>
+          <Elo>MentorOS</Elo>
           <Seta />
           {rota.destino.slice(0, 6).map((a) => (
             <span key={a} className="inline-flex items-center gap-1">

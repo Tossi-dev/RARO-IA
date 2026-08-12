@@ -4,8 +4,9 @@ import { getTema } from "@/lib/tema-server";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Raro.ia — Plataforma de gestão",
-  description: "Gestão consolidada de negócio: financeiro, CRM e lançamentos em tempo real.",
+  title: "MentorOS — Sistema operacional do mentor",
+  description:
+    "Gestão de mentoria em um só lugar: clientes, sessões, evolução e financeiro.",
   // Isto aqui é sério: o que este app mostra é o faturamento, o lucro e a
   // lista de clientes com telefone de uma empresa de verdade. Sistema interno
   // não pode aparecer em resultado de busca — e buscador não precisa de
@@ -21,8 +22,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0B0C16" },
-    { media: "(prefers-color-scheme: light)", color: "#F4F4F8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0f1e" },
+    { media: "(prefers-color-scheme: light)", color: "#f1f5f9" },
   ],
 };
 
@@ -41,11 +42,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Fontes carregadas em runtime (não no build) — com fallback de sistema */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* Sora nos títulos e nos números, Inter no corpo — os dois a partir do
-            peso 200/300. Carregar 400 como peso mínimo desmontaria a
-            identidade: fonte fina em fundo escuro é o que dá o ar caro. */}
+        {/* MentorOS usa só Inter (títulos e corpo), a partir do peso 200/300 —
+            fonte fina em fundo escuro é o que dá o ar caro. Sora saiu: era a
+            fonte de título da identidade visual anterior. Geist Mono
+            continua só para número (ver --font-mono em globals.css). */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Sora:wght@200;300;400;500;600&family=Inter:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=Geist+Mono:wght@400;500&display=swap"
           rel="stylesheet"
         />
       </head>
