@@ -14,6 +14,7 @@
 // decidirAcesso() -> traduz a decisão em Response.
 
 import { rotaLivre, type ModoAcesso } from "@/lib/acesso";
+import { primeiraRotaDe, rotaPermitida, type Papel } from "@/lib/papeis";
 
 export type DecisaoAcesso =
   | { tipo: "passa" }
@@ -78,4 +79,104 @@ export function decidirAcesso(entrada: EntradaPortao): DecisaoAcesso {
 export function rotaSegura(de: string | null | undefined): string {
   if (typeof de === "string" && de.startsWith("/") && !de.startsWith("//")) return de;
   return "/";
+}
+
+// --- decisão do modo supabase: sessão + papel -----------------------------
+//
+// `decidirAcesso` (acima) cobre os três modos degrau (aberto/trancado/senha),
+// que só sabem "há selo ou não". No modo supabase há sessão de verdade E
+// papel — um mentorado autenticado é, ainda assim, barrado de `/financeiro`.
+// Isto fica num tipo de entrada separado (`EntradaPortaoSupabase`, não
+// `EntradaPortao`) porque as duas perguntas são diferentes: uma fala de selo
+// de senha compartilhada, a outra de sessão individual com papel — misturar
+// os dois campos num único tipo deixaria a maioria deles sempre vazia,
+// dependendo do modo, e o TypeScript não pegaria a combinação errada.
+
+export interface EntradaPortaoSupabase {
+  pathname: string;
+  /** null quando não há sessão. O papel já vem normalizado por papelDe() —
+   *  esta função nunca lê `profiles.papel` cru, isso é responsabilidade de
+   *  quem monta esta entrada (o middleware). */
+  usuario: { papel: Papel } | null;
+}
+
+/** `pathname` é `prefixo` ou um segmento abaixo dele — mesma regra de
+ *  fronteira usada em `rotaLivre` (src/lib/acesso.ts) e `comecaNoPrefixo`
+ *  (src/lib/papeis.ts): sem isso, "/login" casaria por texto com
+ *  "/loginzinho" por coincidência, e uma rota nova poderia herdar o
+ *  tratamento especial de /login sem ninguém ter decidido isso. */
+function ehRotaOuSubrota(pathname: string, rota: string): boolean {
+  return pathname === rota || pathname.startsWith(`${rota}/`);
+}
+
+/**
+ * Traduz "sessão do Supabase + papel" em decisão do portão. Pura e síncrona
+ * de propósito, pelo mesmo motivo de `decidirAcesso`: o middleware já
+ * resolveu tudo que precisava de I/O (getUser(), a consulta de papel) antes
+ * de chamar isto, e o que sobra é só comparação de string — fica testável
+ * sem subir Edge Runtime nenhum.
+ *
+ * A ORDEM DAS CINCO REGRAS ABAIXO NÃO É ARBITRÁRIA — é exatamente o que
+ * evita um laço de redirecionamento. Cada regra resolve o caso que a regra
+ * seguinte, sozinha, trataria errado:
+ *
+ *   1. /sem-acesso primeiro, antes de qualquer outra coisa: é a tela que
+ *      EXPLICA por que a pessoa foi barrada. Se ela mesma fosse barrada por
+ *      não ter o papel certo, o redirecionamento da regra 5 apontaria para
+ *      uma rota que, de novo, redireciona — para sempre. Sem usuário, ainda
+ *      assim manda para /login (não para "passa" cego): a tela de bloqueio
+ *      não é útil pra quem nem entrou.
+ *   2. /login em seguida: sem usuário, é a própria porta de entrada, passa.
+ *      Com usuário, NÃO pode mandar para "/" fixo — um mentorado que acabou
+ *      de logar cairia numa rota que o papel dele não abre (regra 5 barraria
+ *      de novo, para /sem-acesso, um instante depois de acertar a senha).
+ *      Por isso `primeiraRotaDe(papel)`, que é sempre uma rota que o próprio
+ *      papel tem permissão de ver.
+ *   3. `rotaLivre` (src/lib/acesso.ts — hoje /acesso e /privacidade, além de
+ *      /login já tratado na regra 2) logo depois: são as rotas que o
+ *      cabeçalho daquele módulo chama de "o portão nunca pode bloquear", e
+ *      isso vale para QUALQUER visitante, com sessão ou sem. Por isso esta
+ *      regra tem que vir DEPOIS da regra 2 — senão um usuário logado batendo
+ *      em /login pararia de ser mandado para a primeira rota do próprio
+ *      papel (regra 2) e passaria cego por aqui — e ANTES da regra 4: sem
+ *      isso, um visitante anônimo em /privacidade cairia direto em "sem
+ *      usuário -> /login", tornando a página pública ilegível justamente para
+ *      quem mais precisa lê-la sem estar logado.
+ *   4. Sem usuário, qualquer outra rota: não há sessão para checar papel
+ *      nenhum, então nem chega na regra 5 — direto para /login.
+ *   5. Com usuário e nenhuma das rotas especiais acima: primeiro a raiz "/"
+ *      é um caso à parte — ela renderiza o catálogo inteiro de áreas do
+ *      sistema (Springboard), e mostrar esse mapa para quem só enxerga uma
+ *      fatia dele já vaza a EXISTÊNCIA das áreas vedadas, mesmo que os
+ *      números venham zerados pelo RLS. Por isso, quando a primeira rota do
+ *      papel não é a própria "/", manda para lá — dono e gestor (cuja
+ *      primeira rota É "/") não entram nesse desvio, o que evita o laço.
+ *      Fora da raiz, a pergunta é "este papel pode ver este pathname",
+ *      delegada a `rotaPermitida` (que já embute sua própria defesa contra
+ *      travessia de caminho).
+ */
+export function decidirAcessoSupabase(entrada: EntradaPortaoSupabase): DecisaoAcesso {
+  const { pathname, usuario } = entrada;
+
+  if (ehRotaOuSubrota(pathname, "/sem-acesso")) {
+    return usuario ? { tipo: "passa" } : { tipo: "redireciona", para: "/login" };
+  }
+
+  if (ehRotaOuSubrota(pathname, "/login")) {
+    if (!usuario) return { tipo: "passa" };
+    return { tipo: "redireciona", para: primeiraRotaDe(usuario.papel) };
+  }
+
+  if (rotaLivre(pathname)) return { tipo: "passa" };
+
+  if (!usuario) return { tipo: "redireciona", para: "/login" };
+
+  if (pathname === "/") {
+    const primeira = primeiraRotaDe(usuario.papel);
+    if (primeira !== "/") return { tipo: "redireciona", para: primeira };
+  }
+
+  return rotaPermitida(usuario.papel, pathname)
+    ? { tipo: "passa" }
+    : { tipo: "redireciona", para: "/sem-acesso" };
 }
