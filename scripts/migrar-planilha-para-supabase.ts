@@ -1182,16 +1182,16 @@ const ENTIDADES_MIGRAVEIS: DefinicaoEntidade[] = [
     // Chave natural: (aluno, produto, data, valor) — a combinação que
     // identifica "esta venda" sem depender do id da planilha.
     //
-    // LIMITAÇÃO CONHECIDA E DOCUMENTADA (não é bug deste script): a aba
-    // VENDAS não tem coluna de aluno — sheets-db.ts é explícito sobre isso
-    // ("VENDAS não tem coluna de aluno nem de lançamento... Matricula.alunoId
-    // fica vazio"). Toda matrícula lida da planilha hoje chega com
-    // `alunoId = ""`, e `aluno_id` é `not null` no Postgres — então TODA
-    // linha desta entidade é recusada até a planilha ganhar essa coluna (ou
-    // o dono migrar manualmente aluno a aluno). Isso não é uma falha deste
-    // script: é a conferência final (regra 4) fazendo exatamente o que
-    // precisa fazer — mostrar que esta migração está genuinamente
-    // incompleta, em vez de fingir que fechou.
+    // ATUALIZADO (2026-08): VENDAS ganhou a coluna ID_Aluno — sheets-db.ts
+    // resolve `Matricula.alunoId` direto da linha agora. A recusa por
+    // referência obrigatória vazia deixou de ser universal: só é recusada a
+    // linha cujo ID_Aluno está de fato vazio na planilha (venda antiga,
+    // lançada antes da coluna existir, ou nunca vinculada a um cadastro) ou
+    // que aponta para um id que não foi migrado/recusado em "alunos" — os
+    // dois casos que `refObrigatoria` já distingue no motivo da recusa. Isso
+    // não é falha do script: é a conferência final (regra 4) mostrando, linha
+    // a linha, exatamente qual venda ainda não tem dono — não mais "nenhuma
+    // matrícula migra".
     converter: (m: Matricula, mapa: MapaIds): Conversao => {
       const aluno = refObrigatoria(mapa, "alunos", m.alunoId, "VENDAS");
       if (!aluno.ok) return { recusa: aluno.motivo };
@@ -1375,9 +1375,10 @@ const ENTIDADES_MIGRAVEIS: DefinicaoEntidade[] = [
     idOrigem: (c: Comissao) => c.id,
     // Chave natural: (matrícula, afiliado, data, valor).
     //
-    // Como TODA matrícula é recusada hoje (ver comentário em `matriculas`
-    // acima), toda comissão também é recusada aqui em cascata — o motivo diz
-    // explicitamente que a causa raiz é a matrícula, não um problema novo.
+    // Em cascata com `matriculas` (ver comentário acima): comissão de uma
+    // venda cujo ID_Aluno está vazio ou não resolve em ALUNOS é recusada
+    // aqui porque a matrícula dela também foi — `refObrigatoria` devolve o
+    // motivo herdado, não um problema novo desta entidade.
     converter: (c: Comissao, mapa: MapaIds): Conversao => {
       const matricula = refObrigatoria(mapa, "matriculas", c.matriculaId, "VENDAS (comissão)");
       if (!matricula.ok) return { recusa: matricula.motivo };
