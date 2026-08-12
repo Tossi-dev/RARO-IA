@@ -1,0 +1,29 @@
+# dependências
+node_modules/
+
+# build
+.next/
+out/
+
+# ambiente — NUNCA versionar segredos
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secret-*.txt
+
+# vercel
+.vercel/
+
+# logs e SO
+*.log
+.DS_Store
+Thumbs.db
+
+.vercel
+
+# arquivos aposentados e pacotes de entrega — nunca versionar nem subir
+_to_delete/
+_entrega/
+*.tar.gz

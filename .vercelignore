@@ -1,0 +1,13 @@
+# O que NUNCA deve subir para o build da Vercel.
+#
+# Por que este arquivo existe: a Vercel envia a pasta inteira do projeto e
+# roda o `tsc` em cima de tudo que for .ts/.tsx. Um build já quebrou por causa
+# de uma cópia velha guardada em _to_delete/ — o código de produção estava
+# certo, mas o type-check achou o arquivo arquivado e reclamou de um import
+# que só fazia sentido no lugar antigo dele. Arquivo arquivado não pode
+# derrubar deploy.
+
+_to_delete/
+_entrega/
+*.tar.gz
+docs/

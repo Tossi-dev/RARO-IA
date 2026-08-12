@@ -1,0 +1,9 @@
+# O segredo mora aqui. Nunca versionado.
+.env
+
+node_modules/
+
+# Sessão do WhatsApp, filas e log, caso alguém aponte PASTA_DADOS para cá.
+dados/
+*.log
+*.log.1
