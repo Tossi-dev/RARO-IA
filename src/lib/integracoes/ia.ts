@@ -29,7 +29,7 @@ export async function gerarTexto(prompt: string, system = ""): Promise<RespostaI
       max_tokens: 1200,
       system:
         system ||
-        "Você é o copiloto de gestão da Raro.ia. Responda em português do Brasil, direto e acionável.",
+        "Você é o copiloto de gestão da MentorOS. Responda em português do Brasil, direto e acionável.",
       messages: [{ role: "user", content: prompt.slice(0, 12000) }],
     }),
   });

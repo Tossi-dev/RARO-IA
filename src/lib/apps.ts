@@ -62,16 +62,43 @@ export interface AppCatalogo {
   subApps?: SubApp[];
 }
 
-// Cores reaproveitadas de CORES_CATEGORICAS (src/lib/cores.ts) — a mesma
-// paleta que já pinta gráfico e agrupamento no resto do produto. Cada app
-// recebe uma cor fixa e distinta das vizinhas; os sub-apps herdam a cor do
-// pai, porque não são marcas próprias, são cômodos da mesma casa.
-const COR_DASHBOARD = "#8D70FF";
-const COR_AGENDA = "#46B6F0";
-const COR_FINANCEIRO = "#35D6A0";
-const COR_CRM = "#E86FC4";
-const COR_LANCAMENTOS = "#FF7A5C";
-const COR_CONTEUDO = "#6E7BF2";
+// Paleta PRÓPRIA da tela inicial — não é mais a de CORES_CATEGORICAS
+// (src/lib/cores.ts). Aquela paleta continua violeta/magenta de propósito:
+// é a cor SEMÂNTICA dos gráficos ("entrou" é sempre a mesma cor, em toda
+// tela, então não pode mudar com o rebrand — ver o comentário do bloco 4 no
+// cabeçalho de globals.css). Mas os DEZ ícones da tela inicial (os seis
+// apps abaixo + os quatro de CATALOGO_SISTEMA) não carregam significado de
+// dado nenhum — são só identidade visual, então são eles que precisavam
+// virar para a família nova (azul-marinho + dourado do cliente), e não a
+// paleta de gráfico.
+//
+// Critério de cada cor (todas as dez precisam ficar DISTINGUÍVEIS entre si,
+// senão o usuário erra o clique):
+//   - Dashboard, Agenda e Lançamentos ficam nos TRÊS tons oficiais de
+//     --primaria (claro/base/escuro) — são os três apps mais "centrais" do
+//     dia a dia, então herdam a cor mais forte da marca, cada um num degrau.
+//   - Conteúdo & Redes ganha um quarto tom de azul (céu, mais aberto) em vez
+//     de repetir um dos três de cima: mídia/vídeo/transmissão já associa
+//     com essa família, e assim não fica um quarto ícone indistinguível dos
+//     outros três azuis-marca.
+//   - Financeiro é verde: já é a cor semântica de "positivo" no resto do
+//     produto (--positivo, CORES_CAIXA.entrada), então reaproveitar aqui
+//     mantém "verde = dinheiro indo bem" em vez de introduzir um quinto azul.
+//   - Central de Clientes é o ÚNICO ícone dourado do grupo principal — o
+//     dourado do cliente (--dourado) é acento de marca, não área, então um
+//     módulo só (o de relacionamento com quem paga) é o bastante para ele
+//     aparecer sem virar "alerta" por repetição.
+// Os quatro utilitários de CATALOGO_SISTEMA (extrato, coleta, começar,
+// integrações) usam tons de SLATE — neutros de propósito, porque são telas
+// de configuração/entrada de dado, acessadas uma vez por semana ou uma vez
+// na vida, não área de trabalho. Cor viva ali competiria por atenção com os
+// seis apps de cima sem motivo de negócio.
+const COR_DASHBOARD = "#2563eb"; // azul-marinho base (--primaria)
+const COR_AGENDA = "#3b82f6"; // azul claro (--primaria-2)
+const COR_FINANCEIRO = "#10b981"; // verde — mesma leitura de "positivo" do resto do produto
+const COR_CRM = "#f59e0b"; // dourado do cliente (--dourado) — único do grupo principal
+const COR_LANCAMENTOS = "#1d4ed8"; // azul escuro/royal (--primaria-press)
+const COR_CONTEUDO = "#0ea5e9"; // azul-céu — quarto tom de azul, mais aberto (mídia/transmissão)
 
 /**
  * Financeiro (src/components/fin-rotas.ts é o mapa oficial das telas do
@@ -275,7 +302,7 @@ export const CATALOGO_SISTEMA: AppCatalogo[] = [
     nome: "Importar extrato",
     href: "/extrato",
     icone: "Upload",
-    cor: "#35D6A0",
+    cor: "#64748b", // slate-500 — ver comentário sobre a paleta acima de CATALOGO_APPS
     frase: "O extrato do banco vira lançamento no caixa, sem digitar linha por linha.",
   },
   {
@@ -283,7 +310,7 @@ export const CATALOGO_SISTEMA: AppCatalogo[] = [
     nome: "Coleta de dados",
     href: "/coleta",
     icone: "Workflow",
-    cor: "#46B6F0",
+    cor: "#94a3b8", // slate-400, mais claro que o de cima
     frase: "De onde cada número entra no sistema.",
   },
   {
@@ -291,7 +318,7 @@ export const CATALOGO_SISTEMA: AppCatalogo[] = [
     nome: "Começar",
     href: "/comecar",
     icone: "ListChecks",
-    cor: "#8D70FF",
+    cor: "#475569", // slate-600, mais escuro
     frase: "Cadastro base: produto, responsável, conta e meta.",
   },
   {
@@ -299,7 +326,7 @@ export const CATALOGO_SISTEMA: AppCatalogo[] = [
     nome: "Integrações",
     href: "/integracoes",
     icone: "Plug",
-    cor: "#6E7BF2",
+    cor: "#334155", // slate-700, o mais escuro dos quatro
     frase: "Planilha, agenda do Google e o que mais estiver ligado.",
   },
 ];

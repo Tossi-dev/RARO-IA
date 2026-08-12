@@ -127,7 +127,7 @@ export async function criarEventoGoogle(ev: {
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         summary: ev.titulo,
-        description: ev.descricao ?? "Criado pela plataforma Raro.ia",
+        description: ev.descricao ?? "Criado pela plataforma MentorOS",
         start: { dateTime: ev.inicio, timeZone: "America/Sao_Paulo" },
         end: { dateTime: fim, timeZone: "America/Sao_Paulo" },
       }),

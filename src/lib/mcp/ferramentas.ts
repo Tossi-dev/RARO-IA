@@ -207,7 +207,7 @@ async function buscarCliente(args: Record<string, unknown>): Promise<ResultadoFe
   const alunos = await getDB().listAlunos();
   const achados = buscarClientes(alunos, termo, limite);
 
-  const origem = `Cadastro de clientes do Raro.ia (${rotuloBase()}); nome e e-mail casados por texto sem acento, telefone casado pela chave de src/lib/atendimento/telefone.ts.`;
+  const origem = `Cadastro de clientes da MentorOS (${rotuloBase()}); nome e e-mail casados por texto sem acento, telefone casado pela chave de src/lib/atendimento/telefone.ts.`;
 
   if (achados.length === 0) {
     return {
@@ -287,7 +287,7 @@ async function historicoDoCliente(args: Record<string, unknown>): Promise<Result
       // Claude relatar o histórico de outra pessoa com total convicção, e o
       // dono não teria como perceber o troco.
       const nomes = achados.map((x) => `${x.aluno.nome} (id ${x.aluno.id})`).join("; ");
-      const origem = `Cadastro de clientes do Raro.ia (${rotuloBase()}).`;
+      const origem = `Cadastro de clientes da MentorOS (${rotuloBase()}).`;
       return {
         texto: `"${termo}" casa com mais de um cliente: ${nomes}. Chame de novo usando "cliente_id" para escolher.\n\nOrigem: ${origem}`,
         dados: { termo, ambiguo: true, candidatos: achados.map((x) => ({ id: x.aluno.id, nome: x.aluno.nome })) },
@@ -299,7 +299,7 @@ async function historicoDoCliente(args: Record<string, unknown>): Promise<Result
   }
 
   if (!aluno) {
-    const origem = `Cadastro de clientes do Raro.ia (${rotuloBase()}).`;
+    const origem = `Cadastro de clientes da MentorOS (${rotuloBase()}).`;
     const alvo = clienteId !== "" ? `id "${clienteId}"` : `"${termo}"`;
     return {
       texto: `Nenhum cliente com ${alvo}.\n\nOrigem: ${origem}`,

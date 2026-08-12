@@ -1,4 +1,4 @@
-// O endpoint MCP do Raro.ia — transporte "Streamable HTTP" da especificação
+// O endpoint MCP da MentorOS — transporte "Streamable HTTP" da especificação
 // 2025-06-18 (modelcontextprotocol.io → Base Protocol → Transports).
 //
 // QUEM BATE AQUI

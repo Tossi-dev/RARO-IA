@@ -188,7 +188,7 @@ export function MenuMobile({
         {/* A marca e o título da página ocupam o MESMO espaço, empilhados, e
             trocam de opacidade/posição em vez de um substituir o outro no
             layout — é isso que evita o "salto" de largura quando o título
-            (variável) é mais longo ou mais curto que "raro.ia".
+            (variável) é mais longo ou mais curto que "MentorOS".
             `self-stretch`: os dois filhos são `absolute` (fora do fluxo), então
             sem isto este container herdaria altura 0 do header (que centraliza
             com `items-center`, não estica) — e os spans `inset-0` ficariam

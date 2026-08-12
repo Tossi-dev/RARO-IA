@@ -108,7 +108,7 @@ const FORMAS: FormaPgto[] = ["pix", "credito_vista", "credito_2x6x", "pix", "cre
 // ---------- entidades fixas ----------
 
 const afiliados: Afiliado[] = [
-  { id: "af-jefson", nome: "Jefson Ragner", braco: "espirito", pctPadrao: 0, ativo: true, metaMensal: 40000, whatsapp: "11987650001", chavePix: "jefson@raro.ia" },
+  { id: "af-jefson", nome: "Jefson Ragner", braco: "espirito", pctPadrao: 0, ativo: true, metaMensal: 40000, whatsapp: "11987650001", chavePix: "jefson@mentoros.com" },
   { id: "af-carlos", nome: "Carlos Andrade (personal)", braco: "corpo", pctPadrao: 25, ativo: true, metaMensal: 15000, whatsapp: "11987650002", chavePix: "119.876.500-02" },
   { id: "af-helena", nome: "Dra. Helena Vidal", braco: "mente", pctPadrao: 20, ativo: true, metaMensal: 12000, whatsapp: "11987650003", chavePix: "helena.vidal@exemplo.com" },
 ];
@@ -143,7 +143,7 @@ const produtos: Produto[] = [
     braco: null, categoria: "curso",
   },
   {
-    id: "pr-mentoria", nome: "Mentoria Raro.ia", tipo: "mentoria", precoBase: 2997, ativo: true,
+    id: "pr-mentoria", nome: "Mentoria MentorOS", tipo: "mentoria", precoBase: 2997, ativo: true,
     braco: null, categoria: "mentoria",
   },
   {
@@ -157,7 +157,7 @@ const produtos: Produto[] = [
 const lancamentos: Lancamento[] = [
   {
     id: "la-t1",
-    nome: `Mentoria Raro.ia — Turma 1`,
+    nome: `Mentoria MentorOS — Turma 1`,
     produtoId: "pr-mentoria",
     inicio: `${ANO}-05-04`,
     fim: `${ANO}-05-29`,
@@ -947,7 +947,7 @@ const eventosWebhook: WebhookEvento[] = (() => {
     taxa: m.taxaGateway ?? 0,
     status: "processado",
     transacaoRef: `HP-${17_400_000 + i * 137}`,
-    detalhe: `${m.produtoId === "pr-protocolo" ? "Protocolo Raro" : m.produtoId === "pr-mentoria" ? "Mentoria Raro.ia" : "Acompanhamento Premium 1:1"} · pagamento aprovado`,
+    detalhe: `${m.produtoId === "pr-protocolo" ? "Protocolo Raro" : m.produtoId === "pr-mentoria" ? "Mentoria MentorOS" : "Acompanhamento Premium 1:1"} · pagamento aprovado`,
     recebidoEm: `${m.data}T10:${String(12 + i * 7).padStart(2, "0")}:00`,
   }));
   const base = recentes[0]?.data ?? `${YM_ATUAL}-05`;
@@ -991,9 +991,9 @@ const eventosWebhook: WebhookEvento[] = (() => {
 
 // ---------- Redes sociais: perfis, conteúdos, métricas, retenção, pilares ----------
 const perfisSociais: PerfilSocial[] = [
-  { id: "ps-ig", plataforma: "instagram", handle: "@raro.ia", seguidores: 12840, conectado: false, atualizadoEm: agoraISO },
-  { id: "ps-tk", plataforma: "tiktok", handle: "@raro.ia", seguidores: 8420, conectado: false, atualizadoEm: agoraISO },
-  { id: "ps-fb", plataforma: "facebook", handle: "Raro.ia Oficial", seguidores: 3210, conectado: false, atualizadoEm: agoraISO },
+  { id: "ps-ig", plataforma: "instagram", handle: "@mentoros", seguidores: 12840, conectado: false, atualizadoEm: agoraISO },
+  { id: "ps-tk", plataforma: "tiktok", handle: "@mentoros", seguidores: 8420, conectado: false, atualizadoEm: agoraISO },
+  { id: "ps-fb", plataforma: "facebook", handle: "MentorOS Oficial", seguidores: 3210, conectado: false, atualizadoEm: agoraISO },
 ];
 
 const conteudos: Conteudo[] = [];
@@ -1191,7 +1191,7 @@ const aulasProtocolo = [
   }
 }
 
-// ---- Mentoria Raro.ia: trilha de apoio da Turma 1 ----
+// ---- Mentoria MentorOS: trilha de apoio da Turma 1 ----
 const aulasMentoria = [
   ...trilha("pr-mentoria", "Diagnóstico e anamnese", 1, "Ponto de partida individual antes da primeira call em grupo.", [
     { titulo: "Preencher anamnese inicial", tipo: "tarefa", duracaoMin: 15 },

@@ -1,4 +1,4 @@
-// Tipos de domínio da Raro.ia — espelham o schema do Supabase (supabase/migrations)
+// Tipos de domínio da MentorOS — espelham o schema do Supabase (supabase/migrations)
 
 import type { CategoriaFonte } from "./fontes";
 // O contrato do WhatsApp é a fonte única de `canal` e `direcao` (ver

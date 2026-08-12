@@ -1,4 +1,4 @@
-// Regras de negócio da Raro.ia.
+// Regras de negócio da MentorOS.
 // As taxas por forma de pagamento vêm da lógica validada no projeto LA Beauty.
 
 import type { FormaPgto, StatusFunil, StatusLancamento, TipoDespesa, TipoProduto } from "./types";

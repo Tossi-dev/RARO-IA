@@ -37,7 +37,7 @@ export default function ErroApp({
     // que alguém vai procurar depois, não no console do navegador de quem
     // clicou. O objeto `error` completo (com stack) fica só aqui, nunca na
     // tela: quem lê o log é o time, quem lê a tela é qualquer visitante.
-    console.error("[raro.ia] erro de tela — digest:", error.digest, error);
+    console.error("[MentorOS] erro de tela — digest:", error.digest, error);
   }, [error]);
 
   const digest = linhaDigest(error.digest);

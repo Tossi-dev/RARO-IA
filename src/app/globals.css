@@ -3,12 +3,12 @@
 @tailwind utilities;
 
 /* ============================================================
-   Fundação de tema — pele "ennvo" (SaaS escuro, linha Apple)
+   Fundação de tema — identidade MentorOS (SaaS escuro, linha Apple)
 
    O QUE MUDOU E POR QUÊ
    ---------------------
    Nenhum NOME de token mudou. Só o VALOR. É por isso que 25 telas trocam de
-   cara sem uma linha de página ser tocada: elas pedem `bg-painel`, não `#16161f`.
+   cara sem uma linha de página ser tocada: elas pedem `bg-painel`, não `#16203c`.
 
    As cinco decisões que carregam a identidade (do LEIA-ME do ennvo-style, e a
    razão de copiar as classes sem elas não ficar parecido):
@@ -25,22 +25,32 @@
       importante. O que vende é a linha branca de 1px por DENTRO do topo (luz
       batendo na quina) somada à sombra escura por dentro da base.
 
-   4. UM ROXO EM TRÊS INTENSIDADES. claro → base → escuro. Não existe cor de
-      destaque secundária na moldura do produto; o que sobra é branco com alpha.
+   4. UM AZUL EM TRÊS INTENSIDADES (era roxo; MentorOS usa a identidade
+      azul-marinho/royal do site do cliente). claro → base → escuro. O
+      DOURADO é o único acento fora da escada de azul, e é ACENTO, não área:
+      texto, borda, ícone, barra fina — nunca fundo de card ou seção, porque
+      dourado em área grande dentro de painel financeiro lê como alerta.
       (Os GRÁFICOS são a exceção legítima: ali a cor carrega significado —
       verde entrou, rosa saiu — e continua vindo de src/lib/cores.ts.)
 
    5. MOVIMENTO LENTO E CONTÍNUO, NUNCA CHAMATIVO. Nada pisca. As únicas
       animações rápidas respondem a ação: clique 260ms, hover 150ms.
 
-   CLARO não é o escuro invertido: os tons de marca foram ESCURECIDOS para
-   manter contraste ≥4.5:1 sobre branco.
+   CLARO não é o escuro invertido: os tons de marca foram ESCURECIDOS, e a
+   ESCADA DE TEXTO (--texto-2/3/4) foi RECALCULADA do zero — não é o mesmo
+   cinza do escuro reaproveitado — porque um cinza legível sobre quase-preto
+   não é automaticamente legível sobre branco. A régua é contraste calculado
+   contra a cor de fundo do PRÓPRIO tema, nunca do tema oposto: no claro,
+   --texto-2 e --texto-3 passam de 6.5:1, --texto-4 fica perto de 4.5:1 (por
+   isso só entra em rótulo curto sobre card branco, nunca em corpo de
+   texto). Ver o comentário ao lado de --texto em [data-tema="claro"] para a
+   conta completa.
    ============================================================ */
 
 :root {
   color-scheme: dark;
 
-  --font-display: "Sora", "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Inter", "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-body: "Inter", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "JetBrains Mono", monospace;
 
@@ -49,15 +59,25 @@
   --tracking-corpo: -0.005em;
   --tracking-display: -0.02em;
 
-  /* superfícies — a escada, do mais fundo para o mais alto */
-  --fundo: 11 12 22; /* #0b0c16  página          */
-  --superficie-1: 19 20 35; /* #131423  barra lateral   */
-  --painel: 23 24 45; /* #17182d  card / popover  */
-  --painel-2: 31 32 48; /* #1f2030  campo apagado   */
-  --eleva: 37 39 60; /* #25273c  botão secundário */
-  --poco: 15 16 28; /* #0f101c  poço (input)    */
+  /* superfícies — a escada, do mais fundo para o mais alto.
+     --fundo e --poco são os DOIS tons de navy extraídos do site do cliente
+     (#0a0f1e e #0d1b3e). Os degraus intermediários (superficie-1, painel,
+     painel-2, eleva) não vieram prontos da marca — foram calculados na MESMA
+     matiz (~224°, escada HSL) para não misturar cinza neutro do roxo antigo
+     com o fundo azul: um cinza "puro" em cima de navy lê como sujeira. */
+  --fundo: 10 15 30; /* #0a0f1e  página          */
+  --superficie-1: 16 24 45; /* barra lateral, mesma matiz do fundo, um degrau acima */
+  --painel: 22 32 60; /* card / popover  */
+  --painel-2: 30 41 72; /* campo apagado   */
+  --eleva: 40 52 88; /* botão secundário */
+  --poco: 13 27 62; /* #0d1b3e  segundo navy da marca — usado no poço (input);
+     aqui ele é mais claro que --fundo, não mais escuro (mesma inversão que já
+     existia no roxo: a sensação de "afundado" vem do bevel/sombra, não de ser
+     o tom mais escuro da escada) */
 
-  /* bordas: valor pronto + canal para quando pedirem /opacidade */
+  /* bordas: valor pronto + canal para quando pedirem /opacidade.
+     Continuam brancas — luz batendo na aresta é neutra em qualquer matiz de
+     fundo, não precisa virar azul para não "sujar". */
   --borda-sutil: rgba(255, 255, 255, 0.06);
   --borda-sutil-canal: 255 255 255;
   --borda: rgba(255, 255, 255, 0.09);
@@ -65,19 +85,35 @@
   --borda-forte: rgba(255, 255, 255, 0.16);
   --borda-forte-canal: 255 255 255;
 
-  /* texto */
-  --texto: 248 248 248;
-  --texto-2: 156 157 171;
-  --texto-3: 118 119 134;
-  --texto-4: 84 85 100;
+  /* texto — os quatro cinzas extraídos do site do cliente (slate-100/200/400/600),
+     do mais claro (texto principal) ao mais apagado (texto-4), já na matiz azulada
+     certa em vez do cinza neutro antigo */
+  --texto: 241 245 249; /* #f1f5f9 */
+  --texto-2: 226 232 240; /* #e2e8f0 */
+  --texto-3: 148 163 184; /* #94a3b8 */
+  --texto-4: 71 85 105; /* #475569 */
 
-  /* marca — um roxo, três intensidades */
-  --primaria: 97 74 252; /* #614afc  base   */
-  --primaria-2: 135 115 255; /* #8773ff  claro  */
-  --primaria-hover: 116 96 255;
-  --primaria-press: 70 54 206; /* #4636ce  escuro */
+  /* marca — um azul, três intensidades (era roxo) */
+  --primaria: 37 99 235; /* #2563eb  base   */
+  --primaria-2: 59 130 246; /* #3b82f6  claro  */
+  --primaria-hover: 59 130 246; /* #3b82f6 */
+  --primaria-press: 29 78 216; /* #1d4ed8  escuro */
 
-  /* ouro (premium / high-ticket) */
+  /* dourado — ACENTO, nunca área. Só texto, borda, ícone e barra fina: dourado
+     de fundo grande num painel financeiro é lido como alerta, não como luxo.
+     Este é o dourado do CLIENTE (identidade MentorOS): use-o para qualquer
+     coisa que precise soar "marca", tipo o mesmo dourado que aparece no site
+     institucional. */
+  --dourado: 245 158 11; /* #f59e0b */
+  --dourado-2: 252 211 77; /* #fcd34d */
+
+  /* ouro (premium / high-ticket) — dourado DIFERENTE do de cima, e de
+     propósito: este é o tom mais suave que o produto já usava antes do
+     rebrand para marcar oferta/cliente de alto ticket (KPI, badge de plano,
+     destaque de valor alto). Os dois convivem sem se unificar: --ouro é sobre
+     O QUE a informação significa (é premium), --dourado é sobre DE QUEM é a
+     marca (é MentorOS). Ao escolher entre os dois, pense primeiro qual
+     pergunta se aplica. */
   --ouro: 228 192 119;
   --ouro-2: 236 206 142;
   --ouro-3: 210 168 92;
@@ -94,17 +130,20 @@
   --sombra-e3: 0 16px 48px -20px rgba(0, 0, 0, 0.62);
   --sombra-e4: 0 24px 64px -24px rgba(0, 0, 0, 0.7);
 
-  /* peças que não são cor de token */
-  --vidro: rgba(19, 20, 35, 0.68);
+  /* peças que não são cor de token.
+     --vidro, --aurora*, --selecao, --anel-foco e --barra-rolagem citavam o
+     roxo antigo em rgb escrito à mão (não em var()) — o Tailwind não alcança
+     esses valores, então trocar só o token --primaria não bastava aqui. */
+  --vidro: rgba(16, 24, 45, 0.68); /* mesmo tom de --superficie-1 */
   --bevel: rgba(255, 255, 255, 0.16); /* a luz na aresta de cima */
   --contorno: rgba(255, 255, 255, 0.04); /* fio do card: quase invisível no escuro */
   --bevel-baixo: rgba(0, 0, 0, 0.35); /* a sombra por dentro da base */
   --sheen: rgba(255, 255, 255, 0.05);
-  --aurora: rgba(97, 74, 252, 0.16);
-  --aurora-2: rgba(135, 115, 255, 0.1);
-  --selecao: rgba(97, 74, 252, 0.35);
-  --anel-foco: rgba(135, 115, 255, 0.6);
-  --barra-rolagem: rgba(97, 74, 252, 0.55);
+  --aurora: rgba(37, 99, 235, 0.16); /* --primaria */
+  --aurora-2: rgba(59, 130, 246, 0.1); /* --primaria-2 */
+  --selecao: rgba(37, 99, 235, 0.35);
+  --anel-foco: rgba(59, 130, 246, 0.6);
+  --barra-rolagem: rgba(37, 99, 235, 0.55);
   --skeleton-a: rgba(255, 255, 255, 0.03);
   --skeleton-b: rgba(255, 255, 255, 0.09);
 }
@@ -113,30 +152,68 @@
   color-scheme: light;
 
   /* A mesma escada, ao contrário: o fundo é o degrau mais BAIXO de luz e o
-     card é branco puro. É o que o macOS faz — janela branca sobre cinza. */
-  --fundo: 244 244 248;
+     card é branco puro. É o que o macOS faz — janela branca sobre cinza.
+     O --fundo ganhou um leve tom azulado (reaproveita o cinza mais claro do
+     cliente, #f1f5f9) em vez do cinza neutro antigo, para a página inteira
+     puxar para a família do navy mesmo no claro; os cards continuam brancos
+     puros de propósito — é o contraste deles contra esse fundo tingido que
+     cria o degrau, igual antes. */
+  --fundo: 241 245 249; /* #f1f5f9 */
   --superficie-1: 255 255 255;
   --painel: 255 255 255;
-  --painel-2: 249 249 252;
-  --eleva: 240 239 246;
-  --poco: 246 246 250;
+  --painel-2: 248 250 252;
+  --eleva: 240 244 248;
+  --poco: 246 248 251;
 
-  --borda-sutil: rgba(17, 17, 28, 0.06);
-  --borda-sutil-canal: 17 17 28;
-  --borda: rgba(17, 17, 28, 0.1);
-  --borda-canal: 17 17 28;
-  --borda-forte: rgba(17, 17, 28, 0.16);
-  --borda-forte-canal: 17 17 28;
+  /* bordas e sombras do claro precisavam de uma "tinta" escura de referência.
+     Era #11111c (quase preto com resquício roxo); agora é o próprio navy da
+     marca (#0a0f1e) — mesma cor que a página usa no escuro, só que aqui
+     funcionando como tinta translúcida sobre branco. */
+  --borda-sutil: rgba(10, 15, 30, 0.06);
+  --borda-sutil-canal: 10 15 30;
+  --borda: rgba(10, 15, 30, 0.1);
+  --borda-canal: 10 15 30;
+  --borda-forte: rgba(10, 15, 30, 0.16);
+  --borda-forte-canal: 10 15 30;
 
-  --texto: 20 20 32;
-  --texto-2: 88 88 108;
-  --texto-3: 124 124 145;
-  --texto-4: 166 166 184;
+  /* texto — NÃO é a mesma escala de cinzas do escuro reaproveitada: é uma
+     rampa RECALCULADA do zero, mais escura em cada degrau. --texto usa o
+     navy #0a0f1e da marca como tinta em vez de um dos quatro cinzas, e amarra
+     o texto principal à mesma cor que ancora o tema escuro inteiro.
 
-  --primaria: 84 60 232;
-  --primaria-2: 70 48 214;
-  --primaria-hover: 97 74 252;
-  --primaria-press: 63 44 190;
+     Os outros três NÃO podem ser os mesmos cinza do escuro — um cinza
+     legível sobre quase-preto (fundo #0a0f1e) não é legível sobre branco: é
+     claro demais nos dois casos, então "inverter o tema" sem recalcular o
+     cinza deixa o texto secundário quase invisível no claro. Por isso cada
+     tom aqui é mais ESCURO que seu equivalente no escuro, na MESMA posição
+     de hierarquia. Contraste contra --fundo #f1f5f9 (o pior caso — o card
+     --painel é branco puro e dá um número um pouco melhor):
+       --texto    #0a0f1e → ~17,4:1 (texto principal)
+       --texto-2  #334155 → ~9,4:1  (corpo secundário)
+       --texto-3  #475569 → ~6,9:1  (legenda, texto de apoio)
+       --texto-4  #64748b → ~4,3:1 contra --fundo / ~4,8:1 contra --painel
+                             (texto mais apagado; por isso ele só é usado em
+                             rótulo curto sobre card branco, nunca corpo de
+                             texto direto sobre a página) */
+  --texto: 10 15 30; /* #0a0f1e */
+  --texto-2: 51 65 85; /* #334155 */
+  --texto-3: 71 85 105; /* #475569 */
+  --texto-4: 100 116 139; /* #64748b */
+
+  /* marca — o azul-royal do cliente (#2563eb) já tem contraste ~5,2:1 sobre
+     branco, então não precisou ser escurecido para o claro como o roxo
+     precisava; --primaria-press usa blue-800 (#1e40af), um degrau que não
+     veio pronto do cliente mas segue a mesma escala Tailwind das outras três
+     paradas (500/600/700) que ele forneceu. */
+  --primaria: 37 99 235; /* #2563eb */
+  --primaria-2: 29 77 216; /* #1d4ed8 */
+  --primaria-hover: 59 130 246; /* #3b82f6 */
+  --primaria-press: 30 64 175; /* #1e40af */
+
+  /* dourado no claro precisa ser mais escuro que #f59e0b para servir como
+     texto/ícone legível sobre branco — mesma lógica do --primaria acima */
+  --dourado: 180 83 9; /* #b45309 */
+  --dourado-2: 217 119 6; /* #d97706 */
 
   --ouro: 154 111 20;
   --ouro-2: 180 132 42;
@@ -147,23 +224,23 @@
   --aviso: 165 90 8;
   --info: 22 103 200;
 
-  --sombra-e1: 0 1px 2px rgba(17, 17, 28, 0.06), 0 8px 20px -14px rgba(17, 17, 28, 0.18);
-  --sombra-e2: 0 8px 24px -14px rgba(17, 17, 28, 0.18);
-  --sombra-e3: 0 16px 48px -22px rgba(17, 17, 28, 0.22);
-  --sombra-e4: 0 24px 64px -26px rgba(17, 17, 28, 0.26);
+  --sombra-e1: 0 1px 2px rgba(10, 15, 30, 0.06), 0 8px 20px -14px rgba(10, 15, 30, 0.18);
+  --sombra-e2: 0 8px 24px -14px rgba(10, 15, 30, 0.18);
+  --sombra-e3: 0 16px 48px -22px rgba(10, 15, 30, 0.22);
+  --sombra-e4: 0 24px 64px -26px rgba(10, 15, 30, 0.26);
 
   --vidro: rgba(255, 255, 255, 0.72);
   --bevel: rgba(255, 255, 255, 0.9);
-  --contorno: rgba(17, 17, 28, 0.08); /* no claro o fio é obrigatório */
-  --bevel-baixo: rgba(17, 17, 28, 0.06);
-  --sheen: rgba(17, 17, 28, 0.015);
-  --aurora: rgba(84, 60, 232, 0.1);
-  --aurora-2: rgba(135, 115, 255, 0.08);
-  --selecao: rgba(84, 60, 232, 0.2);
-  --anel-foco: rgba(84, 60, 232, 0.6);
-  --barra-rolagem: rgba(84, 60, 232, 0.4);
-  --skeleton-a: rgba(17, 17, 28, 0.04);
-  --skeleton-b: rgba(17, 17, 28, 0.09);
+  --contorno: rgba(10, 15, 30, 0.08); /* no claro o fio é obrigatório */
+  --bevel-baixo: rgba(10, 15, 30, 0.06);
+  --sheen: rgba(10, 15, 30, 0.015);
+  --aurora: rgba(37, 99, 235, 0.1); /* --primaria */
+  --aurora-2: rgba(59, 130, 246, 0.08); /* --primaria-hover */
+  --selecao: rgba(37, 99, 235, 0.2);
+  --anel-foco: rgba(37, 99, 235, 0.6);
+  --barra-rolagem: rgba(37, 99, 235, 0.4);
+  --skeleton-a: rgba(10, 15, 30, 0.04);
+  --skeleton-b: rgba(10, 15, 30, 0.09);
 }
 
 body {
@@ -197,7 +274,7 @@ h6 {
   background: var(--selecao);
 }
 
-/* foco por teclado: ring violeta, só em :focus-visible */
+/* foco por teclado: ring azul, só em :focus-visible */
 :focus-visible {
   outline: 2px solid var(--anel-foco);
   outline-offset: 2px;
@@ -261,7 +338,7 @@ details.painel-form > summary::-webkit-details-marker {
 
    O CONTORNO É QUASE NADA de propósito. No escuro, card com borda visível é
    exatamente o que dá cara de template: a separação tem que vir do DEGRAU de
-   luminosidade (fundo #0b0c16 → card #17182d) e da luz na aresta de cima. No
+   luminosidade (fundo #0a0f1e → card #16203c) e da luz na aresta de cima. No
    claro é o contrário — card branco sobre cinza claro precisa do fio, senão
    some. Por isso `--contorno` muda de tema e a borda mora aqui, e não numa
    classe do Tailwind espalhada por 25 telas. --- */
@@ -451,11 +528,13 @@ details.painel-form > summary::-webkit-details-marker {
    ============================================================ */
 
 [data-tema="claro"] .recharts-cartesian-grid line {
-  stroke: rgba(17, 17, 28, 0.08);
+  /* linha de grade é chrome neutro, não dado — segue a mesma tinta navy
+     usada em --borda-canal, não o cinza-roxo antigo */
+  stroke: rgba(10, 15, 30, 0.08);
 }
 [data-tema="claro"] .recharts-cartesian-axis-line,
 [data-tema="claro"] .recharts-cartesian-axis-tick-line {
-  stroke: rgba(17, 17, 28, 0.15);
+  stroke: rgba(10, 15, 30, 0.15);
 }
 [data-tema="claro"] .recharts-text,
 [data-tema="claro"] .recharts-legend-item-text,
@@ -538,7 +617,7 @@ details.painel-form > summary::-webkit-details-marker {
 }
 [data-tema="claro"] [fill="rgba(255,255,255,0.06)"],
 [data-tema="claro"] [fill="rgba(255, 255, 255, 0.06)"] {
-  fill: rgba(17, 17, 28, 0.07);
+  fill: rgba(10, 15, 30, 0.07);
 }
 
 /* cursor de hover das barras */

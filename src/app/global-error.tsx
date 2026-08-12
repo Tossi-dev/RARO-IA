@@ -32,7 +32,7 @@ export default function ErroGlobal({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[raro.ia] erro no layout raiz — digest:", error.digest, error);
+    console.error("[MentorOS] erro no layout raiz — digest:", error.digest, error);
   }, [error]);
 
   const digest = linhaDigest(error.digest);
@@ -42,8 +42,12 @@ export default function ErroGlobal({
       <body className="bg-fundo text-texto antialiased">
         <main className="flex min-h-screen items-center justify-center p-4">
           <div className="superficie bevel w-full max-w-sm rounded-2xl border border-borda-sutil p-5">
+            {/* Mesmo padrão de src/components/sidebar.tsx (componente `Marca`):
+                não dá pra importar o componente aqui — ver o comentário do
+                topo do arquivo sobre por que esta tela não importa nada — mas
+                a marca escrita por extenso precisa ser a mesma em todo lugar. */}
             <span className="font-display text-xl font-fino tracking-tight">
-              raro<span className="text-primaria-2">.ia</span>
+              Mentor<span className="text-primaria-2">OS</span>
             </span>
             <h1 className="mt-5 font-display text-[20px] font-fino tracking-tight text-texto">
               O sistema travou

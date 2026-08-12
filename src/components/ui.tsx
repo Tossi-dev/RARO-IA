@@ -1,4 +1,4 @@
-// Primitivas de UI da Raro.ia (estilo shadcn, sem dependência externa).
+// Primitivas de UI da MentorOS (estilo shadcn, sem dependência externa).
 //
 // Pele "ennvo" (SaaS escuro, linha Apple). O que a troca de pele mudou aqui:
 //   - o card virou DEGRAU de luz (.superficie), não retângulo com contorno
