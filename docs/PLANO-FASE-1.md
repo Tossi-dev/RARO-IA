@@ -131,12 +131,37 @@ Só escrita, do Supabase para a planilha.
 Teste: espelho que falha não derruba nada — o teste força erro na planilha e
 espera que a rota devolva 200 com `{ espelho: "falhou" }`, não 500.
 
+
+**C7 · Migrar os DADOS da planilha para o Supabase**  ← TAREFA QUE FALTAVA
+Arquivo: `scripts/migrar-planilha-para-supabase.ts`.
+Esta tarefa nao estava no plano original e a ausencia dela e um buraco de
+verdade: as migracoes 0001-0008 criam as TABELAS, nao trazem o conteudo. E a
+selecao de fonte (`src/lib/data/index.ts`) da precedencia ao Supabase sobre a
+planilha -- ou seja, no minuto em que as variaveis do Supabase forem ligadas
+sem os dados terem sido migrados, o Jefson abre o sistema e ve faturamento
+zero, nenhum aluno, caixa vazio. Nada se perde (a planilha continua intacta),
+mas a tela mente.
+Por isso as duas variaveis `NEXT_PUBLIC_SUPABASE_*` estao COMENTADAS no
+`.env.local`, com o motivo escrito ao lado. Ligar so depois desta tarefa.
+Teste: contar linha por aba na planilha e linha por tabela no Supabase, e
+exigir que os dois numeros batam antes de considerar migrado. Numero que nao
+bate para a migracao -- nunca se ajusta o numero para caber.
+
+**C8 · Aplicar as migracoes no projeto real**
+As 8 migracoes estao escritas e provadas contra um Postgres de verdade, mas
+ainda NAO foram aplicadas no projeto do cliente (cymwaroayxngplwswzwk).
+Rodar arquivo por arquivo no SQL Editor do Supabase, na ordem 0001 -> 0008.
+Nao colar os arquivos juntos: `alter type ... add value` (0005) nao pode
+rodar na mesma transacao em que o valor e usado, e o editor roda tudo numa
+transacao so.
+
 ---
 
 ## Ordem de execução
 
-A1 → A2 → A3 → A4 → A5 → A6 → B1..B5 → (você cria o Supabase) → C1 → C2 → C3
-→ C4 → C5 → C6.
+A1..A6 [FEITO] -> B1..B5 [FEITO] -> C1..C3 (migracoes) [ESCRITAS] -> C5 keepalive
+[FEITO] -> C6 espelho [ESQUELETO] -> C8 aplicar no projeto real -> C7 migrar os
+dados -> C4 login por pessoa -> so entao ligar as variaveis do Supabase.
 
 Entre uma tarefa e outra: revisão em duas etapas — primeiro se cumpriu o
 combinado, depois qualidade — com revisor diferente de quem escreveu.
