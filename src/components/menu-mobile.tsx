@@ -35,6 +35,7 @@ import { setFiltroGlobal } from "@/lib/actions";
 import type { FiltroFonte } from "@/lib/filtros";
 import { RANGES } from "@/lib/filtros";
 import type { Densidade } from "@/lib/densidade";
+import type { GrupoNavLateral } from "@/lib/nav-lateral";
 import type { Tema } from "@/lib/tema";
 import { DensidadeToggle } from "./densidade-toggle";
 import { Marca, SidebarNav } from "./sidebar";
@@ -60,6 +61,7 @@ export function MenuMobile({
   produtos,
   rangeDias,
   fonte,
+  grupos,
   children,
 }: {
   tema: Tema;
@@ -72,6 +74,9 @@ export function MenuMobile({
   rangeDias: number;
   /** Frase que diz de onde vêm os números (montada no servidor). */
   fonte: string;
+  /** Navegação completa da gaveta, já filtrada pelo papel no servidor — ver
+   *  o comentário em src/lib/nav-lateral.ts. */
+  grupos: GrupoNavLateral[];
   /** Bloco extra vindo do servidor — hoje, o botão de sair da conta. */
   children?: React.ReactNode;
 }) {
@@ -266,7 +271,7 @@ export function MenuMobile({
             </button>
           </div>
 
-          <SidebarNav />
+          <SidebarNav grupos={grupos} />
 
           {/* filtros globais: no desktop moram na topbar; aqui, na gaveta */}
           <div

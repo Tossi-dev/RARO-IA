@@ -1,10 +1,13 @@
 // Testes do catálogo de apps da tela inicial — vitest.
 
 import { describe, expect, it } from "vitest";
+import { rotaPermitida, type Papel } from "@/lib/papeis";
 import {
   acharAppPorRota,
+  appsDoPapel,
   badgeValido,
   CATALOGO_APPS,
+  CATALOGO_SISTEMA,
   contarAppsComBadge,
   ordenarApps,
   type AppCatalogo,
@@ -114,6 +117,118 @@ describe("contarAppsComBadge", () => {
 
   it("sem nenhum badge, conta zero", () => {
     expect(contarAppsComBadge(CATALOGO_APPS, {})).toBe(0);
+  });
+});
+
+describe("appsDoPapel — B2.7, a navegação passa a respeitar o papel", () => {
+  const TODOS_PAPEIS: readonly Papel[] = [
+    "dono",
+    "gestor",
+    "comercial",
+    "mentorado",
+    "afiliado",
+    "aluno",
+  ];
+
+  it.each(["dono", "gestor"] as const)(
+    "%s recebe o catálogo inteiro, com todos os subApps",
+    (papel) => {
+      expect(appsDoPapel(papel)).toEqual(CATALOGO_APPS);
+      // subApps de Financeiro e Conteúdo continuam inteiros, não só o app-pai.
+      const financeiro = appsDoPapel(papel).find((a) => a.id === "financeiro")!;
+      expect(financeiro.subApps?.length).toBe(
+        CATALOGO_APPS.find((a) => a.id === "financeiro")!.subApps!.length
+      );
+    }
+  );
+
+  it("mentorado não recebe Mentoria, Financeiro, Dashboard nem Central de Clientes", () => {
+    const nomes = appsDoPapel("mentorado").map((a) => a.nome);
+    expect(nomes).not.toContain("Mentoria");
+    expect(nomes).not.toContain("Financeiro");
+    expect(nomes).not.toContain("Dashboard");
+    expect(nomes).not.toContain("Central de Clientes");
+  });
+
+  it("mentorado não recebe Extrato nem Integrações (catálogo Sistema)", () => {
+    const nomes = appsDoPapel("mentorado", CATALOGO_SISTEMA).map((a) => a.nome);
+    expect(nomes).not.toContain("Importar extrato");
+    expect(nomes).not.toContain("Integrações");
+  });
+
+  it("comercial não recebe Mentoria nem Financeiro, mas recebe Central de Clientes e Agenda", () => {
+    const nomes = appsDoPapel("comercial").map((a) => a.nome);
+    expect(nomes).not.toContain("Mentoria");
+    expect(nomes).not.toContain("Financeiro");
+    expect(nomes).toContain("Central de Clientes");
+    expect(nomes).toContain("Agenda");
+  });
+
+  it("um app com href negado some inteiro — com subApps e tudo", () => {
+    // Financeiro: href "/financeiro" é negado para mentorado, então o app
+    // inteiro (inclusive os cinco subApps) fica fora da lista devolvida.
+    const financeiro = appsDoPapel("mentorado").find((a) => a.id === "financeiro");
+    expect(financeiro).toBeUndefined();
+  });
+
+  it("um app com href permitido mas subApps todos negados continua aparecendo, com subApps vazio", () => {
+    // Cenário sintético: um app cujo href-pai é liberado para o papel mas
+    // cujos dois subApps não são — o app não pode sumir, só a lista de
+    // sub-apps fica vazia. Usa "/agenda" (permitido a mentorado) como
+    // href-pai e sub-apps inventados sob prefixo negado ("/financeiro/...").
+    const catalogoSintetico: AppCatalogo[] = [
+      {
+        id: "sintetico",
+        nome: "Sintético",
+        href: "/agenda",
+        icone: "CalendarDays",
+        cor: "#000000",
+        frase: "",
+        subApps: [
+          { id: "s1", nome: "S1", href: "/financeiro/s1", icone: "Wallet", cor: "#000", frase: "" },
+          { id: "s2", nome: "S2", href: "/financeiro/s2", icone: "Wallet", cor: "#000", frase: "" },
+        ],
+      },
+    ];
+    const resultado = appsDoPapel("mentorado", catalogoSintetico);
+    expect(resultado).toHaveLength(1);
+    expect(resultado[0].subApps).toEqual([]);
+  });
+
+  it.each(TODOS_PAPEIS)(
+    "papel %s: todo app devolvido tem href permitido, e todo subApp devolvido também",
+    (papel) => {
+      for (const catalogo of [CATALOGO_APPS, CATALOGO_SISTEMA]) {
+        for (const app of appsDoPapel(papel, catalogo)) {
+          expect(rotaPermitida(papel, app.href)).toBe(true);
+          for (const sub of app.subApps ?? []) {
+            expect(rotaPermitida(papel, sub.href)).toBe(true);
+          }
+        }
+      }
+    }
+  );
+
+  it("CATALOGO_APPS e CATALOGO_SISTEMA estão congelados", () => {
+    expect(Object.isFrozen(CATALOGO_APPS)).toBe(true);
+    expect(Object.isFrozen(CATALOGO_APPS[0])).toBe(true);
+    expect(Object.isFrozen(CATALOGO_SISTEMA)).toBe(true);
+    const financeiro = CATALOGO_APPS.find((a) => a.id === "financeiro")!;
+    expect(Object.isFrozen(financeiro.subApps)).toBe(true);
+    expect(Object.isFrozen(financeiro.subApps![0])).toBe(true);
+  });
+
+  it("appsDoPapel não muta CATALOGO_APPS (chamar para todo papel e comparar antes/depois)", () => {
+    const antes = JSON.parse(JSON.stringify(CATALOGO_APPS));
+    for (const papel of TODOS_PAPEIS) appsDoPapel(papel);
+    expect(CATALOGO_APPS).toEqual(antes);
+  });
+
+  it("chamar appsDoPapel duas vezes, com o mesmo papel, devolve o mesmo conteúdo", () => {
+    expect(appsDoPapel("comercial")).toEqual(appsDoPapel("comercial"));
+    expect(appsDoPapel("mentorado", CATALOGO_SISTEMA)).toEqual(
+      appsDoPapel("mentorado", CATALOGO_SISTEMA)
+    );
   });
 });
 

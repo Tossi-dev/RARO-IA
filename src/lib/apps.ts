@@ -15,6 +15,8 @@
 // src/components/fin-rotas.ts e as pastas de src/app/(app)/ — para não
 // inventar rota que não existe nem esquecer nenhuma tela ligada no menu.
 
+import { rotaPermitida, type Papel } from "@/lib/papeis";
+
 /** Nomes de ícone do lucide-react usados no catálogo — a lista fechada que
  *  springboard.tsx precisa mapear para o componente de fato. */
 export type NomeIcone =
@@ -67,14 +69,18 @@ export interface AppCatalogo {
 // virar para a família nova (azul-marinho + dourado do cliente), e não a
 // paleta de gráfico.
 //
-// Critério de cada cor (todas as oito precisam ficar DISTINGUÍVEIS entre si,
+// Critério de cada cor (todas as NOVE precisam ficar DISTINGUÍVEIS entre si,
 // senão o usuário erra o clique):
-//   - Dashboard e Agenda ficam em dois tons oficiais de --primaria
-//     (claro/base) — são os apps mais "centrais" do dia a dia, então herdam
-//     a cor mais forte da marca. Lançamentos usava o terceiro tom (escuro)
-//     desse trio; saiu do catálogo na virada para mentoria (ver comentário
-//     de CATALOGO_APPS), e o tom não foi realocado, pra não confundir com
-//     outra área de trabalho.
+//   - Mentoria fica no TERCEIRO tom oficial de --primaria (o escuro,
+//     --primaria-press): é o mesmo tom que Lançamentos usava antes da virada
+//     para mentoria e que, na época, foi deixado sem dono "pra não confundir
+//     com outra área de trabalho" (comentário antigo desta seção). Agora tem
+//     dono: Mentoria é o NÚCLEO do produto MentorOS, não mais um acessório
+//     — reaproveitar o tom mais forte da própria marca (em vez de introduzir
+//     uma cor nova) é o que marca essa posição de destaque.
+//   - Dashboard e Agenda ficam nos outros dois tons de --primaria
+//     (claro/base) — são os apps mais "centrais" do dia a dia, então também
+//     herdam a cor forte da marca.
 //   - Conteúdo & Redes ganha um quarto tom de azul (céu, mais aberto) em vez
 //     de repetir um dos de cima: mídia/vídeo/transmissão já associa com essa
 //     família, e assim não fica um ícone indistinguível dos outros azuis-marca.
@@ -91,6 +97,7 @@ export interface AppCatalogo {
 // vida, não área de trabalho. Cor viva ali competiria por atenção com os
 // apps de cima sem motivo de negócio. ("Coleta de dados" saiu do grupo na
 // virada para mentoria — ver comentário de CATALOGO_SISTEMA.)
+const COR_MENTORIA = "#1d4ed8"; // azul-marinho escuro (--primaria-press) — o núcleo do produto
 const COR_DASHBOARD = "#2563eb"; // azul-marinho base (--primaria)
 const COR_AGENDA = "#3b82f6"; // azul claro (--primaria-2)
 const COR_FINANCEIRO = "#10b981"; // verde — mesma leitura de "positivo" do resto do produto
@@ -188,6 +195,22 @@ const SUBAPPS_CONTEUDO: SubApp[] = [
  */
 export const CATALOGO_APPS: AppCatalogo[] = [
   {
+    // Primeiro da grade, de propósito: a mentoria é o NÚCLEO do produto
+    // MentorOS (B2.3), não mais um módulo de apoio — a carteira de
+    // mentorados é a primeira pergunta do dia, antes até do Dashboard.
+    // `Trophy` é reaproveitado de `SUBAPPS_CONTEUDO` (ranking) sem conflito
+    // visual: lá é ícone de pasta (só aparece dentro de Conteúdo & Redes),
+    // aqui é ícone de primeiro nível — nunca os dois lado a lado na mesma
+    // grade — e o significado ("conquista") cabe tanto em ranking de
+    // conteúdo quanto em marco de mentorado.
+    id: "mentoria",
+    nome: "Mentoria",
+    href: "/mentoria",
+    icone: "Trophy",
+    cor: COR_MENTORIA,
+    frase: "A carteira de mentorados: progresso, sessões e quem está sem contato.",
+  },
+  {
     // O Dashboard mora em "/painel" desde que a raiz do sistema virou a tela
     // inicial (os ícones). Ele deixou de ser a porta de entrada de propósito:
     // o dono entra vendo as áreas do negócio, e escolhe o painel quando quer
@@ -270,6 +293,34 @@ export const CATALOGO_SISTEMA: AppCatalogo[] = [
   },
 ];
 
+/**
+ * Congela um catálogo (o array, cada app, e o array/objetos de cada
+ * `subApps`) — B2.7. Antes desta função, nada impedia um `push` ou uma
+ * atribuição acidental em `CATALOGO_APPS`/`CATALOGO_SISTEMA` de mudar o
+ * catálogo em produção para sempre (os dois vivem no módulo, carregados uma
+ * vez por processo). `appsDoPapel` (abaixo) só é seguro de chamar em cada
+ * requisição, com papéis diferentes, porque a fonte que ele lê não pode ser
+ * mexida por baixo dele — o teste "não muta CATALOGO_APPS" prova a
+ * consequência; esta função é a causa.
+ *
+ * `Object.freeze` é raso (só a primeira camada) — por isso desce manualmente
+ * até `subApps`, senão o array de sub-apps continuaria mutável por dentro de
+ * um app "congelado".
+ */
+function congelarCatalogo(apps: readonly AppCatalogo[]): readonly AppCatalogo[] {
+  for (const app of apps) {
+    if (app.subApps) {
+      for (const sub of app.subApps) Object.freeze(sub);
+      Object.freeze(app.subApps);
+    }
+    Object.freeze(app);
+  }
+  return Object.freeze(apps);
+}
+
+congelarCatalogo(CATALOGO_APPS);
+congelarCatalogo(CATALOGO_SISTEMA);
+
 /** `pathname` é a própria rota do app, ou uma rota filha dela ("/x" cobre "/x/y"). */
 function ehMesmaRotaOuFilha(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
@@ -301,6 +352,46 @@ export function acharAppPorRota(
     }
   }
   return melhor ? { app: melhor.app, subApp: melhor.subApp } : null;
+}
+
+/**
+ * B2.7 — o filtro que faltava entre "o portão de rota está correto" e "a
+ * navegação respeita o papel". `rotaPermitida` (src/lib/papeis.ts) já sabia
+ * dizer "mentorado não abre /financeiro"; nada consultava essa resposta
+ * antes de DESENHAR o tile de Financeiro na tela inicial. O resultado
+ * medido era uma grade cheia de botões que levam a /sem-acesso — vazamento
+ * de EXISTÊNCIA (a pessoa descobre que o módulo existe, só não pode abrir)
+ * bem em cima da tela que foi escrita para não vazar isso.
+ *
+ * Não reimplementa casamento de rota: cada decisão é delegada a
+ * `rotaPermitida`, a MESMA função que o middleware usa para barrar de
+ * verdade — duas fontes de verdade aqui poderiam divergir (um app aparecer
+ * na grade e mesmo assim ser barrado, ou o contrário).
+ *
+ * Regra de sub-apps: um app cujo HREF é permitido mas cujos sub-apps são
+ * todos negados continua aparecendo — com `subApps` filtrado (podendo virar
+ * `[]`, nunca `undefined` quando o app original tinha a chave) — porque a
+ * própria rota do app pode ter algo para mostrar mesmo sem nenhum dos
+ * cômodos internos (é o caso, hoje, de "/financeiro" ser a tela de
+ * Resultado). Um app cujo HREF em si é negado some inteiro da lista, sub-apps
+ * e tudo: não faz sentido oferecer a pasta se nem a porta da pasta abre.
+ *
+ * Não muta `apps` (nem o array recebido nem os objetos dele) — devolve
+ * sempre objetos NOVOS. Como `CATALOGO_APPS`/`CATALOGO_SISTEMA` estão
+ * congelados (`congelarCatalogo`, acima), uma tentativa de mutar lançaria em
+ * modo estrito; esta função nunca tenta.
+ */
+export function appsDoPapel(papel: Papel, apps: AppCatalogo[] = CATALOGO_APPS): AppCatalogo[] {
+  const permitidos: AppCatalogo[] = [];
+  for (const app of apps) {
+    if (!rotaPermitida(papel, app.href)) continue;
+    if (!app.subApps) {
+      permitidos.push({ ...app });
+      continue;
+    }
+    permitidos.push({ ...app, subApps: app.subApps.filter((sub) => rotaPermitida(papel, sub.href)) });
+  }
+  return permitidos;
 }
 
 /**
