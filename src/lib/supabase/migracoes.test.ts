@@ -49,7 +49,7 @@
 // 0007 (portal liberado para todo mentorado, sem mentorado_atual())
 // antes de ser aceito — ver script de prova no relatório da auditoria.
 // ============================================================
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -59,10 +59,35 @@ function lerMigracao(arquivo: string): string {
   return readFileSync(join(MIGRATIONS_DIR, arquivo), "utf8");
 }
 
+/**
+ * Só os arquivos numerados "NNNN_nome.sql" — os pares "_exec_NNNN_nome.sql"
+ * (cópia usada para rodar manualmente no SQL Editor) têm texto DIFERENTE
+ * (comentários/idempotência aparados) e contariam tabela/política em
+ * dobro se entrassem na varredura.
+ */
+function arquivosDeMigracao(): string[] {
+  return readdirSync(MIGRATIONS_DIR)
+    .filter((f) => /^\d{4}_.*\.sql$/.test(f))
+    .sort();
+}
+
+function existeArquivoDeMigracao(nome: string): boolean {
+  return arquivosDeMigracao().includes(nome);
+}
+
+/** Concatena TODAS as migrações numeradas hoje presentes no diretório. */
+function todasAsMigracoes(): string {
+  return arquivosDeMigracao()
+    .map((f) => lerMigracao(f))
+    .join("\n");
+}
+
 const m0001 = lerMigracao("0001_schema.sql");
 const m0006 = lerMigracao("0006_mentoros_mentoria.sql");
 const m0007 = lerMigracao("0007_mentoros_rls.sql");
 const m0008 = lerMigracao("0008_mentoros_rls_correcoes.sql");
+const ARQUIVO_0009 = "0009_mentoros_tabelas_faltantes.sql";
+const m0009 = existeArquivoDeMigracao(ARQUIVO_0009) ? lerMigracao(ARQUIVO_0009) : "";
 
 // ---------- utilidades de leitura de política (texto puro, sem SQL parser) ----------
 
@@ -514,5 +539,196 @@ describe("médio — matricula_progresso conta sessão de turma, não só de mat
     expect(bloco, "matricula_progresso não foi recriada em 0008").toBeTruthy();
     expect(bloco).toMatch(/s\.matricula_id\s*=\s*mt\.id/i);
     expect(bloco).toMatch(/s\.turma_id\s*=\s*mt\.turma_id/i);
+  });
+});
+
+// ============================================================
+// 0009 — as oito tabelas da planilha que nunca ganharam migração
+// (agrupamentos, aulas, encontros, envios, importacoes, interacoes,
+// modulos, progresso_aulas). Sem elas o provider Supabase quebra em
+// runtime com "relation does not exist" — erro que o build não pega,
+// porque o nome da tabela é string (ver src/lib/data/supabase-db.ts).
+// ============================================================
+
+const TABELAS_0009 = [
+  "agrupamentos",
+  "aulas",
+  "encontros",
+  "envios",
+  "importacoes",
+  "interacoes",
+  "modulos",
+  "progresso_aulas",
+];
+
+// Classificação de RLS pedida na tarefa.
+const TABELAS_0009_FINANCEIRO = ["importacoes"];
+const TABELAS_0009_CRM = [
+  "interacoes",
+  "envios",
+  "modulos",
+  "aulas",
+  "encontros",
+  "agrupamentos",
+];
+const TABELAS_0009_FECHADO = ["progresso_aulas"];
+
+describe("0009 — as oito tabelas faltantes nascem multi-tenant", () => {
+  it.each(TABELAS_0009)("public.%s existe em 0009 e tem coluna workspace_id", (tabela) => {
+    const bloco = blocoCreateTable(m0009, tabela);
+    expect(bloco, `create table public.${tabela} não encontrado em 0009`).not.toBe("");
+    expect(bloco).toMatch(/workspace_id\s+uuid/i);
+  });
+});
+
+describe("0009 — nenhuma política nova usa using (true)", () => {
+  const todas0009 = todasPoliticas(m0009);
+
+  it("existe ao menos uma política criada em 0009 para cada uma das oito tabelas", () => {
+    for (const tabela of TABELAS_0009) {
+      const politicas = todas0009.filter((p) => p.tabela === tabela);
+      expect(politicas.length, `nenhuma política encontrada para public.${tabela} em 0009`).toBeGreaterThan(0);
+    }
+  });
+
+  it.each(TABELAS_0009)("%s: nenhuma política de 0009 (select/insert/update/delete) é using (true) puro", (tabela) => {
+    const politicas = todas0009.filter((p) => p.tabela === tabela);
+    for (const p of politicas) {
+      const usingMatch = p.texto.match(/using\s*\(([\s\S]*?)\)\s*(?:with check|;)/i);
+      if (usingMatch) {
+        expect(usingMatch[1].trim().toLowerCase()).not.toBe("true");
+      }
+      // "using (true)" também não pode aparecer solto em nenhum lugar do bloco.
+      expect(p.texto.toLowerCase().replace(/\s+/g, " ")).not.toContain("using (true)");
+    }
+  });
+});
+
+describe("0009 — toda política filtra por workspace_atual()", () => {
+  const todas0009 = todasPoliticas(m0009);
+
+  it.each(TABELAS_0009)("%s: TODA política criada em 0009 cita workspace_id = public.workspace_atual()", (tabela) => {
+    const politicas = todas0009.filter((p) => p.tabela === tabela);
+    expect(politicas.length, `esperava ao menos uma política para public.${tabela} em 0009`).toBeGreaterThan(0);
+    for (const p of politicas) {
+      expect(
+        p.texto,
+        `política "${p.comando}" de public.${tabela} não cita workspace_id = public.workspace_atual()`,
+      ).toContain("workspace_id = public.workspace_atual()");
+    }
+  });
+});
+
+describe("0009 — classificação de RLS por grupo", () => {
+  const todas0009 = todasPoliticas(m0009);
+
+  it.each(TABELAS_0009_FINANCEIRO)(
+    "%s (financeiro): política de select só permite dono/gestor, nunca comercial nem mentorado",
+    (tabela) => {
+      const politicas = politicasDe(todas0009, tabela, "select");
+      expect(politicas.length).toBeGreaterThan(0);
+      for (const p of politicas) {
+        const texto = p.texto.toLowerCase();
+        expect(texto).toContain("'dono'");
+        expect(texto).toContain("'gestor'");
+        expect(texto).not.toContain("'comercial'");
+        expect(texto).not.toContain("'mentorado'");
+      }
+    },
+  );
+
+  it.each(TABELAS_0009_CRM)(
+    "%s (crm/pipeline): política de select permite dono, gestor e comercial",
+    (tabela) => {
+      const politicas = politicasDe(todas0009, tabela, "select");
+      expect(politicas.length).toBeGreaterThan(0);
+      for (const p of politicas) {
+        const texto = p.texto.toLowerCase();
+        expect(texto).toContain("'dono'");
+        expect(texto).toContain("'gestor'");
+        expect(texto).toContain("'comercial'");
+      }
+    },
+  );
+
+  it.each(TABELAS_0009_FECHADO)(
+    "%s (fechado): NENHUMA política de 0009 cita 'mentorado' — decisão travada até existir Portal do Mentorado",
+    (tabela) => {
+      const politicas = todas0009.filter((p) => p.tabela === tabela);
+      expect(politicas.length).toBeGreaterThan(0);
+      for (const p of politicas) {
+        expect(p.texto.toLowerCase()).not.toContain("mentorado");
+      }
+    },
+  );
+});
+
+describe("0009 — interacoes.id_externo é único (dedupe de reenvio do agente local)", () => {
+  it("existe unique index ou unique constraint sobre id_externo", () => {
+    const bloco = blocoCreateTable(m0009, "interacoes");
+    const constraintInline = /id_externo\s+text[^,]*\bunique\b/i.test(bloco);
+    const uniqueIndex = /create\s+unique\s+index[^;]*on\s+public\.interacoes\s*\(\s*id_externo\s*\)/i.test(m0009);
+    expect(
+      constraintInline || uniqueIndex,
+      "esperava unique (inline ou índice) em interacoes.id_externo — sem isso o agente local reenviando o histórico duplica interação",
+    ).toBe(true);
+  });
+});
+
+describe("0009 — sem ALTER TYPE ... ADD VALUE (não pode rodar dentro de uma migração com uso na mesma transação)", () => {
+  it("0009 não contém 'alter type ... add value'", () => {
+    expect(m0009.toLowerCase()).not.toMatch(/alter type[\s\S]*?add value/i);
+  });
+});
+
+describe("0009 — fecha o buraco de origem: nenhuma tabela consultada pelo provider Supabase fica sem schema", () => {
+  function tabelasConsultadasPeloProvider(): string[] {
+    const caminho = join(process.cwd(), "src", "lib", "data", "supabase-db.ts");
+    const src = readFileSync(caminho, "utf8");
+    const re = /\.from\(\s*"([a-z_]+)"\s*\)/g;
+    const out = new Set<string>();
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(src))) out.add(m[1]);
+    return [...out].sort();
+  }
+
+  function tabelasCriadasEmTodasAsMigracoes(): Set<string> {
+    const sql = todasAsMigracoes();
+    const re = /create table(?:\s+if not exists)?\s+public\.(\w+)/gi;
+    const out = new Set<string>();
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(sql))) out.add(m[1]);
+    return out;
+  }
+
+  it("toda tabela em .from(\"...\") de supabase-db.ts existe em alguma migração", () => {
+    const consultadas = tabelasConsultadasPeloProvider();
+    const criadas = tabelasCriadasEmTodasAsMigracoes();
+    const faltando = consultadas.filter((t) => !criadas.has(t));
+    expect(
+      faltando,
+      `tabelas consultadas pelo provider mas nunca criadas em migração nenhuma: ${faltando.join(", ")}`,
+    ).toEqual([]);
+  });
+});
+
+describe("0010 — colunas que o app usava e o schema nao tinha", () => {
+  const m0010 = lerMigracao("0010_mentoros_colunas_faltantes.sql");
+
+  it("produtos ganha braco e categoria", () => {
+    // O provider ja lia r.braco e r.categoria em mapProduto; sem estas duas
+    // colunas o cadastro de produto estourava em runtime com "column does not
+    // exist", e nem tsc nem build pegavam, porque o nome da coluna e string.
+    expect(m0010).toMatch(/alter table public\.produtos[\s\S]*?add column if not exists braco/i);
+    expect(m0010).toMatch(/alter table public\.produtos[\s\S]*?add column if not exists categoria/i);
+  });
+
+  it("nao usa alter type add value, que nao roda na mesma transacao", () => {
+    expect(m0010).not.toMatch(/alter type[\s\S]*?add value/i);
+  });
+
+  it("o enum de categoria e criado de forma idempotente", () => {
+    expect(m0010).toMatch(/create type categoria_produto as enum/i);
+    expect(m0010).toMatch(/exception when duplicate_object then null/i);
   });
 });
