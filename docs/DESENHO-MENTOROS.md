@@ -192,13 +192,18 @@ lê como alerta.
 
 ---
 
-## 6. Decisões que ainda dependem de você
+## 6. Decisões respondidas
 
-1. **O app passa a se chamar MentorOS ou continua Raro.ia com a cara nova?**
-   O cliente viu "MentorOS" na apresentação.
-2. **Quantos mentorados o Jefson tem hoje?** Muda se eu modelo para dezenas ou
-   centenas.
-3. **A equipe comercial existe hoje**, ou o papel nasce vazio esperando?
+1. **O produto passa a se chamar MentorOS.** Era o nome que o cliente viu na
+   apresentação, e manter dois nomes seria manter o mal-entendido.
+2. **4 a 5 mentorados hoje.** Modelo para dezenas, não para centenas: nada de
+   paginação complexa, cache agressivo ou índice prematuro. Uma consulta que
+   varre cinquenta linhas é instantânea, e otimizar antes de existir volume é
+   gastar hoje para resolver um problema que talvez nunca chegue.
+3. **A equipe comercial nasce vazia.** O papel `comercial` existe no banco e
+   nas políticas de acesso desde o primeiro dia; a tela de gestão de equipe
+   vem quando houver equipe. Criar o papel depois obrigaria a mexer em todas
+   as políticas de RLS de uma vez — e é exatamente aí que se abre buraco.
 
 ---
 
