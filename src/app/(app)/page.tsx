@@ -9,17 +9,31 @@
 // e ler banco é coisa de Server Component. Regra do produto: badge inventado
 // é pior que badge nenhum, então cada número aqui vem de uma função que já
 // existe no núcleo de métricas — nada foi calculado só para "ter um número".
+//
+// B2.7 — POR QUE OS DOIS CATÁLOGOS PASSAM POR `appsDoPapel` ANTES DA GRADE:
+// o portão de rota (`rotaPermitida`, em src/lib/papeis.ts) já barrava um
+// mentorado de abrir /financeiro — mas nada impedia o TILE de Financeiro de
+// aparecer na tela inicial e levar direto para /sem-acesso. Isso é
+// vazamento de EXISTÊNCIA: a tela /sem-acesso foi escrita para não revelar o
+// mapa do que existe do outro lado (ver o comentário no topo dela), e a
+// grade de ícones entregava esse mapa inteiro na primeira tela. `papelAtual()`
+// lê o papel UMA VEZ, no servidor, e `appsDoPapel` filtra os dois catálogos
+// (o de trabalho e o de "Sistema") com a mesma função que decide o portão —
+// nenhuma lista nova de permissão foi inventada aqui.
 
-import { PageHeader } from "@/components/ui";
+import { Botao, Card, PageHeader } from "@/components/ui";
 import { Springboard } from "@/components/springboard";
+import { sair } from "@/lib/actions";
 import { hojeISO } from "@/lib/agenda";
-import { CATALOGO_APPS, CATALOGO_SISTEMA } from "@/lib/apps";
+import { appsDoPapel, CATALOGO_APPS, CATALOGO_SISTEMA } from "@/lib/apps";
 import { getDB } from "@/lib/data";
 import { inadimplencia } from "@/lib/metrics";
+import { papelAtual } from "@/lib/papel-atual";
 
 export const dynamic = "force-dynamic";
 
 export default async function Inicio() {
+  const papel = await papelAtual();
   const db = getDB();
   const [reunioes, tarefas, dc] = await Promise.all([
     db.listReunioes(),
@@ -27,6 +41,9 @@ export default async function Inicio() {
     db.datasetCaixa(),
   ]);
   const hoje = hojeISO();
+
+  const apps = appsDoPapel(papel, CATALOGO_APPS);
+  const appsSistema = appsDoPapel(papel, CATALOGO_SISTEMA);
 
   // Agenda: só a reunião que ainda vai acontecer HOJE conta — a já realizada
   // ou cancelada não pede atenção nenhuma na tela inicial.
@@ -53,16 +70,46 @@ export default async function Inicio() {
   return (
     <>
       <PageHeader titulo="Início" sub="Cada área do sistema, num ícone — como um app." />
-      <Springboard apps={CATALOGO_APPS} badges={badges} />
 
-      {/* Segunda fileira, separada de propósito: ferramenta não é trabalho do
-          dia. Ela existe aqui porque a sidebar saiu da tela — sem esta fileira,
-          "Importar extrato" e "Integrações" só seriam alcançáveis por quem
-          soubesse o nome de cor para digitar no ⌘K. */}
-      <p className="mb-3 mt-9 text-[11px] font-medium uppercase tracking-wider text-texto-3">
-        Sistema
-      </p>
-      <Springboard apps={CATALOGO_SISTEMA} badges={{}} />
+      {apps.length === 0 && appsSistema.length === 0 ? (
+        // B2.7, caso "grade vazia": um `appsDoPapel` que devolvesse nada não
+        // pode virar uma tela em branco sem explicação — a mesma regra de
+        // não vazar papel da tela /sem-acesso vale aqui (sem citar qual
+        // papel é este, nem qual área existiria do outro lado), só que a
+        // saída é o botão "Sair", porque não há nenhuma primeira rota deste
+        // papel para onde apontar um "voltar".
+        <Card>
+          <p className="text-sm leading-relaxed text-texto-2">
+            Não há nenhuma área liberada para este acesso agora. Se você acha
+            que deveria ver algo aqui, fale com quem administra o sistema.
+          </p>
+          <form action={sair} className="mt-4">
+            <Botao tipo="fantasma" className="w-full">
+              Sair
+            </Botao>
+          </form>
+        </Card>
+      ) : (
+        <>
+          {apps.length > 0 && <Springboard apps={apps} badges={badges} />}
+
+          {/* Segunda fileira, separada de propósito: ferramenta não é
+              trabalho do dia. Ela existe aqui porque a sidebar saiu da tela —
+              sem esta fileira, "Importar extrato" e "Integrações" só seriam
+              alcançáveis por quem soubesse o nome de cor para digitar no ⌘K.
+              Só desenha quando sobrou pelo menos um item depois do filtro de
+              papel — um título "Sistema" sem grade nenhuma embaixo seria uma
+              seção vazia sem propósito. */}
+          {appsSistema.length > 0 && (
+            <>
+              <p className="mb-3 mt-9 text-[11px] font-medium uppercase tracking-wider text-texto-3">
+                Sistema
+              </p>
+              <Springboard apps={appsSistema} badges={{}} />
+            </>
+          )}
+        </>
+      )}
     </>
   );
 }

@@ -2,6 +2,14 @@
 
 // Sidebar 248px em grupos (Blueprint v3, Anexo A.7):
 // grupos uppercase, item ativo com tint violeta + barra de acento 2px.
+//
+// B2.7 — OS GRUPOS DEIXARAM DE SER HARDCODED AQUI: a lista completa (com o
+// papel de quem está logado já aplicado) mora em src/lib/nav-lateral.ts, um
+// módulo NEUTRO lido no servidor. Ver o comentário lá para o porquê — em
+// resumo, filtrar dentro de um componente "use client" só esconde da TELA,
+// não do bundle JavaScript que já chegou ao navegador; filtrar antes de
+// serializar é o que de fato impede alguém de descobrir, pelas devtools, que
+// "/financeiro" existe.
 
 import {
   CalendarDays,
@@ -14,53 +22,25 @@ import {
   Upload,
   Users,
   Wallet,
+  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { GrupoNavLateral, NomeIconeLateral } from "@/lib/nav-lateral";
 import { cx } from "./ui";
 
-const GRUPOS = [
-  {
-    titulo: "Visão geral",
-    itens: [
-      // A área de trabalho com um ícone por app É a raiz do sistema: quem
-      // entra no site cai aqui. O Dashboard passou a ser mais um aplicativo,
-      // em "/painel" — deixou de ser a porta de entrada.
-      { href: "/", rotulo: "Início", Icone: LayoutGrid },
-      { href: "/painel", rotulo: "Dashboard", Icone: LayoutDashboard },
-      // O tour lê os mesmos números do painel em sequência, uma pergunta por
-      // tela — é a porta de entrada de quem não lê painel.
-      { href: "/tour", rotulo: "Tour pelos resultados", Icone: Compass },
-      { href: "/agenda", rotulo: "Agenda", Icone: CalendarDays },
-    ],
-  },
-  {
-    titulo: "Gestão",
-    itens: [
-      { href: "/financeiro", rotulo: "Financeiro", Icone: Wallet },
-      { href: "/crm", rotulo: "Central de Clientes", Icone: Users },
-      // "Lançamentos" saiu daqui na virada para mentoria (rota removida).
-    ],
-  },
-  {
-    titulo: "Marketing",
-    itens: [{ href: "/conteudo", rotulo: "Conteúdo & Redes", Icone: Clapperboard }],
-  },
-  {
-    titulo: "Sistema",
-    itens: [
-      { href: "/comecar", rotulo: "Começar", Icone: ListChecks },
-      // "Coleta de dados" saiu daqui na virada para mentoria (rota removida).
-      // Ferramenta de entrada de dado, não um dos apps de trabalho do
-      // catálogo de /inicio — ver comentário em src/lib/apps.ts sobre o que
-      // entra e o que fica só na sidebar.
-      { href: "/extrato", rotulo: "Importar extrato", Icone: Upload },
-      { href: "/integracoes", rotulo: "Integrações", Icone: Plug },
-    ],
-  },
-];
-
-const TODOS_ITENS = GRUPOS.flatMap((g) => g.itens);
+const ICONES: Record<NomeIconeLateral, LucideIcon> = {
+  LayoutGrid,
+  LayoutDashboard,
+  Compass,
+  CalendarDays,
+  Wallet,
+  Users,
+  Clapperboard,
+  ListChecks,
+  Upload,
+  Plug,
+};
 
 export function Marca() {
   // "Mentor" + "OS" no lugar de "raro" + ".ia": o ponto que separava o nome
@@ -77,18 +57,23 @@ function ativo(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
-export function SidebarNav() {
+/** `grupos` chega pronto do servidor — já filtrado pelo papel de quem está
+ *  logado (`gruposNavPorPapel`, em src/lib/nav-lateral.ts, chamada em
+ *  src/app/(app)/layout.tsx). Este componente só desenha; não decide o que
+ *  aparece. */
+export function SidebarNav({ grupos }: { grupos: GrupoNavLateral[] }) {
   const pathname = usePathname();
   return (
     <nav className="flex flex-col gap-4">
-      {GRUPOS.map((g) => (
+      {grupos.map((g) => (
         <div key={g.titulo}>
           <p className="mb-1 px-3 text-[11px] font-medium uppercase tracking-wider text-texto-3">
             {g.titulo}
           </p>
           <div className="flex flex-col gap-0.5">
-            {g.itens.map(({ href, rotulo, Icone }) => {
+            {g.itens.map(({ href, rotulo, icone }) => {
               const on = ativo(pathname, href);
+              const Icone = ICONES[icone];
               return (
                 // O item ativo não é mais "fundo violeta transparente": é a
                 // pílula do kit, com o gradiente sólido da marca e a luz forte
@@ -119,12 +104,16 @@ export function SidebarNav() {
   );
 }
 
-/** Navegação horizontal para telas pequenas. */
-export function NavMobile() {
+/** Navegação horizontal para telas pequenas — hoje sem uso (nenhuma tela
+ *  importa `NavMobile`; `menu-mobile.tsx` tem a própria gaveta), mas mantida
+ *  com a mesma assinatura por prop de `SidebarNav` para não reintroduzir,
+ *  amanhã, um catálogo hardcoded dentro de um componente cliente. */
+export function NavMobile({ grupos }: { grupos: GrupoNavLateral[] }) {
   const pathname = usePathname();
+  const todosItens = grupos.flatMap((g) => g.itens);
   return (
     <nav className="flex gap-1 overflow-x-auto">
-      {TODOS_ITENS.map(({ href, rotulo }) => (
+      {todosItens.map(({ href, rotulo }) => (
         <Link
           key={href}
           href={href}

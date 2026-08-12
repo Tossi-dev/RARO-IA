@@ -7,11 +7,15 @@ import { MenuMobile } from "@/components/menu-mobile";
 import { FaixaSimulacao } from "@/components/simulacao";
 import { Topbar, type ProdutoFonte } from "@/components/topbar";
 import { sair } from "@/lib/actions";
+import { appsDoPapel, CATALOGO_APPS, CATALOGO_SISTEMA } from "@/lib/apps";
 import { montarAvisos } from "@/lib/avisos";
 import { getDB, modoDadosEfetivo, supabaseConfigurado, type ModoDados } from "@/lib/data";
 import { simulacaoLigada } from "@/lib/data/simulacao";
 import { getFiltroGlobal } from "@/lib/filtros-server";
 import { getDensidade } from "@/lib/densidade-server";
+import { gruposNavPorPapel } from "@/lib/nav-lateral";
+import { papelAtual } from "@/lib/papel-atual";
+import { rotaPermitida } from "@/lib/papeis";
 import { getTema } from "@/lib/tema-server";
 import { criarSupabaseServer } from "@/lib/supabase/server";
 
@@ -51,6 +55,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     usuario = data.user?.email ?? "—";
   }
   const filtro = getFiltroGlobal();
+  // B2.7 — o papel é lido UMA VEZ aqui, no layout que envolve toda rota de
+  // `(app)`, e o resultado alimenta os três componentes de navegação
+  // (springboard fica de fora: ele é a própria página `/`, que lê o papel
+  // sozinha). Ver src/lib/papel-atual.ts para a lógica fail-closed.
+  const papel = await papelAtual();
   const db = getDB();
   // db.listLancamentos() saiu daqui: alimentava só a entidade "Lançamentos"
   // do ⌘K, que saiu na virada para mentoria (rota removida).
@@ -125,6 +134,25 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       extra: c.plataforma,
     })),
   ];
+  // B2.7 — a mesma checagem que o middleware faz para BARRAR uma rota
+  // decide, aqui, se ela nem chega a aparecer no ⌘K: um filtro genérico por
+  // `href`, não uma lista escrita à mão por item. Isto cobre de graça as
+  // entidades dinâmicas (um cliente em `/crm/:id`, um conteúdo em
+  // `/conteudo/:id`) — se o prefixo `/crm` ou `/conteudo` está fechado para
+  // o papel, a rota individual também fica, sem precisar de um `if` a mais
+  // para cada tipo de entidade.
+  const itensPaletteDoPapel = itensPalette.filter((item) => rotaPermitida(papel, item.href));
+
+  // Os apps de trabalho (springboard) e os de "Sistema", já filtrados pelo
+  // mesmo papel — a topbar usa esta lista combinada só para achar o nome do
+  // app da rota atual e para decidir se o atalho de criação rápida aparece
+  // (ver o comentário em src/components/topbar.tsx).
+  const appsDaTopbar = [...appsDoPapel(papel, CATALOGO_APPS), ...appsDoPapel(papel, CATALOGO_SISTEMA)];
+
+  // Navegação completa da gaveta do celular, já filtrada — ver o comentário
+  // em src/lib/nav-lateral.ts sobre por que o filtro tem que acontecer aqui
+  // e não dentro do componente cliente.
+  const gruposDaGaveta = gruposNavPorPapel(papel);
 
   return (
     <div className="min-h-screen">
@@ -133,17 +161,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           com cara de fundo preto e card cinza. Não intercepta clique. */}
       <div className="aurora" aria-hidden />
       <AvisosDock dados={avisos} />
-      <CommandPalette itens={itensPalette} />
+      <CommandPalette itens={itensPaletteDoPapel} />
       {/* A confissão vem ANTES de qualquer número da página, e ocupa espaço de
           propósito: aviso que some sozinho não estava lá na hora da decisão. */}
       {simulacao && <FaixaSimulacao />}
       {/* A sidebar de 248px saiu da tela a pedido do cliente ("a maioria das
           aplicações já virou aplicativo, o resto pode tirar — tirar o elemento
           visual, a funcionalidade mantém"). Ela não foi apagada do projeto:
-          <SidebarNav /> continua sendo a navegação completa da gaveta do
-          celular (src/components/menu-mobile.tsx). No desktop, o mesmo caminho
-          existe por três portas — a tela inicial em "/", a marca da topbar que
-          leva até ela, e o ⌘K, que acha qualquer tela pelo nome. */}
+          `<SidebarNav grupos={gruposDaGaveta} />` continua sendo a navegação
+          completa da gaveta do celular (src/components/menu-mobile.tsx). No
+          desktop, o mesmo caminho existe por três portas — a tela inicial em
+          "/", a marca da topbar que leva até ela, e o ⌘K, que acha qualquer
+          tela pelo nome. */}
       <div className="mx-auto max-w-[1600px]">
         <div className="min-w-0 flex-1">
           <Topbar
@@ -157,6 +186,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             simulacao={simulacao}
             pendencias={avisos.reunioesHoje.length + avisos.tarefas.length}
             fonteDoDado={avisoDaFonte(modo, usuario, simulacao)}
+            apps={appsDaTopbar}
           >
             {temAuth && (
               <form action={sair}>
@@ -172,6 +202,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             produtos={produtosAtivos}
             rangeDias={filtro.rangeDias}
             fonte={avisoDaFonte(modo, usuario, simulacao)}
+            grupos={gruposDaGaveta}
           >
             {temAuth && (
               <form action={sair}>

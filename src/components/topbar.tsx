@@ -25,7 +25,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { setFiltroGlobal } from "@/lib/actions";
-import { acharAppPorRota, CATALOGO_APPS, CATALOGO_SISTEMA } from "@/lib/apps";
+import { acharAppPorRota, type AppCatalogo } from "@/lib/apps";
 // SÓ o tipo: `@/lib/data` é módulo neutro de servidor (lê process.env e importa
 // os providers). Trazer valor de runtime dele para dentro de um componente
 // cliente dá 500 em runtime com o build ainda verde.
@@ -140,6 +140,7 @@ export function Topbar({
   simulacao,
   pendencias,
   fonteDoDado,
+  apps,
   children,
 }: {
   modo: ModoDados;
@@ -155,6 +156,21 @@ export function Topbar({
   pendencias: number;
   /** Frase que diz de onde vêm os números (montada no servidor). */
   fonteDoDado: string;
+  /**
+   * B2.7 — os apps de trabalho + os de "Sistema", JÁ FILTRADOS pelo papel
+   * (src/lib/apps.ts `appsDoPapel`, chamado em src/app/(app)/layout.tsx).
+   * Este componente importava `CATALOGO_APPS`/`CATALOGO_SISTEMA` direto —
+   * o catálogo INTEIRO, sem papel nenhum aplicado — só para achar o nome do
+   * app da rota atual (o "breadcrumb" ao lado da marca) e para decidir se o
+   * atalho de criação rápida aponta para algo que este papel pode abrir. A
+   * rota atual em si já é sempre permitida (o middleware barrou antes de
+   * chegar aqui), então usar o catálogo cheio não vazava nada por ESSA
+   * conta — mas o botão de criação rápida, fixo em "/financeiro", vazava: um
+   * mentorado via um botão "+" levando direto para /sem-acesso. Recebendo o
+   * catálogo já filtrado por prop, os dois usos passam a respeitar o papel
+   * pela mesma fonte de verdade.
+   */
+  apps: AppCatalogo[];
   /** Bloco vindo do servidor — hoje, o formulário de sair da conta. */
   children?: React.ReactNode;
 }) {
@@ -171,8 +187,12 @@ export function Topbar({
   // Onde estou: com a sidebar fora da tela, o nome do app aberto passou a ser
   // a única pista de lugar. Na tela inicial não há app aberto e o espaço fica
   // limpo, como numa área de trabalho.
-  const atual = acharAppPorRota(pathname, [...CATALOGO_APPS, ...CATALOGO_SISTEMA]);
+  const atual = acharAppPorRota(pathname, apps);
   const nomeDoLugar = atual ? (atual.subApp ? atual.subApp.nome : atual.app.nome) : null;
+  // O atalho de criação rápida só aparece quando "/financeiro" está na lista
+  // já filtrada — mesma pergunta que decide o tile de Financeiro na tela
+  // inicial, feita aqui pela MESMA lista, não por um `rotaPermitida` novo.
+  const podeRegistrar = apps.some((a) => a.href === "/financeiro" || a.href.startsWith("/financeiro/"));
 
   // `hidden md:flex`: no celular quem manda é <MenuMobile />. Esconder AQUI, e
   // não numa div em volta, é de propósito — `sticky` dentro de um wrapper da
@@ -265,14 +285,18 @@ export function Topbar({
           )}
         </button>
 
-        {/* criação rápida */}
-        <Link
-          href="/financeiro"
-          title="Registrar venda / despesa"
-          className="trans bevel flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-b from-primaria-2 via-primaria to-primaria-press text-white shadow-[0_6px_16px_-6px_rgb(var(--primaria)/0.7)] transition-all hover:brightness-110"
-        >
-          <Plus size={16} aria-hidden strokeWidth={1.75} />
-        </Link>
+        {/* criação rápida — só desenha se este papel pode abrir /financeiro
+            (ver `podeRegistrar` acima); antes da B2.7 este link era fixo e
+            um mentorado via um botão "+" que só levava a /sem-acesso. */}
+        {podeRegistrar && (
+          <Link
+            href="/financeiro"
+            title="Registrar venda / despesa"
+            className="trans bevel flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-b from-primaria-2 via-primaria to-primaria-press text-white shadow-[0_6px_16px_-6px_rgb(var(--primaria)/0.7)] transition-all hover:brightness-110"
+          >
+            <Plus size={16} aria-hidden strokeWidth={1.75} />
+          </Link>
+        )}
 
         {selo && (
           <span
