@@ -147,7 +147,7 @@ Teste: contar linha por aba na planilha e linha por tabela no Supabase, e
 exigir que os dois numeros batam antes de considerar migrado. Numero que nao
 bate para a migracao -- nunca se ajusta o numero para caber.
 
-**C8 · Aplicar as migracoes no projeto real**
+**C8 · Aplicar as migracoes no projeto real**  [FEITO em 12/08/2026]
 As 8 migracoes estao escritas e provadas contra um Postgres de verdade, mas
 ainda NAO foram aplicadas no projeto do cliente (cymwaroayxngplwswzwk).
 Rodar arquivo por arquivo no SQL Editor do Supabase, na ordem 0001 -> 0008.
@@ -177,3 +177,32 @@ arquivos**, e o git deixa arquivos de trava (`.git/index.lock`) para trás
 depois de cada operação. Eu movo essas travas para `_to_delete/git-locks/`
 antes de cada comando. Se algum dia o git reclamar de "another git process",
 é isso — e a saída é apagar essa pasta pelo Windows.
+
+
+---
+
+## Estado do banco real (projeto cymwaroayxngplwswzwk) — conferido no proprio banco
+
+As oito migracoes foram aplicadas em 12/08/2026, arquivo por arquivo, pelo SQL
+Editor. O que a leitura do catalogo do Postgres devolveu depois:
+
+| medida | valor | o que significa |
+|---|---|---|
+| tabelas em `public` | 46 | 36 do sistema antigo + 9 de mentoria + workspace |
+| politicas totais | 179 | select/insert/update/delete por papel |
+| politicas de SELECT com `using (true)` | **0** | ninguem le tudo so por estar logado |
+| politicas que filtram por `workspace_atual()` | 135 | isolamento entre inquilinos ja de pe |
+| `profiles.papel` default | `'mentorado'` | usuario novo nasce no MENOR privilegio |
+| views com `security_invoker = true` | 2 de 2 | nenhuma view contorna a RLS das tabelas |
+
+Duas armadilhas encontradas ao aplicar, registradas para a proxima instalacao:
+
+1. `alter type ... add value` **precisa rodar sozinho**. O editor do Supabase
+   envolve tudo numa transacao, e a 0005 falhou por inteiro na primeira
+   tentativa por causa disso -- sem que a tela mostrasse erro nenhum.
+2. O painel mostra "Success. No rows returned" da execucao ANTERIOR enquanto a
+   nova roda. Ler esse texto como veredito faz acreditar que uma migracao
+   passou quando ela nem comecou. Foi o que aconteceu comigo: dei a 0005 como
+   aplicada e sO descobri o contrario quando a 0006 reclamou que
+   `public.workspace` nao existia. A conferencia que vale e consultar o
+   catalogo (`pg_policies`, `pg_tables`), nao o texto da tela.
