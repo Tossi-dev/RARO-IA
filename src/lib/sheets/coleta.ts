@@ -137,98 +137,11 @@ export function rotaPrincipal(aba: string): RotaDeColeta | null {
   return candidatas.reduce((melhor, r) => (peso(r) > peso(melhor) ? r : melhor));
 }
 
-// ---------------------------------------------------------------------------
-// CASAMENTO DE DADOS -- qual tela le quais abas.
-//
-// Sem esta tabela, a ligacao entre aba e tela so existe espalhada dentro do
-// codigo de cada pagina, e a pergunta "se eu preencher VENDAS, o que muda no
-// painel?" nao tem resposta na tela. Com ela, a resposta e navegavel nos dois
-// sentidos: da aba para as telas que ela acende, e da tela para as abas que
-// precisam existir.
-// ---------------------------------------------------------------------------
-
-export type TelaDoPainel = {
-  href: string;
-  rotulo: string;
-  /** A pergunta de negocio que a tela responde. */
-  pergunta: string;
-  /** Abas lidas para montar a tela. */
-  le: string[];
-};
-
-export const TELAS: TelaDoPainel[] = [
-  {
-    href: "/",
-    rotulo: "Dashboard",
-    pergunta: "Como o negocio esta agora, em uma tela?",
-    le: ["VENDAS", "RECEBIVEIS", "DESPESAS", "LEADS", "METAS", "ALUNOS"],
-  },
-  {
-    href: "/financeiro",
-    rotulo: "Resultado",
-    pergunta: "O ano esta dando lucro e batendo as metas?",
-    le: ["VENDAS", "DESPESAS", "METAS", "PRODUTOS", "LANCAMENTOS", "ALUNOS"],
-  },
-  {
-    href: "/financeiro/caixa",
-    rotulo: "Fluxo de caixa",
-    pergunta: "Sobrou ou faltou dinheiro no periodo, e por causa de que?",
-    le: ["MOVIMENTOS", "CONTAS", "RECEBIVEIS", "DESPESAS"],
-  },
-  {
-    href: "/financeiro/projecao",
-    rotulo: "Projecao 13 semanas",
-    pergunta: "Em que semana o caixa fica negativo se nada mudar?",
-    le: ["MOVIMENTOS", "CONTAS", "RECEBIVEIS", "DESPESAS", "DESPESAS_RECORRENTES"],
-  },
-  {
-    href: "/financeiro/dre",
-    rotulo: "DRE gerencial",
-    pergunta: "A operacao deu lucro no mes, independente de ja ter recebido?",
-    le: ["VENDAS", "DESPESAS", "PRODUTOS", "CONFIG"],
-  },
-  {
-    href: "/financeiro/capital-de-giro",
-    rotulo: "Capital de giro",
-    pergunta: "Quanto tenho a receber, quanto devo e quando cada um cai?",
-    le: ["RECEBIVEIS", "DESPESAS", "COBRANCAS", "CONTAS"],
-  },
-  {
-    href: "/financeiro/reembolsos",
-    rotulo: "Reembolsos",
-    pergunta: "Quanto do faturamento esta voltando, e por qual produto?",
-    le: ["VENDAS", "PRODUTOS", "MOVIMENTOS", "RECEBIVEIS"],
-  },
-  {
-    href: "/financeiro/comissoes",
-    rotulo: "Comissoes",
-    pergunta: "Quanto devo para a rede hoje e quem ja esta atrasado?",
-    le: ["VENDAS", "RESPONSAVEIS", "MOVIMENTOS"],
-  },
-  {
-    href: "/crm",
-    rotulo: "Central de Clientes",
-    pergunta: "Quem esta no funil e quem parou de andar?",
-    le: ["LEADS", "ALUNOS", "ATIVIDADES", "TAREFAS", "VENDAS"],
-  },
-  {
-    href: "/lancamentos",
-    rotulo: "Lancamentos",
-    pergunta: "Como foi cada janela de venda contra a meta dela?",
-    le: ["LANCAMENTOS", "VENDAS", "PRODUTOS", "REUNIOES"],
-  },
-  {
-    href: "/conteudo",
-    rotulo: "Conteudo & Redes",
-    pergunta: "Que conteudo trouxe gente, e nao so visualizacao?",
-    le: ["CONTEUDOS", "CAMPANHAS", "LEADS"],
-  },
-];
-
-/** Telas que acendem quando esta aba tem linha. */
-export function telasQueUsam(aba: string): TelaDoPainel[] {
-  return TELAS.filter((t) => t.le.includes(aba));
-}
+// O "casamento de dados" (TELAS / telasQueUsam: qual tela le quais abas) saiu
+// daqui -- era so consumido pela tela /coleta, removida na virada para
+// mentoria, e nao fazia sentido manter um catalogo com href de rota que nao
+// existe mais. ROTAS_COLETA/rotaPrincipal continuam: quem ainda le esta parte
+// e OrigemDado (src/components/origem-dado.tsx), usado por telas que ficam.
 
 export const ROTULO_MODO: Record<ModoColeta, string> = {
   automatica: "Automatica",

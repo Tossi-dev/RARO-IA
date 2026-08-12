@@ -279,20 +279,9 @@ export function statsLancamento(
   };
 }
 
-/** Receita acumulada por dia dentro de um lançamento (para gráfico de tração). */
-export function receitaPorDia(matriculas: Matricula[], lancamentoId: string) {
-  const porDia = new Map<string, number>();
-  for (const m of matriculas) {
-    if (m.lancamentoId !== lancamentoId || m.statusPagamento === "pendente") continue;
-    porDia.set(m.data, (porDia.get(m.data) ?? 0) + m.valor);
-  }
-  const dias = [...porDia.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  let acc = 0;
-  return dias.map(([data, valor]) => {
-    acc += valor;
-    return { data, valor: r2(valor), acumulado: r2(acc) };
-  });
-}
+// receitaPorDia (receita acumulada por dia dentro de um lançamento) saiu
+// daqui: só alimentava o gráfico de tração de /lancamentos/[id], rota
+// removida na virada para mentoria.
 
 export interface Projecao {
   lucroAcumuladoAno: number;

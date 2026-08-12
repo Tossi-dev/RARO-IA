@@ -10,7 +10,6 @@
 // zerado a tira vira a coisa mais util da tela: em vez de um vazio mudo, o
 // usuario le qual aba enche aquele grafico e por qual caminho.
 
-import Link from "next/link";
 import {
   ROTULO_MODO,
   ROTULO_STATUS,
@@ -41,6 +40,12 @@ function rotaDominante(abas: string[]): RotaDeColeta | null {
  *
  * `vazio` liga o modo explicativo: quando o bloco nao tem nenhuma linha, em vez
  * de so citar a aba, a tira explica o caminho inteiro de entrada.
+ *
+ * O link "como enche" que levava pra /coleta saiu daqui: a tela de Coleta de
+ * dados foi removida na virada para mentoria, e um link morto era pior do
+ * que nenhum link. O badge de modo/status continua -- essa informacao vem
+ * de sheets/coleta.ts, que descreve o caminho do dado e nao depende de
+ * nenhuma tela existir pra continuar verdadeira.
  */
 export function OrigemDado({
   abas,
@@ -66,9 +71,6 @@ export function OrigemDado({
             {ROTULO_MODO[rota.modo]} · {ROTULO_STATUS[rota.status]}
           </Badge>
         ) : null}
-        <Link href="/coleta" className="ml-auto text-primaria-2 hover:underline">
-          como enche
-        </Link>
       </div>
       {calculo ? <p className="mt-1 text-texto-3">Conta: {calculo}</p> : null}
       {vazio && rota ? (

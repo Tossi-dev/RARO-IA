@@ -52,10 +52,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
   const filtro = getFiltroGlobal();
   const db = getDB();
-  const [avisos, alunos, lancamentos, conteudos, produtos] = await Promise.all([
+  // db.listLancamentos() saiu daqui: alimentava só a entidade "Lançamentos"
+  // do ⌘K, que saiu na virada para mentoria (rota removida).
+  const [avisos, alunos, conteudos, produtos] = await Promise.all([
     montarAvisos(),
     db.listAlunos(),
-    db.listLancamentos(),
     db.listConteudos(),
     db.listProdutos(),
   ]);
@@ -102,25 +103,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       extra: r.pergunta,
     })),
     { grupo: "Navegação", rotulo: "Central de Clientes (CRM)", href: "/crm" },
-    { grupo: "Navegação", rotulo: "Lançamentos", href: "/lancamentos" },
+    // "Lançamentos" (navegação, ação "Criar lançamento" e as entidades de
+    // cada lançamento) saiu do ⌘K na virada para mentoria (rota removida).
     { grupo: "Navegação", rotulo: "Conteúdo & Redes", href: "/conteudo" },
     { grupo: "Navegação", rotulo: "Ranking de conteúdos", href: "/conteudo/ranking" },
     { grupo: "Navegação", rotulo: "Campanhas", href: "/conteudo/campanhas" },
     { grupo: "Navegação", rotulo: "Integrações", href: "/integracoes" },
     { grupo: "Ações", rotulo: "Registrar venda / despesa", href: "/financeiro" },
     { grupo: "Ações", rotulo: "Adicionar cliente", href: "/crm" },
-    { grupo: "Ações", rotulo: "Criar lançamento", href: "/lancamentos" },
     { grupo: "Ações", rotulo: "Criar campanha", href: "/conteudo/campanhas" },
     ...alunos.slice(0, 60).map((a) => ({
       grupo: "Clientes",
       rotulo: a.nome,
       href: `/crm/${a.id}`,
       extra: a.email,
-    })),
-    ...lancamentos.map((l) => ({
-      grupo: "Lançamentos",
-      rotulo: l.nome,
-      href: `/lancamentos/${l.id}`,
     })),
     ...conteudos.slice(0, 40).map((c) => ({
       grupo: "Conteúdos",

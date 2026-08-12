@@ -79,27 +79,12 @@ export async function mudarStatusAluno(formData: FormData) {
   tudo();
 }
 
-// ---------- Lançamentos ----------
+// criarLancamento (e o formulário "Planejar novo lançamento" que a chamava)
+// saiu daqui na virada para mentoria: era a única tela que criava um
+// lançamento, e o redirect terminava em "/lancamentos", rota removida.
+// db.addLancamento() continua existindo no provider — só o gatilho de UI saiu.
 
-const LancamentoSchema = z.object({
-  nome: z.string().trim().min(2).max(120),
-  produtoId: z.string().min(1),
-  inicio: zData,
-  fim: z
-    .string()
-    .trim()
-    .transform((v) => (v === "" ? null : v))
-    .pipe(zData.nullable()),
-  metaFaturamento: zDinheiro,
-  descricao: z.string().trim().max(500).default(""),
-});
-
-export async function criarLancamento(formData: FormData) {
-  const l = LancamentoSchema.parse(Object.fromEntries(formData));
-  await getDB().addLancamento(l);
-  tudo();
-  redirect("/lancamentos");
-}
+// ---------- Matrículas e reembolsos ----------
 
 const MatriculaSchema = z.object({
   alunoId: z.string().min(1),

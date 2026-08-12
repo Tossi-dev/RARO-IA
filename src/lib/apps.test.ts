@@ -20,21 +20,20 @@ describe("CATALOGO_APPS — não inventa rota", () => {
     }
   });
 
-  it("Financeiro, Lançamentos e Conteúdo têm sub-apps; os demais não", () => {
+  it("Financeiro e Conteúdo têm sub-apps; os demais não", () => {
     const comPasta = CATALOGO_APPS.filter((a) => (a.subApps?.length ?? 0) > 0).map((a) => a.id);
-    expect(comPasta.sort()).toEqual(["conteudo", "financeiro", "lancamentos"].sort());
+    expect(comPasta.sort()).toEqual(["conteudo", "financeiro"].sort());
   });
 
-  it("Financeiro tem exatamente as sete telas de fin-rotas.ts, na mesma ordem", () => {
+  it("Financeiro tem exatamente as cinco telas de fin-rotas.ts, na mesma ordem", () => {
+    // Capital de giro e Comissões saíram na virada para mentoria (rotas removidas).
     const financeiro = CATALOGO_APPS.find((a) => a.id === "financeiro")!;
     expect(financeiro.subApps?.map((s) => s.href)).toEqual([
       "/financeiro",
       "/financeiro/caixa",
       "/financeiro/projecao",
       "/financeiro/dre",
-      "/financeiro/capital-de-giro",
       "/financeiro/reembolsos",
-      "/financeiro/comissoes",
     ]);
   });
 
@@ -63,9 +62,9 @@ describe("acharAppPorRota", () => {
   });
 
   it("uma rota mais funda que qualquer sub-app ainda resolve para o app-pai, sem sub-app", () => {
-    const achado = acharAppPorRota("/financeiro/comissoes/detalhe/xyz");
+    const achado = acharAppPorRota("/financeiro/reembolsos/detalhe/xyz");
     expect(achado?.app.id).toBe("financeiro");
-    expect(achado?.subApp?.id).toBe("financeiro-comissoes");
+    expect(achado?.subApp?.id).toBe("financeiro-reembolsos");
   });
 
   it("em empate (a rota do app É a rota de um sub-app), o app-nível vence", () => {
@@ -123,7 +122,7 @@ describe("ordenarApps", () => {
     const itens: AppCatalogo[] = [
       { id: "b", nome: "Conteúdo", href: "/b", icone: "Film", cor: "#000", frase: "" },
       { id: "a", nome: "Agenda", href: "/a", icone: "CalendarDays", cor: "#000", frase: "" },
-      { id: "c", nome: "Éter", href: "/c", icone: "Layers", cor: "#000", frase: "" },
+      { id: "c", nome: "Éter", href: "/c", icone: "Trophy", cor: "#000", frase: "" },
     ];
     expect(ordenarApps(itens).map((i) => i.id)).toEqual(["a", "b", "c"]);
   });

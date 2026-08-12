@@ -173,8 +173,10 @@ export function montarTour(e: EntradaTour): PassoTour[] {
       tom: concentracao.nivel === "critico" ? "negativo" : concentracao.nivel === "atencao" ? "neutro" : "positivo",
       frase: `${concentracao.topPct.toFixed(0)}% da receita vem de uma fonte só: ${concentracao.topNome}.`,
       detalhe: concentracao.leitura,
-      href: "/lancamentos",
-      rotuloHref: "ver as fontes de renda",
+      // Apontava para a seção "Fontes de renda" de /lancamentos, removida na
+      // virada para mentoria. O painel tem a mesma leitura por braço/fonte.
+      href: "/painel",
+      rotuloHref: "ver a concentração no painel",
     });
   }
 

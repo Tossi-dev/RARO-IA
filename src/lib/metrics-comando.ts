@@ -1328,7 +1328,9 @@ export function alertasComando(e: EntradaAlertas): AlertaComando[] {
       acao: "Disparar régua de cobrança começando pela faixa de maior valor.",
       valor: inad.valorAtrasado,
       rotuloValor: "parado a receber",
-      href: "/financeiro/capital-de-giro",
+      // Apontava para /financeiro/capital-de-giro, removida na virada para
+      // mentoria. Fluxo de caixa é a tela de dinheiro mais próxima que sobrou.
+      href: "/financeiro/caixa",
     });
   }
 
@@ -1344,7 +1346,9 @@ export function alertasComando(e: EntradaAlertas): AlertaComando[] {
       acao: "Quitar hoje — comissão atrasada derruba a produtividade da rede na semana seguinte.",
       valor: com.vencido,
       rotuloValor: "devido à rede",
-      href: "/financeiro/comissoes",
+      // Apontava para /financeiro/comissoes, removida na virada para
+      // mentoria — sem tela dedicada, o alerta leva ao Resultado geral.
+      href: "/financeiro",
     });
   }
 
@@ -1407,7 +1411,9 @@ export function alertasComando(e: EntradaAlertas): AlertaComando[] {
       acao: "Renegociar prazos de pagáveis ou antecipar recebíveis com custo conhecido.",
       valor: r2(Math.abs(e.pulso.capitalDeGiro)),
       rotuloValor: "descoberto",
-      href: "/financeiro/capital-de-giro",
+      // Apontava para /financeiro/capital-de-giro, removida na virada para
+      // mentoria. Fluxo de caixa é a tela de dinheiro mais próxima que sobrou.
+      href: "/financeiro/caixa",
     });
   }
 

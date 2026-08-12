@@ -313,32 +313,9 @@ export function GraficoMargemProduto({
   );
 }
 
-// ---------- Tração de um lançamento (receita acumulada por dia) ----------
-
-export function GraficoTracaoLancamento({
-  data,
-}: {
-  data: Array<{ label: string; acumulado: number }>;
-}) {
-  const ehCelular = useEhCelular();
-  return (
-    <ResponsiveContainer width="100%" height={ehCelular ? 260 : 220}>
-      <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid vertical={false} stroke={GRID} />
-        <XAxis
-          dataKey="label"
-          tick={tickEixo(ehCelular)}
-          axisLine={false}
-          tickLine={false}
-          minTickGap={ehCelular ? 40 : 24}
-        />
-        <YAxis tick={tickEixo(ehCelular)} axisLine={false} tickLine={false} tickFormatter={brlCompacto} width={52} />
-        <Tooltip content={<CaixaTooltip />} />
-        <Line name="Receita acumulada" dataKey="acumulado" stroke={SERIE_1} strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
-      </LineChart>
-    </ResponsiveContainer>
-  );
-}
+// GraficoTracaoLancamento (tração de um lançamento) saiu daqui: só era usado
+// pela aba "Visão geral" de /lancamentos/[id], rota removida na virada para
+// mentoria.
 
 // ============================================================
 // Expansão v2 — waterfall, retenção, barras genéricas, orçamento,

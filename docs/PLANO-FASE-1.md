@@ -15,7 +15,7 @@ Estado do que já existe e que este plano aproveita:
 
 ---
 
-## Bloco A — Identidade MentorOS
+## Bloco A — Identidade MentorOS  [CONCLUIDO]
 Nada aqui depende do Supabase. Pode começar agora.
 
 **A1 · Paleta do tema escuro**
@@ -56,7 +56,7 @@ Teste: build + `view-source` da home mostra o title novo.
 
 ---
 
-## Bloco B — Saída das rotas de infoproduto
+## Bloco B — Saída das rotas de infoproduto  [CONCLUIDO]
 Cada rota é uma tarefa. O que elas faziam já está registrado em
 `docs/DESENHO-MENTOROS.md`, seção 8.
 
@@ -65,7 +65,10 @@ Cada rota é uma tarefa. O que elas faziam já está registrado em
 Teste: build passa, `/lancamentos` responde 404, `npx vitest run` sem queda no
 número de testes que não sejam desta rota.
 
-**B2 · `coleta`** — idem, incluindo `src/app/api/webhooks/`.
+**B2 · `coleta`** — idem. ATENCAO: **NAO** apagar `src/app/api/webhooks/pagamento/`.
+A tela de coleta sai, o webhook fica: ele e o caminho por onde a confirmacao
+de pagamento chega, e a apresentacao do cliente conta com isso. (Uma versao
+anterior deste plano mandava apagar; a revisao do Bloco B pegou a armadilha.)
 **B3 · `capital`** — idem.
 **B4 · `comissoes`** — idem.
 **B5 · `chargebacks`** — idem, incluindo a aba na planilha (só a leitura sai;

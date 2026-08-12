@@ -114,13 +114,13 @@ export function AvisosDock({ dados }: { dados: DadosAvisos }) {
                         </p>
                         <p className="mt-0.5 flex items-center justify-between text-xs text-texto-2">
                           <span className="truncate">{r.comQuem || "—"}</span>
+                          {/* O link "lançamento →" (para /lancamentos/${lancamentoId}) saiu
+                              daqui: a rota foi removida na virada para mentoria. O campo
+                              `lancamentoId` da reunião continua existindo no dado (histórico),
+                              só não tem mais tela própria para apontar. */}
                           {r.alunoId ? (
                             <Link className="shrink-0 text-primaria-2 hover:underline" href={`/crm/${r.alunoId}`}>
                               histórico →
-                            </Link>
-                          ) : r.lancamentoId ? (
-                            <Link className="shrink-0 text-primaria-2 hover:underline" href={`/lancamentos/${r.lancamentoId}`}>
-                              lançamento →
                             </Link>
                           ) : null}
                         </p>
