@@ -140,7 +140,7 @@ describe("decidirAcessoSupabase", () => {
   it("usuário logado em /login vai para a primeira rota do próprio papel, nunca para '/' fixo", () => {
     expect(
       decidirAcessoSupabase({ pathname: "/login", usuario: usuario("mentorado") })
-    ).toEqual({ tipo: "redireciona", para: "/inicio" });
+    ).toEqual({ tipo: "redireciona", para: "/portal" });
     expect(decidirAcessoSupabase({ pathname: "/login", usuario: usuario("dono") })).toEqual({
       tipo: "redireciona",
       para: "/",
@@ -256,7 +256,7 @@ describe("decidirAcessoSupabase", () => {
       });
       expect(
         decidirAcessoSupabase({ pathname: "/login", usuario: usuario("mentorado") })
-      ).toEqual({ tipo: "redireciona", para: "/inicio" });
+      ).toEqual({ tipo: "redireciona", para: "/portal" });
     });
   });
 
@@ -266,8 +266,21 @@ describe("decidirAcessoSupabase", () => {
   // não fazer. Papel cuja primeira rota não é "/" precisa ser tirado da raiz
   // antes de o Springboard renderizar.
   describe("BAIXO 4 — raiz '/' redireciona para a primeira rota de quem não é dono/gestor", () => {
-    it("mentorado, afiliado e aluno em '/' vão para /inicio", () => {
-      for (const papel of ["mentorado", "afiliado", "aluno"] as const) {
+    // ALTO 2 da auditoria (ver src/lib/papeis.test.ts): `primeiraRotaDe`
+    // deixou de mandar afiliado/aluno para /portal — as políticas de RLS
+    // do grupo 3 só liberam o portal para `papel_atual() = 'mentorado'`
+    // de verdade, então afiliado/aluno caíam numa tela estruturalmente
+    // vazia. Só `mentorado` continua indo para /portal ao entrar pela
+    // raiz; afiliado/aluno vão para /inicio, como comercial vai para /crm.
+    it("mentorado em '/' vai para /portal", () => {
+      expect(decidirAcessoSupabase({ pathname: "/", usuario: usuario("mentorado") })).toEqual({
+        tipo: "redireciona",
+        para: "/portal",
+      });
+    });
+
+    it("afiliado e aluno em '/' vão para /inicio, não para /portal (ALTO 2)", () => {
+      for (const papel of ["afiliado", "aluno"] as const) {
         expect(decidirAcessoSupabase({ pathname: "/", usuario: usuario(papel) })).toEqual({
           tipo: "redireciona",
           para: "/inicio",

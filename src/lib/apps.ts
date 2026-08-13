@@ -35,7 +35,8 @@ export type NomeIcone =
   | "Trophy"
   | "ListChecks"
   | "Upload"
-  | "Plug";
+  | "Plug"
+  | "UserCircle";
 
 export interface SubApp {
   id: string;
@@ -103,6 +104,11 @@ const COR_AGENDA = "#3b82f6"; // azul claro (--primaria-2)
 const COR_FINANCEIRO = "#10b981"; // verde — mesma leitura de "positivo" do resto do produto
 const COR_CRM = "#f59e0b"; // dourado do cliente (--dourado) — único do grupo principal
 const COR_CONTEUDO = "#0ea5e9"; // azul-céu — quarto tom de azul, mais aberto (mídia/transmissão)
+// B3.2 — violeta, fora da família azul/verde/dourado de cima de propósito:
+// dono/gestor veem Mentoria (Trophy, azul-marinho escuro) e Portal (Trophy
+// seria o MESMO ícone) lado a lado na mesma grade — precisa de cor E ícone
+// distintos dos dois, não só cor.
+const COR_PORTAL = "#7c3aed"; // violeta-600 — identidade própria, sem repetir tom de nenhum app acima
 
 /**
  * Financeiro (src/components/fin-rotas.ts é o mapa oficial das telas do
@@ -255,6 +261,22 @@ export const CATALOGO_APPS: AppCatalogo[] = [
     cor: COR_CONTEUDO,
     frase: "Posts, reels, campanhas e ranking do que performa.",
     subApps: SUBAPPS_CONTEUDO,
+  },
+  {
+    // B3.2 — o Portal do Mentorado: a própria jornada do cliente (progresso,
+    // sessões, tarefas, marcos, evolução). Último da grade porque, para
+    // dono/gestor, é uma tela de PREVIEW do que o cliente vê, não uma
+    // ferramenta de trabalho do dia a dia como as de cima; para
+    // mentorado/afiliado/aluno é a ÚNICA tela deste catálogo que
+    // `appsDoPapel` libera (`rotaPermitida`, via `/lib/papeis.ts`, nega os
+    // outros seis hrefs para esses três papéis) — é a casa deles, mesmo
+    // aparecendo por último aqui.
+    id: "portal",
+    nome: "Portal",
+    href: "/portal",
+    icone: "UserCircle",
+    cor: COR_PORTAL,
+    frase: "A jornada do cliente: progresso, sessões, tarefas e evolução.",
   },
 ];
 

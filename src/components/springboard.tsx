@@ -25,6 +25,7 @@ import {
   Trophy,
   Undo2,
   Upload,
+  UserCircle,
   Users,
   Wallet,
   X,
@@ -55,6 +56,7 @@ const ICONES: Record<NomeIcone, LucideIcon> = {
   ListChecks,
   Upload,
   Plug,
+  UserCircle,
 };
 
 /** Um item da grade — app de primeiro nível ou sub-app dentro de uma pasta. */

@@ -20,6 +20,7 @@ import {
   ListChecks,
   Plug,
   Upload,
+  UserCircle,
   Users,
   Wallet,
   type LucideIcon,
@@ -40,6 +41,7 @@ const ICONES: Record<NomeIconeLateral, LucideIcon> = {
   ListChecks,
   Upload,
   Plug,
+  UserCircle,
 };
 
 export function Marca() {

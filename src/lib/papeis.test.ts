@@ -69,7 +69,7 @@ describe("rotaPermitida — comercial", () => {
 
 describe("rotaPermitida — mentorado (e papéis antigos afiliado/aluno no mesmo nível)", () => {
   it("permite as rotas mínimas para os três papéis", () => {
-    const permitidas = ["/", "/inicio", "/comecar", "/tour", "/conteudo", "/agenda"];
+    const permitidas = ["/", "/inicio", "/portal", "/comecar", "/tour", "/conteudo", "/agenda"];
     for (const papel of ["mentorado", "afiliado", "aluno"] as const) {
       for (const rota of permitidas) {
         expect(rotaPermitida(papel, rota)).toBe(true);
@@ -121,11 +121,23 @@ describe("rotaPermitida — /financeiro/dre só para dono e gestor", () => {
 });
 
 describe("primeiraRotaDe", () => {
-  it("manda dono e gestor para a raiz, comercial para /crm, e o resto para /inicio", () => {
+  // ALTO 2 da auditoria — as políticas de RLS do grupo 3 (0007/0008) só
+  // liberam as tabelas do portal para `papel_atual() = 'mentorado'`.
+  // `afiliado` e `aluno` são o MESMO NÍVEL de acesso (ver ROTAS_MINIMAS,
+  // acima), mas não são literalmente 'mentorado' no enum do Postgres — um
+  // afiliado ou aluno mandado para `/portal` cai numa tela que a RLS
+  // esvazia por completo (nenhuma matrícula, sessão, tarefa: tudo filtrado
+  // por `mentorado_atual()`, que só resolve para quem tem ficha em
+  // `public.mentorado`), sem entender por quê. `/portal` continua
+  // PERMITIDO para os três (a tela sabe dizer "esta área é do mentorado"
+  // sem vazar nada — ver `PortalAindaNaoLigado` em
+  // `src/app/(app)/portal/page.tsx`) — o que muda aqui é só para ONDE cada
+  // um é mandado ao entrar.
+  it("manda dono e gestor para a raiz, comercial para /crm, mentorado para /portal, e afiliado/aluno para /inicio (ALTO 2 — /portal é estruturalmente vazio para eles)", () => {
     expect(primeiraRotaDe("dono")).toBe("/");
     expect(primeiraRotaDe("gestor")).toBe("/");
     expect(primeiraRotaDe("comercial")).toBe("/crm");
-    expect(primeiraRotaDe("mentorado")).toBe("/inicio");
+    expect(primeiraRotaDe("mentorado")).toBe("/portal");
     expect(primeiraRotaDe("afiliado")).toBe("/inicio");
     expect(primeiraRotaDe("aluno")).toBe("/inicio");
   });
@@ -134,6 +146,41 @@ describe("primeiraRotaDe", () => {
     for (const papel of TODOS_OS_PAPEIS) {
       expect(rotaPermitida(papel, primeiraRotaDe(papel))).toBe(true);
     }
+  });
+
+  // ALTO 2 — nomeado explicitamente, como o enunciado pede: prova que
+  // afiliado e aluno NÃO caem em /portal ao entrar, mesmo que /portal
+  // continue sendo uma rota que eles têm permissão de abrir manualmente.
+  it("ALTO 2: afiliado e aluno NÃO caem em /portal ao entrar (mentorado, sim)", () => {
+    expect(primeiraRotaDe("mentorado")).toBe("/portal");
+    for (const papel of ["afiliado", "aluno"] as const) {
+      expect(primeiraRotaDe(papel)).not.toBe("/portal");
+      expect(primeiraRotaDe(papel)).toBe("/inicio");
+      // e /portal continua ABERTO para os dois — o que mudou é só o
+      // destino de entrada, nunca a permissão de visitar a rota depois.
+      expect(rotaPermitida(papel, "/portal")).toBe(true);
+    }
+  });
+});
+
+// B3.2 — /portal é a tela do MENTORADO (o cliente do Jefson): entra na lista
+// mínima (mentorado/afiliado/aluno), dono/gestor já veem tudo, mas COMERCIAL
+// não — o portal é do cliente, e um closer não tem o que fazer lá dentro.
+describe("rotaPermitida — /portal é do mentorado, não do comercial (B3.2)", () => {
+  it("mentorado, afiliado e aluno abrem /portal", () => {
+    for (const papel of ["mentorado", "afiliado", "aluno"] as const) {
+      expect(rotaPermitida(papel, "/portal")).toBe(true);
+    }
+  });
+
+  it("dono e gestor abrem /portal (recebem 'todas')", () => {
+    expect(rotaPermitida("dono", "/portal")).toBe(true);
+    expect(rotaPermitida("gestor", "/portal")).toBe(true);
+  });
+
+  it("comercial NÃO abre /portal — nem a rota, nem uma sub-rota dela", () => {
+    expect(rotaPermitida("comercial", "/portal")).toBe(false);
+    expect(rotaPermitida("comercial", "/portal/qualquer-coisa")).toBe(false);
   });
 });
 
@@ -159,11 +206,11 @@ describe("rotaPermitida e primeiraRotaDe — normalizam entrada desconhecida com
     }
   });
 
-  it("primeiraRotaDe nunca devolve undefined para papel desconhecido, e manda para /inicio como PAPEL_PADRAO", () => {
+  it("primeiraRotaDe nunca devolve undefined para papel desconhecido, e manda para /portal como PAPEL_PADRAO", () => {
     for (const entrada of entradasDesconhecidas) {
       const papel = entrada as unknown as Papel;
       expect(() => primeiraRotaDe(papel)).not.toThrow();
-      expect(primeiraRotaDe(papel)).toBe("/inicio");
+      expect(primeiraRotaDe(papel)).toBe("/portal");
     }
   });
 });

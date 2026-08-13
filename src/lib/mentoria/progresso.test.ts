@@ -122,6 +122,39 @@ describe("progressoDe — regra 3: nunca inventar denominador", () => {
   });
 });
 
+// BAIXO 8 da auditoria — pacote aberto (previstas null) sempre dizia
+// "N sessões realizadas", plural, mesmo com N=1 ("1 sessões realizadas" —
+// concordância errada). 0, 1 e 2 são os três casos que decidem plural vs.
+// singular em português: zero é plural ("0 sessões"), um é singular
+// ("1 sessão"), dois em diante volta a ser plural.
+describe("progressoDe — BAIXO 8: concordância de plural em 'N sessões realizadas' (pacote aberto)", () => {
+  it("0 sessões realizadas -> plural ('0 sessões realizadas')", () => {
+    const matricula = matriculaDe({ sessoesPrevistas: null });
+    const programa = programaDe({ totalSessoes: null });
+    const progresso = progressoDe(matricula, programa, []);
+    expect(progresso.realizadas).toBe(0);
+    expect(progresso.rotulo).toBe("0 sessões realizadas");
+  });
+
+  it("1 sessão realizada -> SINGULAR ('1 sessão realizada', nunca '1 sessões realizadas')", () => {
+    const matricula = matriculaDe({ sessoesPrevistas: null });
+    const programa = programaDe({ totalSessoes: null });
+    const sessoes = [sessaoDe({ status: "realizada" })];
+    const progresso = progressoDe(matricula, programa, sessoes);
+    expect(progresso.realizadas).toBe(1);
+    expect(progresso.rotulo).toBe("1 sessão realizada");
+  });
+
+  it("2 sessões realizadas -> plural de volta ('2 sessões realizadas')", () => {
+    const matricula = matriculaDe({ sessoesPrevistas: null });
+    const programa = programaDe({ totalSessoes: null });
+    const sessoes = [sessaoDe({ status: "realizada" }), sessaoDe({ status: "realizada" })];
+    const progresso = progressoDe(matricula, programa, sessoes);
+    expect(progresso.realizadas).toBe(2);
+    expect(progresso.rotulo).toBe("2 sessões realizadas");
+  });
+});
+
 describe("progressoDe — regra 4: excedeu (sessões de cortesia)", () => {
   it("realizadas > previstas: percentual trava em 100, excedeu é true, rótulo mostra o número real", () => {
     const matricula = matriculaDe({ sessoesPrevistas: 12 });

@@ -37,7 +37,8 @@ export type NomeIconeLateral =
   | "Clapperboard"
   | "ListChecks"
   | "Upload"
-  | "Plug";
+  | "Plug"
+  | "UserCircle";
 
 export interface ItemNavLateral {
   href: string;
@@ -61,6 +62,10 @@ const GRUPOS_COMPLETOS: GrupoNavLateral[] = [
     titulo: "Visão geral",
     itens: [
       { href: "/", rotulo: "Início", icone: "LayoutGrid" },
+      // B3.2 — logo depois de "Início": para mentorado/afiliado/aluno é a
+      // primeira rota do próprio papel (`primeiraRotaDe`, em papeis.ts), a
+      // casa deles; para dono/gestor é o preview do que o cliente vê.
+      { href: "/portal", rotulo: "Portal", icone: "UserCircle" },
       { href: "/painel", rotulo: "Dashboard", icone: "LayoutDashboard" },
       { href: "/tour", rotulo: "Tour pelos resultados", icone: "Compass" },
       { href: "/agenda", rotulo: "Agenda", icone: "CalendarDays" },

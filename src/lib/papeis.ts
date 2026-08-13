@@ -66,8 +66,14 @@ const ROTAS_COMERCIAL = [
 ] as const;
 
 /** O nível mínimo — mentorado e os dois nomes antigos do mesmo papel
- *  (afiliado, aluno): só o que é preciso para consumir o próprio conteúdo. */
-const ROTAS_MINIMAS = ["/", "/inicio", "/comecar", "/tour", "/conteudo", "/agenda"] as const;
+ *  (afiliado, aluno): só o que é preciso para consumir o próprio conteúdo.
+ *
+ *  `/portal` (B3.2) é a CASA deles — a tela que mostra a própria jornada
+ *  (matrícula, sessões, tarefas, marcos, score). Fica nas rotas mínimas, não
+ *  nas comerciais: é a tela do CLIENTE do Jefson, não uma ferramenta de
+ *  quem vende para ele — um comercial (`ROTAS_COMERCIAL`, acima) não tem o
+ *  que fazer lá dentro. */
+const ROTAS_MINIMAS = ["/", "/inicio", "/portal", "/comecar", "/tour", "/conteudo", "/agenda"] as const;
 
 /**
  * Lista de permissão por papel, não de bloqueio: dono e gestor recebem o
@@ -168,6 +174,34 @@ export function rotaPermitida(papelBruto: Papel, pathname: string): boolean {
  * Mesma normalização de `rotaPermitida`: papel desconhecido nunca cai fora
  * do switch (o que devolveria `undefined`, apesar da assinatura dizer
  * `string`) — cai em PAPEL_PADRAO, que sempre bate em algum `case`.
+ *
+ * B3.2 — mentorado passa a abrir em `/portal`, não mais em `/inicio`:
+ * `/portal` é a própria jornada da pessoa (matrícula, sessões, tarefas);
+ * `/inicio` é a grade de apps, feita para quem opera o negócio. É a
+ * primeira tela que o Jefson mostra para um cliente novo — precisa ser o
+ * que abre primeiro, não algo que a pessoa precisa saber navegar até.
+ *
+ * ALTO 2 da auditoria — POR QUE afiliado/aluno NÃO ENTRAM AQUI (mais)
+ * ----------------------------------------------------------------------
+ * `afiliado` e `aluno` são nomes antigos do MESMO NÍVEL de acesso que
+ * `mentorado` (ver o comentário no topo do arquivo) — mas as políticas de
+ * RLS do grupo 3 (`supabase/migrations/0007_mentoros_rls.sql` e
+ * `0008_mentoros_rls_correcoes.sql`) testam literalmente
+ * `papel_atual() = 'mentorado'`, o valor do enum do Postgres. Um `afiliado`
+ * ou `aluno` mandado para `/portal` batia numa tela ESTRUTURALMENTE VAZIA:
+ * `mentorado_atual()` (a função que resolve "qual é a ficha desta pessoa")
+ * só encontra algo para quem tem `papel = 'mentorado'` de verdade, então
+ * toda consulta do portal voltava zero linhas — sem erro, sem aviso, só um
+ * portal em branco que ninguém entendia por quê.
+ *
+ * `/portal` continua PERMITIDO para os três em `rotaPermitida` (a tela
+ * sabe dizer "esta área é do mentorado" sem vazar nada — ver
+ * `PortalAindaNaoLigado` em `src/app/(app)/portal/page.tsx`, o estado que
+ * aparece para quem entra lá sem ficha de mentorado). O que esta função
+ * decide é só para ONDE mandar cada um ao ENTRAR: mentorado vai para a
+ * própria jornada; afiliado e aluno vão para `/inicio`, a mesma grade de
+ * apps que comercial/dono/gestor usariam para navegar até qualquer lugar
+ * que façam sentido para eles.
  */
 export function primeiraRotaDe(papelBruto: Papel): string {
   const papel = papelDe(papelBruto);
@@ -178,6 +212,7 @@ export function primeiraRotaDe(papelBruto: Papel): string {
     case "comercial":
       return "/crm";
     case "mentorado":
+      return "/portal";
     case "afiliado":
     case "aluno":
       return "/inicio";
