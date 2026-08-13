@@ -365,13 +365,20 @@ const TIPOS_DESPESA: Record<string, TipoDespesa> = {
  * `recorrente` nao aparece aqui de proposito: ele e CALCULADO (segunda matricula
  * em VENDAS), nao digitado. Etapa escrita como "recorrente" e ignorada e o
  * sistema recalcula, porque a contagem de matriculas e a fonte de verdade.
+ *
+ * A `chave` liga cada etapa da planilha ao degrau equivalente da escada
+ * canonica (`src/lib/crm/jornada.ts`), que e o que ordena o kanban. So
+ * 'Perdido' fica FORA da escada — negocio perdido nao e degrau de jornada
+ * nenhum, e forcar 'alumni' ali diria que a pessoa concluiu o programa. Fora
+ * da escada a coluna aparece no fim, com o rotulo da planilha, sem afirmar
+ * nada sobre onde aquela gente esta.
  */
 export const ESTAGIOS_PLANILHA: Estagio[] = [
-  { id: "etapa-novo", nome: "Novo", ordem: 1, cor: "cinza", funil: "potencial" },
-  { id: "etapa-qualificado", nome: "Qualificado", ordem: 2, cor: "azul", funil: "potencial" },
-  { id: "etapa-negociacao", nome: "Negociação", ordem: 3, cor: "violeta", funil: "potencial" },
-  { id: "etapa-ganho", nome: "Ganho", ordem: 4, cor: "verde", funil: "novo" },
-  { id: "etapa-perdido", nome: "Perdido", ordem: 5, cor: "vermelho", funil: "inativo" },
+  { id: "etapa-novo", nome: "Novo", chave: "prospect", ordem: 1, cor: "cinza", funil: "potencial" },
+  { id: "etapa-qualificado", nome: "Qualificado", chave: "lead_qualificado", ordem: 2, cor: "azul", funil: "potencial" },
+  { id: "etapa-negociacao", nome: "Negociação", chave: "proposta", ordem: 3, cor: "violeta", funil: "potencial" },
+  { id: "etapa-ganho", nome: "Ganho", chave: "cliente_novo", ordem: 4, cor: "verde", funil: "novo" },
+  { id: "etapa-perdido", nome: "Perdido", chave: "perdido", ordem: 5, cor: "vermelho", funil: "inativo" },
 ];
 
 /** Aceita a etapa escrita de varios jeitos e devolve sempre um `Estagio`. */

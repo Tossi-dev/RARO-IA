@@ -303,6 +303,15 @@ export type OrigemTranscricao = "manual" | "audio_ia";
 
 export interface Estagio {
   id: string;
+  // Identificador ESTÁVEL do degrau da escada (`crm_estagios.chave`, criada
+  // pela migração 0014). É por ela — nunca pelo `nome`, que é texto livre e
+  // o dono renomeia na tela quando quiser — que o código reconhece a etapa;
+  // o vocabulário canônico mora em `src/lib/crm/jornada.ts`. Chave que não
+  // está na escada (o `inativo` que a 0014 preserva, ou um estágio criado à
+  // mão) continua valendo: é estágio de verdade, só não participa das regras
+  // da escada. Vem `""` de base anterior à 0014 e das fontes que não têm o
+  // conceito — e `""` é tratado como "fora da escada", nunca como erro.
+  chave: string;
   nome: string;
   ordem: number;
   cor: string; // tom do badge (violeta|ouro|verde|vermelho|cinza|azul)

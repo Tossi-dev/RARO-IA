@@ -9,10 +9,12 @@ import { z } from "zod";
 import QRCode from "qrcode";
 import { dinheiroDeCampo } from "./dinheiro";
 import { estadoDoAgente } from "./atendimento/pulso";
+import { transicaoPermitida } from "./crm/jornada";
 import { getDB, supabaseConfigurado } from "./data";
 import { PALETA_AGRUPAMENTO } from "./cores";
 import { CATEGORIA_CAIXA_LABEL } from "./domain";
-import type { CategoriaCaixa } from "./types";
+import type { CategoriaCaixa, Estagio } from "./types";
+import type { AlunoDetalhe } from "./data/provider";
 import { COOKIE_SIMULACAO, SIMULACAO_MAX_AGE } from "./data/simulacao";
 import { COOKIE_DENSIDADE } from "./densidade";
 import { COOKIE_GOOGLE } from "./integracoes/google-agenda";
@@ -454,16 +456,114 @@ export async function registrarAtividade(formData: FormData) {
   tudo();
 }
 
+// ---------- CRM: mover de estágio (a escada de `src/lib/crm/jornada.ts`) ----------
+//
+// POR QUE ESTA AÇÃO CONHECE A ESCADA
+// ----------------------------------
+// Arrastar um card no kanban é a forma real de mudar alguém de etapa — e
+// também a forma real de fazer isso SEM QUERER. `transicaoPermitida`
+// (`src/lib/crm/jornada.ts`) recusa a única transição que apaga um fato
+// consumado: sair de `alumni` para qualquer coisa que não seja
+// `cliente_ativo` (a recompra). Quem já concluiu o programa concluiu; um
+// clique errado não pode devolver essa pessoa ao topo do funil.
+//
+// ESTA REGRA NÃO É PERMISSÃO — é coerência do funil. Quem pode escrever em
+// `alunos` é a política de RLS do banco (0008, grupo CRM), nunca um `if`
+// daqui. Ainda assim são DOIS portões, e o segundo é o único que garante
+// alguma coisa:
+//
+//   portão 1 — decide com o que o FORMULÁRIO declarou (`chaveAtual` e
+//              `chaveDestino`, escritas pelo kanban, que sabe de qual coluna
+//              o card saiu). Serve para uma coisa só: recusar SEM tocar no
+//              banco o arrasto obviamente proibido. Ele nunca LIBERA nada —
+//              o que o formulário diz não é prova de nada;
+//   portão 2 — o que vale. Lê a LINHA DO ALUNO e a LINHA DO ESTÁGIO e refaz
+//              a conta com as duas chaves REAIS. É aqui que morrem o
+//              formulário que mente sobre a origem, o que não declara origem
+//              nenhuma, e a aba aberta desde antes de a pessoa virar alumni
+//              — a mesma pessoa pode estar em outro degrau agora, e é o
+//              banco que sabe disso, não o campo escondido.
+//
+// A ficha (`/crm/[id]`) escolhe o destino num `select` de ids e não tem como
+// declarar a chave dele; o kanban declara as duas. Nenhuma das duas telas
+// precisa acertar para a trava funcionar.
+//
+// Nada disto lança: erro de validação, estágio inexistente, aluno ilegível e
+// transição recusada voltam para a tela em `?erro=<código>` — mesma casa de
+// `src/lib/mentoria/acoes.ts`.
 const MoverEstagioSchema = z.object({
   alunoId: z.string().min(1),
   estagioId: z.string().min(1),
+  // Opcionais porque nem toda tela consegue declará-las (ver portão 2). O
+  // limite de tamanho recusa payload absurdo antes de qualquer comparação.
+  chaveAtual: z.string().trim().max(60).default(""),
+  chaveDestino: z.string().trim().max(60).default(""),
 });
 
+// A URL nunca carrega a MENSAGEM, só este código curto — MÉDIO 5 da
+// auditoria (o raciocínio inteiro está no cabeçalho de
+// `src/lib/mentoria/acoes-portal.ts`): `?erro=<texto livre>` renderizado
+// dentro do banner oficial vira aviso do produto na mão de quem manda o
+// link. Quem traduz código em frase é a tela (`(app)/crm/page.tsx`), com
+// tabela fechada.
+const CODIGO_ERRO_TRANSICAO = "transicao";
+const CODIGO_ERRO_ESTAGIO = "estagio";
+// Separado de `estagio` porque a frase que a tela mostra é outra: aqui o
+// estágio existe e quem não foi possível ler é a PESSOA (linha apagada, id
+// errado, ou fora do alcance da RLS de quem está logado).
+const CODIGO_ERRO_ALUNO = "aluno";
+
+function voltarParaOCrmComErro(codigo: string): never {
+  redirect(`/crm?erro=${codigo}`);
+  // `redirect()` sempre lança (é assim que o Next interrompe a Server
+  // Action) — mas o `return` explícito garante que, mesmo num dublê de
+  // teste que NÃO lança de propósito, esta ação nunca siga para a escrita.
+  return undefined as never;
+}
+
 export async function moverAlunoEstagio(formData: FormData) {
-  const { alunoId, estagioId } = MoverEstagioSchema.parse(Object.fromEntries(formData));
+  const resultado = MoverEstagioSchema.safeParse(Object.fromEntries(formData));
+  if (!resultado.success) return voltarParaOCrmComErro(CODIGO_ERRO_ESTAGIO);
+  const { alunoId, estagioId, chaveAtual, chaveDestino } = resultado.data;
+
+  // Portão 1 — sem banco. Só entra aqui quem declarou o destino; declarar
+  // só a origem não decide nada (`transicaoPermitida("alumni", "")` recusaria
+  // até a recompra, que é legítima).
+  if (chaveDestino !== "" && !transicaoPermitida(chaveAtual, chaveDestino)) {
+    return voltarParaOCrmComErro(CODIGO_ERRO_TRANSICAO);
+  }
+
   const db = getDB();
-  const estagio = (await db.listEstagios()).find((e) => e.id === estagioId);
-  if (!estagio) throw new Error("estágio inválido");
+  // A LEITURA vai dentro de `try` e a escrita não, e a diferença é o que dá
+  // para prometer à pessoa: aqui nada foi gravado ainda, então "não foi
+  // possível mover, ninguém mudou de estágio" é verdade. Depois de
+  // `setEstagioAluno`, a mesma frase poderia ser mentira — e mentir sobre o
+  // que aconteceu é pior do que a tela de erro do Next.
+  let estagios: Estagio[];
+  let ficha: AlunoDetalhe | null;
+  try {
+    [estagios, ficha] = await Promise.all([db.listEstagios(), db.getAluno(alunoId)]);
+  } catch {
+    return voltarParaOCrmComErro(CODIGO_ERRO_ESTAGIO);
+  }
+
+  const estagio = estagios.find((e) => e.id === estagioId);
+  if (!estagio) return voltarParaOCrmComErro(CODIGO_ERRO_ESTAGIO);
+  // Sem conseguir ler a linha da pessoa não dá para saber de ONDE ela sai, e
+  // decidir sem saber é justamente o que a trava existe para impedir.
+  if (!ficha) return voltarParaOCrmComErro(CODIGO_ERRO_ALUNO);
+
+  // Portão 2 — as duas chaves REAIS do banco mandam, nenhuma das duas vem do
+  // formulário. Aluno sem estágio (ou com um id que não existe mais) entra
+  // como `""`, que `jornadaDe` trata como `prospect`: o começo do funil não
+  // tranca saída nenhuma, e é o fail-closed certo — o que a escada proíbe é
+  // apagar o fato de alguém ser alumni, não mover quem o banco não sabe onde
+  // está.
+  const chaveDeOrigem = estagios.find((e) => e.id === ficha.aluno.estagioId)?.chave ?? "";
+  if (!transicaoPermitida(chaveDeOrigem, estagio.chave)) {
+    return voltarParaOCrmComErro(CODIGO_ERRO_TRANSICAO);
+  }
+
   await db.setEstagioAluno(alunoId, estagio);
   await db.addAtividade({
     alunoId,

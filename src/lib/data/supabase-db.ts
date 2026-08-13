@@ -132,8 +132,12 @@ const mapCall = (r: Row): CallResumo => ({
 const SEL_MATRICULA = "*, alunos(nome), produtos(nome), afiliados(nome)";
 
 // ---- maps da expansão v2 ----
+// `chave` (0014) cai para "" em banco que ainda não recebeu a migração: a
+// coluna simplesmente não vem no `select *`. "" é "fora da escada" — a
+// coluna continua na tela, no fim, com o rótulo do banco. Fingir um degrau
+// aqui classificaria gente em etapa que ninguém escolheu.
 const mapEstagio = (r: Row): Estagio => ({
-  id: r.id, nome: r.nome, ordem: r.ordem ?? 0, cor: r.cor ?? "cinza", funil: r.funil,
+  id: r.id, nome: r.nome, chave: r.chave ?? "", ordem: r.ordem ?? 0, cor: r.cor ?? "cinza", funil: r.funil,
 });
 const mapNota = (r: Row): Nota => ({
   id: r.id, alunoId: r.aluno_id, autor: r.autor ?? "", texto: r.texto ?? "", criadoEm: r.criado_em,

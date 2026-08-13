@@ -66,6 +66,15 @@ export function KanbanCrm({
                             <form key={x.id} action={moverAlunoEstagio}>
                               <input type="hidden" name="alunoId" value={c.id} />
                               <input type="hidden" name="estagioId" value={x.id} />
+                              {/* De qual coluna o card saiu e para qual vai —
+                                  as duas declaradas para que
+                                  `moverAlunoEstagio` recuse o arrasto
+                                  proibido (alumni voltando ao funil) SEM ir
+                                  ao banco. É atalho, não garantia: a Server
+                                  Action refaz a conta com as duas chaves
+                                  reais lidas do banco antes de gravar. */}
+                              <input type="hidden" name="chaveAtual" value={e.chave} />
+                              <input type="hidden" name="chaveDestino" value={x.chave} />
                               <button className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-painel-2">
                                 {x.nome}
                               </button>

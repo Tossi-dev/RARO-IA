@@ -189,13 +189,39 @@ const turmas: Turma[] = [
 ];
 
 // Pipeline de CRM (estágios customizáveis — Expansão v2)
+//
+// A `chave` de cada linha é a MESMA correspondência que a migração 0014 faz
+// no banco de verdade ('Lead' → lead_qualificado, 'Em conversa' → proposta,
+// e assim por diante): a base de demonstração precisa se comportar como um
+// workspace já migrado, senão o kanban da demo ordenaria as colunas por uma
+// regra e o do cliente por outra. Os NOMES continuam os daqui de propósito —
+// a 0014 também preserva o rótulo que o dono escolheu.
+//
+// `inativo` fica FORA da escada (é degrau nenhum, e a 0014 não reclassifica
+// ninguém) e continua aqui: a migração acrescenta degrau, não apaga estágio.
+//
+// `prospect` e `alumni` nascem VAZIOS, e isso não é dado inventado: o passo 5
+// da 0014 insere a escada inteira em todo workspace que já tenha kanban, e
+// coluna vazia é exatamente o que ela cria. Sem as duas aqui, o modo demo —
+// que é como o produto roda sem Supabase (`getDB()` em ./index.ts) — não teria
+// como exercitar a única transição que a escada proíbe (sair de alumni), e a
+// regra da Tarefa 3 seria inalcançável pela tela.
+//
+// A `ordem` repete a da 0014 (prospect 1, alumni 7) inclusive no empate com
+// 'Lead', também ordem 1: workspace migrado de verdade fica com `ordem`
+// bagunçada mesmo, e é por isso que a tela ordena pela escada canônica de
+// `src/lib/crm/jornada.ts` e não por este campo.
 const estagios: Estagio[] = [
-  { id: "est-lead", nome: "Lead", ordem: 1, cor: "cinza", funil: "potencial" },
-  { id: "est-conversa", nome: "Em conversa", ordem: 2, cor: "azul", funil: "potencial" },
-  { id: "est-novo", nome: "Aluno novo", ordem: 3, cor: "violeta", funil: "novo" },
-  { id: "est-ativo", nome: "Aluno ativo", ordem: 4, cor: "verde", funil: "recorrente" },
-  { id: "est-risco", nome: "Em risco", ordem: 5, cor: "ouro", funil: "recorrente" },
-  { id: "est-inativo", nome: "Inativo", ordem: 6, cor: "vermelho", funil: "inativo" },
+  { id: "est-prospect", nome: "Prospect", chave: "prospect", ordem: 1, cor: "cinza", funil: "potencial" },
+  { id: "est-lead", nome: "Lead", chave: "lead_qualificado", ordem: 1, cor: "cinza", funil: "potencial" },
+  { id: "est-conversa", nome: "Em conversa", chave: "proposta", ordem: 2, cor: "azul", funil: "potencial" },
+  { id: "est-novo", nome: "Aluno novo", chave: "cliente_novo", ordem: 3, cor: "violeta", funil: "novo" },
+  { id: "est-ativo", nome: "Aluno ativo", chave: "cliente_ativo", ordem: 4, cor: "verde", funil: "recorrente" },
+  { id: "est-risco", nome: "Em risco", chave: "em_risco", ordem: 5, cor: "ouro", funil: "recorrente" },
+  { id: "est-inativo", nome: "Inativo", chave: "inativo", ordem: 6, cor: "vermelho", funil: "inativo" },
+  // funil 'inativo' pelo mesmo motivo da 0014: alumni é quem TERMINOU, não é
+  // receita recorrente, e contá-lo como ativo inflaria a base do funil.
+  { id: "est-alumni", nome: "Alumni", chave: "alumni", ordem: 7, cor: "azul", funil: "inativo" },
 ];
 
 // ---------- geração de vendas ----------
