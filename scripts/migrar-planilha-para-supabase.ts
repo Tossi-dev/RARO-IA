@@ -85,6 +85,7 @@
 // ENTIDADES_PULADAS abaixo para `turmas`).
 // ============================================================
 
+import { pathToFileURL } from "node:url";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { sheetsProvider } from "@/lib/data/sheets-db";
 import type { RegistroImportacao } from "@/lib/data/provider";
@@ -145,6 +146,26 @@ export interface MapaIds {
   resolver(entidade: string, idAntigo: string): string | undefined;
 }
 
+/**
+ * O prefixo que marca um id inventado pela SIMULAÇÃO. Escolhido para ser
+ * impossível de confundir com um uuid do Postgres: tem letras fora do
+ * alfabeto hexadecimal, dois-pontos, e o comprimento errado. Quem ler um
+ * destes num banco sabe na hora que algo deu muito errado — e é justamente
+ * por isso que ele é assim, e não um uuid plausível.
+ */
+export const PREFIXO_ID_SIMULADO = "simulado:";
+
+export function idSimulado(entidade: string, idOrigem: string): string {
+  return `${PREFIXO_ID_SIMULADO}${entidade}:${idOrigem}`;
+}
+
+/** Os campos de uma linha que carregam um id de simulação. Vazio é o normal. */
+export function valoresSimulados(linha: Record<string, unknown>): string[] {
+  return Object.entries(linha)
+    .filter(([, v]) => typeof v === "string" && v.startsWith(PREFIXO_ID_SIMULADO))
+    .map(([k]) => k);
+}
+
 export function criarMapaIds(): MapaIds {
   const mapas = new Map<string, Map<string, string>>();
   return {
@@ -202,6 +223,18 @@ export function criarClienteSupabase(url: string, chaveServico: string): Cliente
     },
 
     async inserir(tabela, linha) {
+      // Rede de segurança contra o id de simulação: ele é criado só quando
+      // `aplicar` é falso, e neste caminho `aplicar` é verdadeiro — as duas
+      // coisas não podem coexistir. Se um dia coexistirem por um erro de
+      // refatoração, o certo é parar aqui, alto e claro, e não gravar uma
+      // chave estrangeira apontando para um id que nunca existiu.
+      const suspeitas = valoresSimulados(linha);
+      if (suspeitas.length > 0) {
+        throw new Error(
+          `Recusando gravar em "${tabela}": a linha carrega ${suspeitas.length} valor(es) de SIMULAÇÃO ` +
+            `(campo(s): ${suspeitas.join(", ")}). Isto é um defeito do script, não da planilha.`
+        );
+      }
       const { data, error } = await sb.from(tabela).insert(linha).select("id").single();
       if (error) {
         throw new Error(`Supabase recusou a inserção em "${tabela}": ${error.message}`);
@@ -351,11 +384,27 @@ export async function migrarEntidade<T>(
     }
 
     if (!aplicar) {
-      // Modo simulação: nenhuma escrita é chamada (regra 5). Sem um id real
-      // devolvido pelo Postgres, não há como propagar o mapeamento para quem
-      // depende desta linha — a simulação de uma entidade dependente também
-      // fica em preview, o que é o comportamento correto (não existe id
-      // "de mentira" que faça sentido usar numa FK de verdade).
+      // Modo simulação: nenhuma escrita é chamada (regra 5).
+      //
+      // POR QUE REGISTRAMOS UM ID MARCADO NO MAPA
+      // ------------------------------------------
+      // A versão anterior deste bloco fazia só `continue`, argumentando que
+      // não existe id "de mentira" que faça sentido numa FK de verdade. O
+      // argumento está certo para a ESCRITA e errado para o RELATÓRIO: sem
+      // nada no mapa, toda entidade que depende de outra é recusada por
+      // "referência não encontrada", e a simulação vira inútil exatamente
+      // onde ela mais importa. Na primeira execução real na máquina do dono
+      // isso produziu 47 linhas recusadas — 21 interações, 13 movimentos e
+      // 13 importações — todas por um vínculo que existe e está correto na
+      // planilha. Quarenta e sete números falsos num relatório cujo trabalho
+      // inteiro é dizer a verdade sobre o que viria.
+      //
+      // O id de simulação é PREFIXADO e reconhecível (`simulado:`), nunca
+      // tem forma de uuid, e nunca pode chegar ao banco: `inserir()` só é
+      // chamada quando `aplicar` é verdadeiro, e `criarClienteSupabase`
+      // ainda checa o prefixo antes de escrever, como rede de segurança.
+      mapa.registrar(def.entidade, idOrigem, idSimulado(def.entidade, idOrigem));
+      inseridas++;
       continue;
     }
 
@@ -1668,7 +1717,31 @@ export function decidirCodigoSaida(conferencia: LinhaConferencia[], aplicar: boo
 // `process.argv[1]` (é o processo do vitest), então nada aqui dispara rede
 // nem `process.exit` — é assim que o teste consegue exercitar a lógica com
 // dublês sem qualquer efeito colateral no runner.
-const ehExecucaoDireta = process.argv[1] !== undefined && import.meta.url === `file://${process.argv[1]}`;
+//
+// POR QUE NÃO DÁ PARA COMPARAR `file://${process.argv[1]}` NA MÃO
+// -----------------------------------------------------------------
+// Essa era a versão anterior desta linha, e ela funcionava em Linux e Mac e
+// FALHAVA EM SILÊNCIO no Windows — que é justamente a máquina do dono, a
+// única onde este script tem rede para rodar. No Windows `process.argv[1]` é
+// `C:\dev\Repositorios\RARO IA\scripts\migrar...ts`, enquanto
+// `import.meta.url` é `file:///C:/dev/Repositorios/RARO%20IA/scripts/...`:
+// barra invertida virou barra, a unidade ganhou uma terceira barra antes, e
+// o espaço do nome da pasta virou %20. Os dois nunca são iguais, então a
+// condição dava falso, `principal()` nunca era chamada e o processo saía com
+// código 0 sem imprimir uma linha — o pior tipo de falha, a que se parece
+// com sucesso. `pathToFileURL` faz exatamente essa conversão pelas regras do
+// sistema operacional em que está rodando, e é o único jeito correto de
+// comparar as duas coisas.
+export function ehChamadaDireta(argv1: string | undefined, metaUrl: string): boolean {
+  if (argv1 === undefined || argv1 === "") return false;
+  try {
+    return pathToFileURL(argv1).href === metaUrl;
+  } catch {
+    return false;
+  }
+}
+
+const ehExecucaoDireta = ehChamadaDireta(process.argv[1], import.meta.url);
 if (ehExecucaoDireta) {
   principal()
     .then((codigo) => process.exit(codigo))
