@@ -23,9 +23,14 @@
 // dependência (`validarOrdemDeDependencia`), que é pura array/lógica —
 // nenhuma chamada a `ler()` dessas entidades acontece neste arquivo.
 // ============================================================
+import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import {
   criarMapaIds,
+  ehChamadaDireta,
+  idSimulado,
+  PREFIXO_ID_SIMULADO,
+  valoresSimulados,
   decidirCodigoSaida,
   ENTIDADES_MIGRAVEIS,
   ENTIDADES_PULADAS,
@@ -328,9 +333,24 @@ describe("modo simulação", () => {
 
     const resultado = await migrarEntidade(alunos, banco, mapa, false);
 
+    // O que NÃO pode acontecer: escrita. Esta é a garantia da simulação, e
+    // ela continua valendo.
     expect(espiaoInserir).not.toHaveBeenCalled();
-    expect(resultado.inseridas).toBe(0);
     expect(banco.tabelas.get("alunos") ?? []).toEqual([]);
+
+    // O que TEM que acontecer: contar as duas linhas como "seriam
+    // inseridas". A versão anterior deste teste exigia zero aqui, o que
+    // parecia coerente ("nada foi escrito, então nada foi inserido") e
+    // travava a simulação num relatório inútil: com o contador em zero e o
+    // mapa de ids vazio, toda entidade dependente era recusada por
+    // referência ausente. `inseridas` no modo simulação significa "seriam
+    // inseridas", e é isso que o relatório imprime.
+    expect(resultado.inseridas).toBe(2);
+    expect(resultado.recusas).toEqual([]);
+
+    // E o mapa passa a resolver, para que quem depende de alunos possa ser
+    // avaliado de verdade — com um id marcado, nunca com forma de uuid.
+    expect(mapa.resolver("alunos", "ALU-1")).toBe(idSimulado("alunos", "ALU-1"));
   });
 
   it("ainda assim identifica corretamente o que já existe (buscarPorChaveNatural continua sendo uma LEITURA, não uma escrita)", async () => {
@@ -364,5 +384,90 @@ describe("entidades puladas", () => {
       expect(nomesMigraveis.has(pulada.entidade)).toBe(false);
       expect(pulada.motivo.length).toBeGreaterThan(10);
     }
+  });
+});
+
+// ============================================================
+// A guarda de execução direta — o defeito que só aparecia no Windows
+// ============================================================
+//
+// Este describe existe por um incidente concreto: a simulação rodou na
+// máquina do dono, saiu com código 0 e NÃO IMPRIMIU NADA. A guarda comparava
+// `import.meta.url` com `file://${process.argv[1]}` montado à mão, o que só
+// coincide em sistemas de caminho POSIX. No Windows a comparação dava falso,
+// `principal()` nunca era chamada, e o script terminava "com sucesso" sem
+// fazer coisa alguma — a falha mais cara de todas, a que parece sucesso.
+describe("ehChamadaDireta", () => {
+  it("reconhece o caminho POSIX de uma chamada direta", () => {
+    const arquivo = "/home/alguem/projeto/scripts/migrar.ts";
+    expect(ehChamadaDireta(arquivo, pathToFileURL(arquivo).href)).toBe(true);
+  });
+
+  it("reconhece o caminho do WINDOWS, inclusive com espaco no nome da pasta", () => {
+    // É o caminho real da máquina do dono: unidade C:, barra invertida e um
+    // espaço em "RARO IA" que vira %20 na URL.
+    const arquivo = process.platform === "win32"
+      ? "C:\\dev\\Repositorios\\RARO IA\\scripts\\migrar.ts"
+      : "/dev/Repositorios/RARO IA/scripts/migrar.ts";
+    const url = pathToFileURL(arquivo).href;
+    expect(url).toContain("%20");
+    expect(ehChamadaDireta(arquivo, url)).toBe(true);
+  });
+
+  it("NAO reconhece a montagem manual de file:// com caminho do Windows", () => {
+    // A versão antiga da guarda. O teste guarda o defeito para que ninguém
+    // volte a escrever a comparação na mão.
+    const arquivo = "C:\\dev\\Repositorios\\RARO IA\\scripts\\migrar.ts";
+    const montadoNaMao = `file://${arquivo}`;
+    expect(ehChamadaDireta(arquivo, montadoNaMao)).toBe(false);
+  });
+
+  it("e falso quando o modulo e importado por outro processo (o vitest)", () => {
+    const arquivo = "/home/alguem/projeto/scripts/migrar.ts";
+    const outro = pathToFileURL("/home/alguem/projeto/node_modules/vitest/dist/cli.js").href;
+    expect(ehChamadaDireta(arquivo, outro)).toBe(false);
+  });
+
+  it("e falso para argv ausente ou vazio, sem lancar", () => {
+    expect(ehChamadaDireta(undefined, "file:///x")).toBe(false);
+    expect(ehChamadaDireta("", "file:///x")).toBe(false);
+  });
+});
+
+// ============================================================
+// O id de simulação — o que fez o primeiro relatório mentir
+// ============================================================
+//
+// Na primeira execução real, a simulação recusou 47 linhas (21 interações,
+// 13 movimentos, 13 importações) por "referência não encontrada" — todas por
+// um vínculo que existe e está certo na planilha. A causa não era o dado: em
+// simulação nada era registrado no mapa de ids, então toda entidade que
+// depende de outra caía. Um relatório cujo trabalho inteiro é dizer a
+// verdade sobre o que viria estava produzindo quarenta e sete números
+// falsos.
+describe("id de simulacao", () => {
+  it("e reconhecivel a olho nu e nao se parece com uuid", () => {
+    const id = idSimulado("alunos", "ALU-MSP1M2MZ-HTDE");
+    expect(id.startsWith(PREFIXO_ID_SIMULADO)).toBe(true);
+    // Um uuid tem 36 caracteres e so hexadecimal e hifen. Este nao passa.
+    expect(id).not.toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    expect(id).toContain("alunos");
+    expect(id).toContain("ALU-MSP1M2MZ-HTDE");
+  });
+
+  it("valoresSimulados acha o campo contaminado e ignora o resto", () => {
+    expect(valoresSimulados({ nome: "Ana", valor: 10, conta_id: null })).toEqual([]);
+    expect(
+      valoresSimulados({ nome: "Ana", aluno_id: idSimulado("alunos", "ALU-1"), conta_id: "ok" })
+    ).toEqual(["aluno_id"]);
+  });
+
+  it("a simulacao resolve a referencia da entidade dependente", async () => {
+    // O caso concreto: interacoes depende de alunos. Com o mapa vazio, a
+    // linha era recusada; com o id de simulacao registrado, ela e contada
+    // como "seria inserida", que e a resposta verdadeira.
+    const mapa = criarMapaIds();
+    mapa.registrar("alunos", "ALU-1", idSimulado("alunos", "ALU-1"));
+    expect(mapa.resolver("alunos", "ALU-1")).toBe(idSimulado("alunos", "ALU-1"));
   });
 });

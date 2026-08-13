@@ -1,0 +1,150 @@
+﻿Modo: simula├º├úo (padr├úo). Nada ser├í escrito. Rode com --aplicar para gravar de verdade.
+======================================================================
+SIMULA├ç├âO ÔÇö nada foi escrito no Supabase
+======================================================================
+
+agrupamentos  (aba: AGRUPAMENTOS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+produtos  (aba: PRODUTOS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+afiliados  (aba: RESPONSAVEIS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+alunos  (aba: ALUNOS)
+  lidas da planilha: 10 | seriam inseridas: 10 | j├í existiam: 0 | recusadas: 0
+
+contas_bancarias  (aba: CONTAS)
+  lidas da planilha: 1 | seriam inseridas: 1 | j├í existiam: 0 | recusadas: 0
+
+metas  (aba: METAS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+metas_financeiras  (aba: METAS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+parametros_financeiros  (aba: CONFIG)
+  lidas da planilha: 1 | seriam inseridas: 1 | j├í existiam: 0 | recusadas: 0
+
+despesas  (aba: DESPESAS + INVESTIMENTO)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+perfis_sociais  (aba: CONTEUDOS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+lancamentos  (aba: LANCAMENTOS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+modulos  (aba: MODULOS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+movimentos_caixa  (aba: MOVIMENTOS + INVESTIMENTO)
+  lidas da planilha: 13 | seriam inseridas: 13 | j├í existiam: 0 | recusadas: 0
+
+recebiveis  (aba: RECEBIVEIS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+pagaveis  (aba: DESPESAS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+conteudos  (aba: CONTEUDOS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+atividades  (aba: ATIVIDADES)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+interacoes  (aba: INTERACOES)
+  lidas da planilha: 21 | seriam inseridas: 21 | j├í existiam: 0 | recusadas: 0
+
+envios  (aba: ENVIOS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+aulas  (aba: AULAS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+tarefas  (aba: TAREFAS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+reunioes  (aba: REUNIOES)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+matriculas  (aba: VENDAS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+importacoes  (aba: IMPORTACOES)
+  lidas da planilha: 13 | seriam inseridas: 13 | j├í existiam: 0 | recusadas: 0
+
+conteudo_metricas  (aba: CONTEUDOS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+campanhas  (aba: CAMPANHAS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+progresso_aulas  (aba: PROGRESSO)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+comissoes  (aba: VENDAS (coluna Comissao))
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+reembolsos  (aba: VENDAS (Status = reembolsada))
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+chargebacks  (aba: CHARGEBACKS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+encontros  (aba: ENCONTROS)
+  lidas da planilha: 0 | seriam inseridas: 0 | j├í existiam: 0 | recusadas: 0
+
+======================================================================
+CONFER├èNCIA ÔÇö planilha x Postgres (o n├║mero que n├úo bate ├® migra├º├úo que n├úo terminou)
+======================================================================
+entidade                  planilha  postgres  situa├º├úo
+agrupamentos                     0         0  OK
+produtos                         0         0  OK
+afiliados                        0         0  OK
+alunos                          10         0  DIVERGE
+contas_bancarias                 1         0  DIVERGE
+metas                            0         0  OK
+metas_financeiras                0         0  OK
+parametros_financeiros           1         0  DIVERGE
+despesas                         0         0  OK
+perfis_sociais                   0         0  OK
+lancamentos                      0         0  OK
+modulos                          0         0  OK
+movimentos_caixa                13         0  DIVERGE
+recebiveis                       0         0  OK
+pagaveis                         0         0  OK
+conteudos                        0         0  OK
+atividades                       0         0  OK
+interacoes                      21         0  DIVERGE
+envios                           0         0  OK
+aulas                            0         0  OK
+tarefas                          0         0  OK
+reunioes                         0         0  OK
+matriculas                       0         0  OK
+importacoes                     13         0  DIVERGE
+conteudo_metricas                0         0  OK
+campanhas                        0         0  OK
+progresso_aulas                  0         0  OK
+comissoes                        0         0  OK
+reembolsos                       0         0  OK
+chargebacks                      0         0  OK
+encontros                        0         0  OK
+
+----------------------------------------------------------------------
+ENTIDADES PULADAS (10) ÔÇö sem aba correspondente na planilha, nada foi migrado:
+----------------------------------------------------------------------
+  [crm_estagios] n├úo tem aba: os est├ígios do CRM na planilha (ESTAGIOS_PLANILHA, em sheets/mapear.ts) s├úo uma lista FIXA no c├│digo do Apps Script, n├úo dado edit├ível numa aba ÔÇö e os nomes nem batem com os que supabase/migrations/0002_expansao.sql j├í semeia em crm_estagios (Lead/Em conversa/Aluno novo/... contra Novo/Qualificado/Negocia├º├úo/Ganho/Perdido). A tabela j├í nasce populada pela pr├│pria migra├º├úo; migrar aqui duplicaria ou inventaria uma correspond├¬ncia que n├úo existe.
+  [turmas] n├úo tem aba TURMAS na planilha, e o pr├│prio DataProvider (src/lib/data/provider.ts) n├úo exp├Áe nenhum `listTurmas()` ÔÇö sheetsProvider.getLancamento() sempre devolve `turmas: []` com o coment├írio expl├¡cito "Turmas... n├úo tem aba". Sem leitura nenhuma, n├úo h├í o que migrar.
+  [planos] n├úo tem aba PLANOS na planilha nem m├®todo de leitura no DataProvider ÔÇö o conceito de "plano" (recorr├¬ncia dentro de um produto) nunca existiu no arquivo do dono.
+  [tarefas_alunos] a planilha tem uma aba TAREFAS, mas ela alimenta a entidade gen├®rica `tarefas` (tarefa do time, opcionalmente ligada a aluno/lan├ºamento) ÔÇö n├úo `tarefas_alunos` (tarefa POR TURMA). sheetsProvider.toggleTarefa() lan├ºa "n├úo represent├ível" citando exatamente isso: "n├úo existe aba de turmas nem de tarefas por aluno".
+  [notas] sheetsProvider.listNotas() sempre devolve lista vazia ÔÇö n├úo existe aba de notas na planilha; o registro equivalente j├í migrado ├® a atividade do tipo `nota` dentro de ATIVIDADES.
+  [transcricoes] sheetsProvider.listTranscricoes() sempre devolve lista vazia ÔÇö n├úo existe aba de transcri├º├Áes (o texto integral de uma call n├úo cabe em c├®lula de planilha).
+  [orcamentos] sheetsProvider.listOrcamentos() sempre devolve lista vazia ÔÇö a aba METAS guarda meta de resultado (faturamento/lucro/vendas), n├úo teto de gasto por categoria.
+  [conteudo_retencao] sheetsProvider.getConteudo() sempre devolve `retencao: []` ÔÇö a aba CONTEUDOS guarda o RESULTADO agregado do conte├║do (reten├º├úo m├®dia), n├úo a curva ponto a ponto.
+  [conteudo_pilares] sheetsProvider.setPilar() lan├ºa "n├úo represent├ível" ÔÇö a aba CONTEUDOS n├úo tem colunas para gancho/desenvolvimento/CTA; essa an├ílise s├│ existe depois de o conte├║do j├í estar no sistema.
+  [webhook_eventos] sheetsProvider.listEventosWebhook() sempre devolve lista vazia ÔÇö webhook ├® evento de gateway de pagamento, e a planilha nunca recebeu webhook nenhum.
+
+
+=== CODIGO DE SAIDA: 0 ===
