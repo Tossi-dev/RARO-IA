@@ -119,6 +119,27 @@ describe("tomDoPrazo", () => {
       process.env.TZ = original;
     }
   });
+
+  // Defeito visual 1 (fotos/portal.png) — uma tarefa CONCLUÍDA aparecia com
+  // o prazo em vermelho de "vencido", como se o cliente ainda devesse algo
+  // que ele já entregou. `concluida: true` tem que zerar o alarme, seja
+  // qual for o prazo — inclusive um prazo no passado.
+  describe("tarefa concluída -> sempre 'neutro', seja qual for o prazo (nunca regride para 'vencido')", () => {
+    it("concluída com prazo no passado -> 'neutro' (não 'vencido')", () => {
+      expect(tomDoPrazo("2026-08-05", agora, true)).toBe("neutro");
+    });
+
+    it("concluída com prazo no futuro -> 'neutro' (não 'proximo')", () => {
+      expect(tomDoPrazo("2026-08-14", agora, true)).toBe("neutro");
+    });
+
+    it("NÃO concluída com prazo no passado -> continua 'vencido' (o comportamento de hoje não regride)", () => {
+      expect(tomDoPrazo("2026-08-05", agora, false)).toBe("vencido");
+      // `concluida` some sozinha (padrão `false`) — chamador antigo sem o
+      // terceiro argumento continua vendo o mesmo resultado de sempre.
+      expect(tomDoPrazo("2026-08-05", agora)).toBe("vencido");
+    });
+  });
 });
 
 // ============================================================
