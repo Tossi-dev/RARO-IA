@@ -40,6 +40,8 @@ import {
   type ClienteBanco,
   type DefinicaoEntidade,
   type LinhaConferencia,
+  type Recusa,
+  type ResultadoEntidade,
 } from "./migrar-planilha-para-supabase";
 
 /** Nomes das dez entidades sem aba na planilha — usado nos testes de ordem
@@ -121,6 +123,75 @@ function definirMatriculasFalso(itens: MatriculaFalsa[]): DefinicaoEntidade<Matr
       return { linha: { aluno_id: alunoId, valor: m.valor } };
     },
     chaveNatural: (l) => ({ aluno_id: l.aluno_id, valor: l.valor }),
+  };
+}
+
+/**
+ * Uma segunda entidade de brinquede, deliberadamente construída para que a
+ * MESMA chave natural (nome+telefone) possa sair de `chaveNatural` com os
+ * campos em ORDEM DIFERENTE dependendo da linha (`ordemInvertida`). Nenhuma
+ * entidade real do script faz isso de propósito — `chaveNatural` de verdade
+ * sempre escreve os campos na mesma ordem no código-fonte — mas é exatamente
+ * esse tipo de variação que provaria (ou derrubaria) uma serialização que
+ * NÃO ordena as chaves antes de comparar: sem ordenar, `{nome,telefone}` e
+ * `{telefone,nome}` viram strings JSON diferentes e a duplicata passa batido.
+ */
+type PessoaFalsa = { id: string; nome: string; telefone: string; ordemInvertida?: boolean };
+
+function definirPessoasChaveTrocadaFalso(itens: PessoaFalsa[]): DefinicaoEntidade<PessoaFalsa> {
+  return {
+    entidade: "pessoas_chave_trocada",
+    aba: "TESTE",
+    dependeDe: [],
+    ler: async () => itens,
+    idOrigem: (p) => p.id,
+    converter: (p) => ({ linha: { nome: p.nome, telefone: p.telefone, ordem_invertida: p.ordemInvertida ?? false } }),
+    chaveNatural: (l) =>
+      l.ordem_invertida
+        ? { telefone: l.telefone, nome: l.nome }
+        : { nome: l.nome, telefone: l.telefone },
+  };
+}
+
+/**
+ * Um `ClienteBanco` que só sabe responder `contar()` com valores fixos por
+ * tabela — usado nos testes de `montarConferencia`/`decidirCodigoSaida` que
+ * não passam por `migrarEntidade` nenhuma, então não deveriam precisar de
+ * `buscarPorChaveNatural`/`inserir` de verdade. Se algum desses dois for
+ * chamado por engano, o teste falha alto (lançando), em vez de silenciosamente
+ * devolver um valor de brinquedo que mascare o erro.
+ */
+function bancoComContagem(valores: Record<string, number>): ClienteBanco {
+  return {
+    async buscarPorChaveNatural() {
+      throw new Error("montarConferencia não deveria chamar buscarPorChaveNatural — só usa banco.contar().");
+    },
+    async inserir() {
+      throw new Error("montarConferencia não deveria chamar inserir — ela só lê, nunca escreve.");
+    },
+    async contar(tabela) {
+      return valores[tabela] ?? 0;
+    },
+  };
+}
+
+/**
+ * Monta um `ResultadoEntidade` de teste sem passar por `migrarEntidade` —
+ * para os testes de `montarConferencia`/`decidirCodigoSaida`, que exercitam
+ * só o CÁLCULO da conferência a partir de um resultado já pronto, não o
+ * motor de migração inteiro. Os campos não informados vêm com o valor
+ * "neutro" (zero linhas, nenhuma recusa) para o teste só precisar declarar o
+ * que importa para o caso em questão.
+ */
+function resultadoFixo(parcial: Partial<ResultadoEntidade> & { entidade: string }): ResultadoEntidade {
+  return {
+    aba: "TESTE",
+    lidas: 0,
+    inseridas: 0,
+    jaExistentes: 0,
+    recusas: [],
+    duplicadasNaOrigem: 0,
+    ...parcial,
   };
 }
 
@@ -246,6 +317,83 @@ describe("idempotência", () => {
 });
 
 // ============================================================
+// 3.5 Duplicatas NA ORIGEM — chave natural repetida DENTRO da mesma leitura
+// ============================================================
+//
+// Este é o defeito real do incidente: a CONFERÊNCIA gritava "DIVERGE" quando
+// a planilha tinha, por exemplo, 10 linhas de ALUNOS para 6 pessoas reais
+// (lead duplicado + linhas de teste com o mesmo telefone). A deduplicação
+// por chave natural é o comportamento CORRETO — o Postgres deve guardar uma
+// linha por pessoa, não uma por linha da planilha. O que faltava era o
+// script SABER e CONTAR que descartou duplicatas, em vez de deixar a
+// conferência comparar "linhas lidas" com "linhas gravadas" como se fossem
+// sempre a mesma coisa.
+//
+// Note a diferença para "idempotência" (seção 3, acima): lá o Postgres já
+// tinha a linha de uma execução ANTERIOR (`jaExistentes`); aqui a repetição
+// está DENTRO da mesma leitura da planilha, na mesma execução
+// (`duplicadasNaOrigem`) — os dois contadores são independentes.
+describe("duplicatas na origem (mesma chave natural repetida na mesma leitura)", () => {
+  it("duas linhas com a mesma chave natural: lidas 2, inseridas 1, duplicadasNaOrigem 1, banco.inserir chamado UMA vez", async () => {
+    const banco = criarClienteBancoFalso();
+    const espiaoInserir = vi.spyOn(banco, "inserir");
+    const mapa = criarMapaIds();
+    const alunos = definirAlunosFalso([
+      { id: "ALU-1", nome: "Fulano" },
+      { id: "ALU-2", nome: "Fulano" }, // mesma chave natural (nome) — duplicata na planilha
+    ]);
+
+    const resultado = await migrarEntidade(alunos, banco, mapa, true);
+
+    expect(resultado.lidas).toBe(2);
+    expect(resultado.inseridas).toBe(1);
+    expect(resultado.duplicadasNaOrigem).toBe(1);
+    expect(espiaoInserir).toHaveBeenCalledTimes(1);
+
+    // a linha duplicada AINDA registra id no mapa — quem depende dela (uma
+    // FK apontando para ALU-2) precisa resolver a referência mesmo que
+    // ALU-2 nunca tenha sido inserida de novo:
+    expect(mapa.resolver("alunos", "ALU-2")).toBeDefined();
+    expect(mapa.resolver("alunos", "ALU-2")).toBe(mapa.resolver("alunos", "ALU-1"));
+  });
+
+  it("o mesmo caso em modo SIMULAÇÃO: duplicadasNaOrigem 1, ZERO chamadas de escrita", async () => {
+    const banco = criarClienteBancoFalso();
+    const espiaoInserir = vi.spyOn(banco, "inserir");
+    const mapa = criarMapaIds();
+    const alunos = definirAlunosFalso([
+      { id: "ALU-1", nome: "Fulano" },
+      { id: "ALU-2", nome: "Fulano" },
+    ]);
+
+    const resultado = await migrarEntidade(alunos, banco, mapa, false);
+
+    expect(resultado.duplicadasNaOrigem).toBe(1);
+    expect(resultado.inseridas).toBe(1); // "seria inserida" — uma cópia só, a repetida não conta de novo
+    expect(espiaoInserir).not.toHaveBeenCalled();
+    expect(mapa.resolver("alunos", "ALU-2")).toBe(mapa.resolver("alunos", "ALU-1"));
+  });
+
+  it("a chave natural com campos em ordem trocada ({nome,telefone} contra {telefone,nome}) conta como a MESMA chave", async () => {
+    const banco = criarClienteBancoFalso();
+    const mapa = criarMapaIds();
+    const pessoas = definirPessoasChaveTrocadaFalso([
+      { id: "P-1", nome: "Ana", telefone: "11999990000" },
+      // mesmíssima pessoa, mas `chaveNatural` devolve os campos na ordem
+      // TROCADA — sem ordenar por nome de campo antes de serializar, isto
+      // pareceria uma chave DIFERENTE e a duplicata escaparia:
+      { id: "P-2", nome: "Ana", telefone: "11999990000", ordemInvertida: true },
+    ]);
+
+    const resultado = await migrarEntidade(pessoas, banco, mapa, true);
+
+    expect(resultado.duplicadasNaOrigem).toBe(1);
+    expect(resultado.inseridas).toBe(1);
+    expect(banco.chamadasDeInsercao).toHaveLength(1);
+  });
+});
+
+// ============================================================
 // 4. Linha inconvertível vai para a lista de recusadas, nunca com valor remendado
 // ============================================================
 describe("linha inconvertível", () => {
@@ -279,12 +427,12 @@ describe("linha inconvertível", () => {
 // ============================================================
 describe("conferência final e código de saída", () => {
   it("bate quando a contagem do Postgres é igual à da planilha", () => {
-    const conferencia: LinhaConferencia[] = [{ entidade: "alunos", planilha: 3, postgres: 3, bate: true }];
+    const conferencia: LinhaConferencia[] = [{ entidade: "alunos", planilha: 3, postgres: 3, duplicadas: 0, bate: true }];
     expect(decidirCodigoSaida(conferencia, true)).toBe(0);
   });
 
   it("falha (código != 0) em --aplicar quando a contagem do Postgres é MENOR que a da planilha", () => {
-    const conferencia: LinhaConferencia[] = [{ entidade: "alunos", planilha: 5, postgres: 3, bate: false }];
+    const conferencia: LinhaConferencia[] = [{ entidade: "alunos", planilha: 5, postgres: 3, duplicadas: 0, bate: false }];
     const consoleErro = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       expect(decidirCodigoSaida(conferencia, true)).not.toBe(0);
@@ -299,22 +447,103 @@ describe("conferência final e código de saída", () => {
   });
 
   it("em modo simulação (--aplicar ausente) NUNCA falha por divergência, mesmo com contagens diferentes — a divergência é esperada porque nada foi escrito", () => {
-    const conferencia: LinhaConferencia[] = [{ entidade: "alunos", planilha: 5, postgres: 0, bate: false }];
+    const conferencia: LinhaConferencia[] = [{ entidade: "alunos", planilha: 5, postgres: 0, duplicadas: 0, bate: false }];
     expect(decidirCodigoSaida(conferencia, false)).toBe(0);
   });
 
-  it("montarConferencia compara o total do Postgres (não só o inserido nesta execução) contra o total lido da planilha", async () => {
+  it("montarConferencia compara o total do Postgres (não só o inserido nesta execução) contra o total lido da planilha, descontando a recusa", async () => {
+    // ATUALIZADO: a fórmula antiga de `bate` era `lidas === postgres`, que
+    // tratava toda diferença — inclusive uma linha corretamente RECUSADA —
+    // como falha de migração. Uma linha recusada nunca foi escrita (regra
+    // 2: nunca inventa dado), então não escrever ela também não é
+    // divergência nenhuma: é o script fazendo exatamente o que devia. Por
+    // isso, com 2 lidas e 1 recusada, o Postgres tendo 1 linha agora BATE
+    // (2 lidas - 0 duplicadas - 1 recusada = 1 = postgres) — o teste antigo
+    // esperava `bate: false` aqui, o que hoje seria o próprio defeito que
+    // este arquivo existe para corrigir.
     const banco = criarClienteBancoFalso();
     const mapa = criarMapaIds();
     const alunos = definirAlunosFalso([
       { id: "ALU-1", nome: "Fulano" },
-      { id: "ALU-2", nome: "" }, // recusado — nunca vai existir no Postgres
+      { id: "ALU-2", nome: "" }, // recusado — nunca vai existir no Postgres, e está certo que não exista
     ]);
     const resultado = await migrarEntidade(alunos, banco, mapa, true);
     const conferencia = await montarConferencia([resultado], banco);
 
     expect(conferencia).toHaveLength(1);
-    expect(conferencia[0]).toMatchObject({ entidade: "alunos", planilha: 2, postgres: 1, bate: false });
+    expect(conferencia[0]).toMatchObject({ entidade: "alunos", planilha: 2, postgres: 1, duplicadas: 0, bate: true });
+  });
+
+  // ----------------------------------------------------------
+  // O CASO REAL: duplicata na origem some da conta, recusa também — e só
+  // sobra "DIVERGE" quando nem uma nem outra explicam a diferença.
+  // ----------------------------------------------------------
+  it("montarConferencia: bate=true quando lidas - duplicadas - recusas === postgres (sem recusa, só duplicata)", async () => {
+    const banco = bancoComContagem({ alunos: 6 });
+    const resultado = resultadoFixo({ entidade: "alunos", lidas: 10, duplicadasNaOrigem: 4, recusas: [] });
+
+    const conferencia = await montarConferencia([resultado], banco);
+
+    expect(conferencia[0]).toMatchObject({ entidade: "alunos", planilha: 10, postgres: 6, duplicadas: 4, bate: true });
+  });
+
+  it("montarConferencia: bate=false quando a diferença NÃO é explicada por duplicata nenhuma — aí sim é problema de verdade", async () => {
+    const banco = bancoComContagem({ alunos: 6 });
+    const resultado = resultadoFixo({ entidade: "alunos", lidas: 10, duplicadasNaOrigem: 0, recusas: [] });
+
+    const conferencia = await montarConferencia([resultado], banco);
+
+    expect(conferencia[0]).toMatchObject({ entidade: "alunos", planilha: 10, postgres: 6, duplicadas: 0, bate: false });
+  });
+
+  it("montarConferencia: bate=true quando duplicata + recusa JUNTAS explicam toda a diferença", async () => {
+    const banco = bancoComContagem({ alunos: 6 });
+    const recusas: Recusa[] = [
+      { entidade: "alunos", posicao: 1, idOrigem: "ALU-X", motivo: "nome vazio" },
+      { entidade: "alunos", posicao: 2, idOrigem: "ALU-Y", motivo: "nome vazio" },
+    ];
+    // 10 lidas - 2 duplicadas - 2 recusadas = 6 = postgres:
+    const resultado = resultadoFixo({ entidade: "alunos", lidas: 10, duplicadasNaOrigem: 2, recusas });
+
+    const conferencia = await montarConferencia([resultado], banco);
+
+    expect(conferencia[0]).toMatchObject({ entidade: "alunos", planilha: 10, postgres: 6, duplicadas: 2, bate: true });
+  });
+
+  it("decidirCodigoSaida devolve 0 quando toda divergência é explicada por duplicata (bate=true apesar de planilha != postgres)", () => {
+    const conferencia: LinhaConferencia[] = [{ entidade: "alunos", planilha: 10, postgres: 6, duplicadas: 4, bate: true }];
+    expect(decidirCodigoSaida(conferencia, true)).toBe(0);
+  });
+
+  it("decidirCodigoSaida devolve 1 quando a divergência NÃO é explicada por duplicata nenhuma (bate=false)", () => {
+    const conferencia: LinhaConferencia[] = [{ entidade: "alunos", planilha: 10, postgres: 6, duplicadas: 0, bate: false }];
+    const consoleErro = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(decidirCodigoSaida(conferencia, true)).toBe(1);
+    } finally {
+      consoleErro.mockRestore();
+    }
+  });
+
+  // ----------------------------------------------------------
+  // O INCIDENTE DE VERDADE: exatamente os números que a conferência real
+  // acusou como "DIVERGE" no relatório da migração do dono — alunos (10
+  // lidas, 4 duplicadas, 6 no Postgres) e interações (21 lidas, 2
+  // duplicadas, 19 no Postgres). A migração tinha terminado perfeitamente;
+  // o relatório antigo é quem mentia. Com a fórmula corrigida, as duas
+  // batem e o script sai com código 0.
+  // ----------------------------------------------------------
+  it("CASO REAL: alunos 10 lidas/4 duplicadas/6 no Postgres + interacoes 21 lidas/2 duplicadas/19 no Postgres -> código de saída 0", async () => {
+    const banco = bancoComContagem({ alunos: 6, interacoes: 19 });
+    const resultados = [
+      resultadoFixo({ entidade: "alunos", lidas: 10, duplicadasNaOrigem: 4, recusas: [] }),
+      resultadoFixo({ entidade: "interacoes", lidas: 21, duplicadasNaOrigem: 2, recusas: [] }),
+    ];
+
+    const conferencia = await montarConferencia(resultados, banco);
+
+    expect(conferencia.every((c) => c.bate)).toBe(true);
+    expect(decidirCodigoSaida(conferencia, true)).toBe(0);
   });
 });
 
