@@ -337,6 +337,41 @@ describe("Portal — estado conectado (ehMentorado: true)", () => {
     expect(semEmoji(html)).toBe(true);
   });
 
+  // Defeito visual 2 (fotos/portal.png) — o selo "Em 3 Dias" nasceu de
+  // `capitalize` (CSS), que maiuscula CADA PALAVRA; em português só a
+  // primeira letra de uma frase é maiúscula. A correção é `first-letter:
+  // uppercase`, nunca `capitalize`, no selo da próxima sessão.
+  it("REGRA VISUAL 2 — o selo da próxima sessão não usa `capitalize` (maiuscula cada palavra); só `first-letter:uppercase`", async () => {
+    // uma sessão daqui a alguns dias — `diasAte` só devolve texto não-vazio
+    // para uma data futura, o que é o único caso em que o selo aparece.
+    const daqui3dias = new Date(Date.now() + 3 * 86_400_000).toISOString();
+    lerPortalMock.mockResolvedValue(
+      portalConectado({
+        proxima: {
+          id: "sessao-proxima",
+          workspaceId: "ws-1",
+          matriculaId: "mat-1",
+          turmaId: null,
+          numero: 9,
+          quando: daqui3dias,
+          duracaoMin: 60,
+          status: "agendada",
+          linkGravacao: "",
+          transcricao: "",
+          resumo: "",
+          criadoEm: "2026-01-01T00:00:00Z",
+        },
+      })
+    );
+
+    const html = await renderizarPortal();
+
+    // o selo de fato renderizou (senão o teste provaria menos do que diz).
+    expect(html.toLowerCase()).toContain("em 3 dias");
+    // nenhuma classe `capitalize` sobrou no HTML — a causa raiz do defeito.
+    expect(html).not.toContain("capitalize");
+  });
+
   // MÉDIO 5 — `?erro=` nunca é o texto cru da URL: a ação manda um CÓDIGO
   // curto, a tela traduz. Um texto de ataque no lugar do código nunca
   // aparece no banner.

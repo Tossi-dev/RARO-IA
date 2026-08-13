@@ -153,8 +153,14 @@ const LIMIAR_PRAZO_PROXIMO_DIAS = 3;
  * O tom de uma tarefa pelo prazo dela — "vencido"|"proximo"|"neutro"|"sem
  * prazo". `prazoIso` é a coluna `date` de `tarefa_mentoria` (sem hora, sem
  * fuso — por isso `diaCivilDaData`, nunca `new Date()` direto nela);
- * `agoraIso` é o `timestamptz` da borda da rota.
+ * `agoraIso` é o `timestamptz` da borda da rota. `concluida` é
+ * `tarefa.concluida` — o mesmo booleano que já risca o título na tela.
  *
+ * - tarefa CONCLUÍDA -> sempre "neutro", seja qual for o prazo (mesmo no
+ *   passado). Uma entrega já feita não está vencida — pintar de vermelho o
+ *   que já foi cumprido diria ao cliente que ele ainda deve algo que já
+ *   entregou. Por isso esta checagem vem ANTES de qualquer leitura de
+ *   prazo, e não é bypassada por prazo ausente/mal formado.
  * - `null`/`""` -> "sem prazo": nada foi combinado, não é nem urgência nem
  *   tranquilidade, é ausência.
  * - prazo mal formado (não bate `AAAA-MM-DD`) -> "neutro": existe um prazo
@@ -163,7 +169,13 @@ const LIMIAR_PRAZO_PROXIMO_DIAS = 3;
  *   ser lido).
  * - `agoraIso` inválido -> mesma cautela, "neutro".
  */
-export function tomDoPrazo(prazoIso: string | null | undefined, agoraIso: string): TomPrazo {
+export function tomDoPrazo(
+  prazoIso: string | null | undefined,
+  agoraIso: string,
+  concluida = false
+): TomPrazo {
+  if (concluida) return "neutro";
+
   if (typeof prazoIso !== "string" || prazoIso.trim() === "") return "sem prazo";
 
   const prazo = diaCivilDaData(prazoIso);
