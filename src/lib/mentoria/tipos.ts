@@ -252,7 +252,13 @@ export interface Sessao {
 /**
  * Tarefa combinada numa sessão ("até a próxima call, fazer X"). Distinta de
  * `Tarefa` (CRM interno em `src/lib/types.ts`): esta é conteúdo de portal —
- * o mentorado precisa poder lê-la, e futuramente marcar como feita.
+ * o mentorado lê a própria tarefa e (B3.2, `acoes-portal.ts`) pode marcar
+ * como feita.
+ *
+ * `concluidaEm` — coluna nova de `0012_portal_mentorado_conclui_tarefa.sql`,
+ * não existia em `0006`: QUANDO a tarefa foi concluída (`null` enquanto
+ * aberta, ou depois de reaberta — ver `reabrirTarefa`). `concluida`
+ * sozinha dizia "feita ou não", nunca "desde quando".
  */
 export interface TarefaMentoria {
   id: string;
@@ -262,6 +268,7 @@ export interface TarefaMentoria {
   titulo: string;
   prazo: string | null;
   concluida: boolean;
+  concluidaEm: string | null;
   marcadaPor: string;
   criadoEm: string;
 }
@@ -290,5 +297,21 @@ export interface ScoreEvolucao {
   semana: string;
   score: number;
   motivo: string;
+  criadoEm: string;
+}
+
+/**
+ * Material (arquivo/link) liberado pelo mentor para UM mentorado específico
+ * dentro do portal (`conteudo_liberado` em 0006). Existe para o portal ter
+ * onde guardar "o que já pode ser visto" — sem RLS por mentorado_id (grupo 3
+ * do 0007/0008), essa promessa não teria como se sustentar.
+ */
+export interface ConteudoLiberado {
+  id: string;
+  workspaceId: string;
+  mentoradoId: string;
+  titulo: string;
+  url: string;
+  liberadoEm: string;
   criadoEm: string;
 }

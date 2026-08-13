@@ -113,7 +113,15 @@ export function progressoDe(
   const percentual =
     previstas === null ? null : Math.max(0, Math.min(100, Math.round((realizadas / previstas) * 100)));
 
-  const rotulo = previstas === null ? `${realizadas} sessões realizadas` : `sessão ${realizadas} de ${previstas}`;
+  // BAIXO 8 — concordância de plural: "1 sessões realizadas" está errado em
+  // português (0 e 2+ são plural; só 1 é singular). O "de X" (pacote
+  // fechado) não sofre disso: "sessão 14 de 12" é sempre singular na
+  // palavra "sessão", porque ali ela nomeia a POSIÇÃO ("a sessão de número
+  // 14"), não uma contagem.
+  const rotulo =
+    previstas === null
+      ? `${realizadas} ${realizadas === 1 ? "sessão realizada" : "sessões realizadas"}`
+      : `sessão ${realizadas} de ${previstas}`;
 
   return { realizadas, previstas, rotulo, percentual, excedeu };
 }

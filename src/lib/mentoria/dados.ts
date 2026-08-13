@@ -145,7 +145,7 @@ function avisar(operacao: string, erro: unknown): void {
 // na tela sem ninguém notar.
 // ============================================================
 
-function linhaParaMentorado(r: Row): Mentorado {
+export function linhaParaMentorado(r: Row): Mentorado {
   return {
     id: r.id,
     workspaceId: r.workspace_id,
@@ -160,7 +160,7 @@ function linhaParaMentorado(r: Row): Mentorado {
   };
 }
 
-function linhaParaPrograma(r: Row): Programa {
+export function linhaParaPrograma(r: Row): Programa {
   return {
     id: r.id,
     workspaceId: r.workspace_id,
@@ -173,7 +173,7 @@ function linhaParaPrograma(r: Row): Programa {
   };
 }
 
-function linhaParaMatricula(r: Row): Matricula {
+export function linhaParaMatricula(r: Row): Matricula {
   return {
     id: r.id,
     workspaceId: r.workspace_id,
@@ -216,7 +216,7 @@ function linkGravacaoDeLeitura(bruto: unknown): string {
   return "";
 }
 
-function linhaParaSessao(r: Row): Sessao {
+export function linhaParaSessao(r: Row): Sessao {
   return {
     id: r.id,
     workspaceId: r.workspace_id,
@@ -233,7 +233,7 @@ function linhaParaSessao(r: Row): Sessao {
   };
 }
 
-function linhaParaTarefaMentoria(r: Row): TarefaMentoria {
+export function linhaParaTarefaMentoria(r: Row): TarefaMentoria {
   return {
     id: r.id,
     workspaceId: r.workspace_id,
@@ -242,12 +242,13 @@ function linhaParaTarefaMentoria(r: Row): TarefaMentoria {
     titulo: r.titulo,
     prazo: r.prazo ?? null,
     concluida: Boolean(r.concluida),
+    concluidaEm: r.concluida_em ?? null,
     marcadaPor: r.marcada_por ?? "",
     criadoEm: r.criado_em,
   };
 }
 
-function linhaParaMarco(r: Row): Marco {
+export function linhaParaMarco(r: Row): Marco {
   return {
     id: r.id,
     workspaceId: r.workspace_id,
@@ -259,7 +260,7 @@ function linhaParaMarco(r: Row): Marco {
   };
 }
 
-function linhaParaScoreEvolucao(r: Row): ScoreEvolucao {
+export function linhaParaScoreEvolucao(r: Row): ScoreEvolucao {
   return {
     id: r.id,
     workspaceId: r.workspace_id,
@@ -271,7 +272,7 @@ function linhaParaScoreEvolucao(r: Row): ScoreEvolucao {
   };
 }
 
-function linhaParaProgramaOuNulo(r: Row): Programa | null {
+export function linhaParaProgramaOuNulo(r: Row): Programa | null {
   // O join `.select("*, programa(*)")` embute o programa como objeto
   // aninhado (relação muitos-para-um, mesmo padrão de `r.alunos?.nome` em
   // supabase-db.ts) — `null`/ausente só quando a FK não resolveu.
