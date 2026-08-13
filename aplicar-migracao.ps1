@@ -24,7 +24,7 @@ $ErrorActionPreference = "Stop"
 $raiz = "C:\dev\Repositorios\RARO IA"
 Set-Location $raiz
 
-Write-Host "=== SIMULACAO DA MIGRACAO - nada sera escrito no Supabase ==="
+Write-Host "=== MIGRACAO REAL - vai ESCREVER no Supabase ==="
 
 # 1) As variaveis do .env.local (RARO_SHEETS_ID e companhia). Lidas do
 #    arquivo, nunca transcritas: o valor vai do disco para o processo.
@@ -62,12 +62,18 @@ Write-Host ("[ok] chave de servico carregada do arquivo (" + $chave.Length + " c
 # 4) Roda. --yes porque o tsx nao esta instalado nesta pasta e o npx vai
 #    busca-lo; sem isso ele para esperando um "y" que ninguem vai digitar.
 Write-Host "[..] rodando (pode levar alguns minutos na primeira vez)"
-# Ver o comentario equivalente em aplicar-migracao.ps1: com "Stop" valendo,
-# a primeira linha que o processo filho escreve em stderr mata o pipeline
-# antes de o relatorio ser gravado.
+
+# ErrorActionPreference volta para Continue SO NA CHAMADA do processo filho.
+# POR QUE: o PowerShell trata cada linha que um programa nativo escreve em
+# stderr como um registro de erro. Com "Stop" valendo, a PRIMEIRA linha de
+# stderr mata o pipeline -- e o script de migracao usa stderr para imprimir
+# o relatorio final quando alguma contagem nao bate. Resultado: a migracao
+# rodava inteira, escrevia no banco, e morria na hora de contar o que fez,
+# sem gravar o arquivo de saida. Perder o relatorio de uma escrita ja feita
+# e pior do que nao ter rodado: ninguem sabe o que aconteceu.
 $anterior = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
-$saida = & npx --yes tsx "scripts/migrar-planilha-para-supabase.ts" 2>&1 | Out-String
+$saida = & npx --yes tsx "scripts/migrar-planilha-para-supabase.ts" --aplicar 2>&1 | Out-String
 $codigo = $LASTEXITCODE
 $ErrorActionPreference = $anterior
 
@@ -76,9 +82,9 @@ $ErrorActionPreference = $anterior
 #    imprimir por acidente. Defesa que custa uma linha.
 $saida = $saida.Replace($chave, "<<SEGREDO REMOVIDO>>")
 
-$destino = Join-Path $raiz "simulacao-saida.txt"
+$destino = Join-Path $raiz "aplicacao-saida.txt"
 Set-Content -Path $destino -Value $saida -Encoding UTF8
 Add-Content -Path $destino -Value ("=== CODIGO DE SAIDA: " + $codigo + " ===") -Encoding UTF8
 
 Write-Host $saida
-Write-Host ("=== FIM - codigo de saida " + $codigo + " - gravado em simulacao-saida.txt ===")
+Write-Host ("=== FIM - codigo de saida " + $codigo + " - gravado em aplicacao-saida.txt ===")

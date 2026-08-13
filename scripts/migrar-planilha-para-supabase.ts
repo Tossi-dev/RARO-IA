@@ -304,6 +304,18 @@ export interface ResultadoEntidade {
   inseridas: number;
   jaExistentes: number;
   recusas: Recusa[];
+  /**
+   * Linhas da planilha cuja CHAVE NATURAL já tinha aparecido nesta mesma
+   * execução — ou seja, duplicatas dentro da própria fonte (ex.: um lead
+   * duplicado, uma linha de teste relançada com o mesmo telefone).
+   *
+   * Isto é DIFERENTE de `jaExistentes`: `jaExistentes` fala de uma linha que
+   * já tinha sido gravada numa execução ANTERIOR do script; este campo fala
+   * de uma linha repetida DENTRO da leitura de agora, antes mesmo de
+   * consultar o Postgres. As duas contagens são independentes e uma linha
+   * nunca soma nos dois contadores ao mesmo tempo.
+   */
+  duplicadasNaOrigem: number;
 }
 
 /**
@@ -340,6 +352,22 @@ export function validarOrdemDeDependencia(
 }
 
 /**
+ * Serializa uma chave natural (já em snake_case) para comparar duas linhas
+ * como "mesma chave" independentemente da ORDEM em que os campos aparecem no
+ * objeto — `Object.entries` preserva ordem de inserção, e cada
+ * `chaveNatural` de `ENTIDADES_MIGRAVEIS` escreve os campos numa ordem fixa
+ * no código, mas nada IMPEDE duas ordens diferentes de descrever a mesma
+ * chave (`{nome,telefone}` e `{telefone,nome}` são a MESMA pessoa). Sem
+ * ordenar por nome de campo antes de `JSON.stringify`, essas duas virariam
+ * strings diferentes e a contagem de duplicatas erraria por baixo — a
+ * própria detecção de duplicata é o que este script usa para dizer "está
+ * tudo bem, é a planilha repetindo", então ela precisa estar certa.
+ */
+function serializarChaveNatural(chave: LinhaPg): string {
+  return JSON.stringify(Object.entries(chave).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+/**
  * Migra uma entidade: lê a planilha, converte item a item, verifica a chave
  * natural no Postgres (idempotência), insere o que falta (só em `aplicar`) e
  * devolve o balanço. Nunca lança por causa de UMA linha ruim — cada falha de
@@ -355,6 +383,17 @@ export async function migrarEntidade<T>(
   const recusas: Recusa[] = [];
   let inseridas = 0;
   let jaExistentes = 0;
+  let duplicadasNaOrigem = 0;
+
+  // As duas linhas abaixo existem só para RECONHECER duplicata dentro desta
+  // execução — nunca para decidir idempotência entre execuções (isso
+  // continua sendo `banco.buscarPorChaveNatural`, que fala com o Postgres).
+  // `chavesVistas` guarda toda chave natural já processada nesta leitura;
+  // `idPorChave` guarda o id (real ou simulado) que a PRIMEIRA ocorrência de
+  // cada chave recebeu, para a(s) ocorrência(s) seguinte(s) — a duplicata —
+  // poder registrar a MESMA referência no mapa de ids sem inserir de novo.
+  const chavesVistas = new Set<string>();
+  const idPorChave = new Map<string, string>();
 
   for (let i = 0; i < itens.length; i++) {
     const item = itens[i];
@@ -372,6 +411,25 @@ export async function migrarEntidade<T>(
     }
 
     const chave = def.chaveNatural(conversao.linha);
+    const chaveSerializada = serializarChaveNatural(chave);
+
+    if (chavesVistas.has(chaveSerializada)) {
+      // DUPLICATA NA ORIGEM: esta MESMA chave natural já apareceu antes
+      // nesta leitura (ex.: lead duplicado, linha de teste relançada com o
+      // mesmo telefone). O Postgres já vai guardar (ou já guardou, algumas
+      // linhas atrás neste mesmo laço) UMA cópia dela — aqui só repetimos,
+      // no mapa de ids, o id que a primeira ocorrência recebeu, para que
+      // quem depende desta linha (uma FK apontando para ESTE id de origem
+      // específico) resolva do mesmo jeito. Nunca consultamos o banco nem
+      // inserimos de novo por causa desta linha: ela não é nova informação,
+      // é a planilha repetindo a mesma linha de negócio duas vezes.
+      duplicadasNaOrigem++;
+      const idJaResolvido = idPorChave.get(chaveSerializada);
+      if (idJaResolvido) mapa.registrar(def.entidade, idOrigem, idJaResolvido);
+      continue;
+    }
+    chavesVistas.add(chaveSerializada);
+
     const idExistente = await banco.buscarPorChaveNatural(def.entidade, chave);
     if (idExistente) {
       // JÁ MIGRADA numa execução anterior: registra o id no mapa mesmo assim
@@ -380,6 +438,7 @@ export async function migrarEntidade<T>(
       // idempotente (regra 1).
       jaExistentes++;
       mapa.registrar(def.entidade, idOrigem, idExistente);
+      idPorChave.set(chaveSerializada, idExistente);
       continue;
     }
 
@@ -403,17 +462,20 @@ export async function migrarEntidade<T>(
       // tem forma de uuid, e nunca pode chegar ao banco: `inserir()` só é
       // chamada quando `aplicar` é verdadeiro, e `criarClienteSupabase`
       // ainda checa o prefixo antes de escrever, como rede de segurança.
-      mapa.registrar(def.entidade, idOrigem, idSimulado(def.entidade, idOrigem));
+      const idFalso = idSimulado(def.entidade, idOrigem);
+      mapa.registrar(def.entidade, idOrigem, idFalso);
+      idPorChave.set(chaveSerializada, idFalso);
       inseridas++;
       continue;
     }
 
     const idNovo = await banco.inserir(def.entidade, conversao.linha);
     mapa.registrar(def.entidade, idOrigem, idNovo);
+    idPorChave.set(chaveSerializada, idNovo);
     inseridas++;
   }
 
-  return { entidade: def.entidade, aba: def.aba, lidas: itens.length, inseridas, jaExistentes, recusas };
+  return { entidade: def.entidade, aba: def.aba, lidas: itens.length, inseridas, jaExistentes, recusas, duplicadasNaOrigem };
 }
 
 // ============================================================
@@ -1530,6 +1592,10 @@ export interface LinhaConferencia {
   entidade: string;
   planilha: number;
   postgres: number;
+  /** Quantas das `planilha` linhas eram duplicata na origem — ver
+   *  `ResultadoEntidade.duplicadasNaOrigem`. Descontada de `bate` porque o
+   *  Postgres corretamente guardou uma só cópia de cada. */
+  duplicadas: number;
   bate: boolean;
 }
 
@@ -1540,6 +1606,25 @@ export interface LinhaConferencia {
  * tabela — não só o que este script inseriu agora — o que é o correto:
  * numa segunda execução idempotente, `inseridas = 0` mas o total já bate
  * desde a primeira vez.
+ *
+ * A FÓRMULA DE `bate` E POR QUE ELA DESCONTA DUAS COISAS
+ * ---------------------------------------------------------
+ * `bate = lidas - duplicadasNaOrigem - recusas.length === postgres`.
+ *
+ * As duas subtrações existem porque nem toda "linha da planilha que não virou
+ * linha no Postgres" é uma falha:
+ *   - `duplicadasNaOrigem` é a mesma linha de negócio repetida na fonte (lead
+ *     duplicado, linha de teste); o Postgres guarda UMA cópia de propósito
+ *     (regra 1, idempotência) — contar as duas planilha-linhas contra uma
+ *     postgres-linha faria um relatório correto gritar "DIVERGE".
+ *   - `recusas.length` é linha que o script se RECUSOU a escrever, na cara
+ *     dura, porque escrevê-la exigiria inventar dado (regra 2) — ela nunca
+ *     tentou virar linha no Postgres, então não escrever ela não é migração
+ *     incompleta, é a regra funcionando.
+ * Sobrando diferença depois de descontar as duas, sim, é problema de
+ * verdade: alguma linha que DEVERIA ter sido gravada (nem duplicata, nem
+ * recusada) não está lá — aí `bate` é `false` e é isso que deve acender o
+ * alarme.
  */
 export async function montarConferencia(
   resultados: ResultadoEntidade[],
@@ -1548,7 +1633,8 @@ export async function montarConferencia(
   const linhas: LinhaConferencia[] = [];
   for (const r of resultados) {
     const postgres = await banco.contar(r.entidade);
-    linhas.push({ entidade: r.entidade, planilha: r.lidas, postgres, bate: r.lidas === postgres });
+    const bate = r.lidas - r.duplicadasNaOrigem - r.recusas.length === postgres;
+    linhas.push({ entidade: r.entidade, planilha: r.lidas, postgres, duplicadas: r.duplicadasNaOrigem, bate });
   }
   return linhas;
 }
@@ -1588,6 +1674,71 @@ export async function rodarMigracao(
   return { resultados, conferencia };
 }
 
+/**
+ * A chave natural de cada entidade, em português claro, para o bloco de
+ * duplicatas do relatório (`imprimirRelatorio`) — o dono não conhece nome de
+ * coluna em snake_case, mas reconhece "nome+telefone" ou "id_externo" na
+ * hora. Mantido separado de `chaveNatural` (que devolve VALORES) porque este
+ * dicionário descreve os CAMPOS em prosa, e só é usado para exibição.
+ */
+const DESCRICAO_CHAVE_NATURAL: Record<string, string> = {
+  agrupamentos: "um nome",
+  produtos: "um nome",
+  afiliados: "um nome",
+  alunos: "uma combinação de nome+telefone",
+  contas_bancarias: "um nome",
+  metas: "uma combinação de indicador+escopo+período",
+  metas_financeiras: "uma combinação de tipo+período",
+  parametros_financeiros: "a linha única de configuração",
+  despesas: "uma combinação de data+descrição+valor+categoria",
+  perfis_sociais: "uma combinação de plataforma+identificador (handle)",
+  lancamentos: "um nome",
+  modulos: "uma combinação de produto+ordem",
+  movimentos_caixa: "uma combinação de descrição+data de caixa+valor+direção+categoria",
+  recebiveis: "uma combinação de descrição+vencimento+valor+parcela",
+  pagaveis: "uma combinação de descrição+vencimento+valor+fornecedor",
+  conteudos: "uma combinação de perfil+título+data de publicação",
+  atividades: "uma combinação de aluno+tipo+título+data",
+  interacoes: "um id_externo",
+  envios: "uma combinação de aluno+texto+instante de autorização",
+  aulas: "uma combinação de módulo+ordem",
+  tarefas: "uma combinação de título+prazo+responsável",
+  reunioes: "uma combinação de título+início",
+  matriculas: "uma combinação de aluno+produto+data+valor",
+  importacoes: "uma impressão digital",
+  conteudo_metricas: "um conteúdo (uma métrica por conteúdo)",
+  campanhas: "uma combinação de nome+início",
+  progresso_aulas: "uma combinação de aluno+aula",
+  comissoes: "uma combinação de matrícula+afiliado+data+valor",
+  reembolsos: "uma combinação de matrícula+data+valor",
+  chargebacks: "uma combinação de matrícula+data+valor",
+  encontros: "uma combinação de turma+título+data",
+};
+
+/**
+ * O texto da coluna "situação" da tabela de conferência — três estados, não
+ * dois (ver comentário de `montarConferencia` para a fórmula de `bate`):
+ *   - "OK": bate exatamente, nada para explicar.
+ *   - "OK (N duplicadas...)" / "OK (..., N recusadas)": bate DEPOIS de
+ *     descontar duplicata e/ou recusa — não é erro, é o script fazendo o que
+ *     devia (deduplicar, não inventar dado).
+ *   - "DIVERGE": sobrou diferença que nem duplicata nem recusa explicam —
+ *     este é o único estado que é problema de verdade.
+ */
+function situacaoTexto(c: LinhaConferencia, quantidadeRecusas: number): string {
+  if (!c.bate) return "DIVERGE";
+  if (c.duplicadas === 0 && quantidadeRecusas === 0) return "OK";
+
+  const partes: string[] = [];
+  if (c.duplicadas > 0) {
+    partes.push(`${c.duplicadas} duplicada${c.duplicadas === 1 ? "" : "s"} na planilha`);
+  }
+  if (quantidadeRecusas > 0) {
+    partes.push(`${quantidadeRecusas} recusada${quantidadeRecusas === 1 ? "" : "s"}`);
+  }
+  return `OK (${partes.join(", ")})`;
+}
+
 function imprimirRelatorio(
   resultados: ResultadoEntidade[],
   conferencia: LinhaConferencia[],
@@ -1615,12 +1766,33 @@ function imprimirRelatorio(
   }
 
   console.log(`\n${linha("=")}`);
-  console.log("CONFERÊNCIA — planilha x Postgres (o número que não bate é migração que não terminou)");
+  // ATUALIZADO: a frase antiga ("o número que não bate é migração que não
+  // terminou") virou mentira no dia em que a migração terminou perfeitamente
+  // e a planilha tinha 10 linhas de ALUNOS para 6 pessoas reais (lead
+  // duplicado + linhas de teste). "Não bater" agora tem duas causas bem
+  // diferentes — e só uma delas é problema.
+  console.log("CONFERÊNCIA — planilha x Postgres (OK = bate; OK com duplicata/recusada = bateu descontando");
+  console.log("linha repetida na planilha ou corretamente recusada, não é erro; DIVERGE = sobrou diferença");
+  console.log("que nem duplicata nem recusa explicam — aí sim é migração que não terminou)");
   console.log(linha("="));
   console.log("entidade".padEnd(24) + "planilha".padStart(10) + "postgres".padStart(10) + "  situação");
+  const recusasPorEntidade = new Map(resultados.map((r) => [r.entidade, r.recusas.length]));
   for (const c of conferencia) {
-    const situacao = c.bate ? "OK" : "DIVERGE";
+    const situacao = situacaoTexto(c, recusasPorEntidade.get(c.entidade) ?? 0);
     console.log(c.entidade.padEnd(24) + String(c.planilha).padStart(10) + String(c.postgres).padStart(10) + `  ${situacao}`);
+  }
+
+  const comDuplicatas = resultados.filter((r) => r.duplicadasNaOrigem > 0);
+  if (comDuplicatas.length > 0) {
+    const totalDuplicadas = comDuplicatas.reduce((soma, r) => soma + r.duplicadasNaOrigem, 0);
+    console.log(`\n${linha("-")}`);
+    console.log(`LINHAS QUE A PLANILHA REPETE (${totalDuplicadas}) — o banco guardou uma vez cada:`);
+    console.log(linha("-"));
+    for (const r of comDuplicatas) {
+      const descricaoChave = DESCRICAO_CHAVE_NATURAL[r.entidade] ?? "a mesma chave natural";
+      const plural = r.duplicadasNaOrigem === 1 ? { linha: "linha", verbo: "repete" } : { linha: "linhas", verbo: "repetem" };
+      console.log(`  [${r.entidade}] ${r.duplicadasNaOrigem} ${plural.linha} ${plural.verbo} ${descricaoChave} que já tinha vindo antes.`);
+    }
   }
 
   if (ENTIDADES_PULADAS.length > 0) {
@@ -1687,10 +1859,15 @@ export async function principal(argv: string[] = process.argv.slice(2)): Promise
 
 /**
  * Regra 4, isolada como função pura para ser testável sem CLI/env/rede:
- * em `--aplicar`, qualquer entidade cuja contagem não bate faz o script
- * terminar com código diferente de zero (a migração "não terminou" para
- * aquela entidade — ver comentário de `montarConferencia`). Em simulação a
- * divergência é sempre esperada (nada foi escrito), então nunca é falha.
+ * em `--aplicar`, qualquer entidade cujo `bate` deu `false` faz o script
+ * terminar com código diferente de zero. Como `bate` (ver
+ * `montarConferencia`) já desconta duplicata na origem e recusa antes de
+ * comparar, chegar aqui como divergente significa que NENHUMA das duas
+ * explica a diferença — só então é "migração não terminou" de verdade. Uma
+ * entidade que só bateu depois de descontar duplicata/recusa (`bate: true`)
+ * NUNCA cai neste filtro, mesmo que `planilha !== postgres` — não é falha.
+ * Em simulação a divergência é sempre esperada (nada foi escrito), então
+ * nunca é falha.
  */
 export function decidirCodigoSaida(conferencia: LinhaConferencia[], aplicar: boolean): number {
   if (!aplicar) return 0;
@@ -1698,9 +1875,10 @@ export function decidirCodigoSaida(conferencia: LinhaConferencia[], aplicar: boo
   if (divergentes.length === 0) return 0;
 
   console.error(linha("="));
-  console.error("MIGRAÇÃO NÃO TERMINOU — as entidades abaixo divergem entre planilha e Postgres:");
+  console.error("MIGRAÇÃO NÃO TERMINOU — as entidades abaixo divergem entre planilha e Postgres");
+  console.error("(diferença que NÃO é explicada por duplicata na origem nem por recusa):");
   for (const d of divergentes) {
-    console.error(`  ${d.entidade}: planilha=${d.planilha}  postgres=${d.postgres}`);
+    console.error(`  ${d.entidade}: planilha=${d.planilha}  postgres=${d.postgres}  duplicadas=${d.duplicadas}`);
   }
   console.error("Veja a lista de recusadas acima para entender o motivo de cada uma.");
   console.error(linha("="));
