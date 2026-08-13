@@ -114,6 +114,13 @@ export default async function FichaAluno({ params }: { params: { id: string } })
         </dl>
         <form action={moverAlunoEstagio} className="mt-4 flex items-end gap-2 border-t border-borda pt-3">
           <input type="hidden" name="alunoId" value={aluno.id} />
+          {/* De onde a pessoa SAI, do jeito que esta tela viu quando abriu.
+              É PISTA, não prova: quem decide é `moverAlunoEstagio`, que lê a
+              linha do aluno e a do estágio no banco antes de gravar (a aba
+              pode estar aberta desde antes de a pessoa mudar de degrau). O
+              campo continua aqui porque é ele que deixa o portão sem-banco
+              recusar o arrasto obviamente proibido; a garantia é a leitura. */}
+          <input type="hidden" name="chaveAtual" value={estagio?.chave ?? ""} />
           <Campo label="Mover de estágio" className="flex-1">
             <Select name="estagioId" defaultValue={aluno.estagioId ?? ""}>
               {estagios.map((e) => (

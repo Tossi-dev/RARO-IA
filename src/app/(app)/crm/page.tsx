@@ -3,10 +3,12 @@ import { GraficoFunil } from "@/components/charts";
 import { KanbanCrm, type CartaoKanban } from "@/components/kanban";
 import { Badge, Botao, Campo, Card, Input, PageHeader, PainelForm, Select, Stat, Tabela, Td, Th, TextArea, Vazio, cx, type Tom } from "@/components/ui";
 import { criarAluno } from "@/lib/actions";
+import { ordemDaEtapa, type EtapaJornada } from "@/lib/crm/jornada";
 import { getDB } from "@/lib/data";
 import { STATUS_FUNIL_LABEL } from "@/lib/domain";
 import { fmtBRL, fmtDate } from "@/lib/format";
 import { funil, statsAluno } from "@/lib/metrics";
+import type { Estagio } from "@/lib/types";
 import { CrmFila } from "@/components/crm-fila";
 import { montarFilaDoDia, type AlunoParaFila } from "@/lib/atendimento/fila";
 import { CrmWhatsapp } from "@/components/crm-whatsapp";
@@ -16,10 +18,65 @@ export const dynamic = "force-dynamic";
 
 const DIA_MS = 86400000;
 
+/**
+ * Os estágios na ordem da ESCADA CANÔNICA (`src/lib/crm/jornada.ts`), e não
+ * em `crm_estagios.ordem`.
+ *
+ * POR QUE NÃO A ORDEM DO BANCO: `ordem` é campo editável pelo dono, e a 0014
+ * até a reescreve no remapeamento. Uma tela que ordena por ele mostra o funil
+ * fora de sequência no dia em que alguém arrumar as colunas na mão — e um
+ * funil fora de ordem faz a pessoa ler conversão onde não há.
+ *
+ * O que o código NÃO conhece continua na tela: `ordemDaEtapa` devolve, para
+ * chave fora da escada (o `inativo` que a 0014 preserva de propósito, o
+ * estágio que o dono criou à mão, ou `""` de base anterior à 0014), uma
+ * posição depois do último degrau — a coluna aparece no FIM, com o rótulo do
+ * banco. Esconder estágio que existe seria apagar dado na tela.
+ *
+ * O desempate é a posição de ENTRADA, escrito à mão em vez de confiado ao
+ * `sort`: duas colunas fora da escada empatam sempre, e a ordem entre elas
+ * precisa ser a mesma a cada abertura da página.
+ */
+function ordenarPelaEscada(estagios: readonly Estagio[]): Estagio[] {
+  return estagios
+    .map((estagio, entrada) => ({ estagio, entrada }))
+    .sort((a, b) => {
+      const passo = ordemDaEtapa(a.estagio.chave) - ordemDaEtapa(b.estagio.chave);
+      return passo !== 0 ? passo : a.entrada - b.entrada;
+    })
+    .map((item) => item.estagio);
+}
+
+// MÉDIO 5 da auditoria (o raciocínio está inteiro no cabeçalho de
+// `src/lib/mentoria/acoes-portal.ts`): `?erro=` carrega um CÓDIGO curto,
+// escrito por `moverAlunoEstagio`, e esta tabela fechada é o único lugar que
+// traduz código em frase. Código desconhecido — typo ou ataque — nunca ecoa.
+const MENSAGENS_ERRO: Record<string, string> = {
+  transicao:
+    "Quem já é alumni só volta para o funil como cliente ativo (recompra). O movimento foi recusado e ninguém mudou de estágio.",
+  estagio: "Não foi possível mover a pessoa de estágio agora. Confira se o estágio ainda existe e tente de novo.",
+  aluno:
+    "Não foi possível confirmar em que estágio essa pessoa está agora. Atualize a página e tente de novo — nada foi alterado.",
+};
+
+const MENSAGEM_ERRO_GENERICA = "Não foi possível concluir a ação agora. Tente novamente em instantes.";
+
+/** A frase do banner, ou `null` quando não há código nenhum para mostrar. */
+function mensagemDeErro(codigo: string | null | undefined): string | null {
+  if (typeof codigo !== "string" || codigo.trim() === "") return null;
+  // `hasOwn` e não `MENSAGENS_ERRO[codigo] ?? ...`: a busca crua acha o que
+  // veio do PROTÓTIPO de Object. `?erro=toString` devolveria uma FUNÇÃO em
+  // vez de frase, e o `??` não a substituiria pela genérica — o banner
+  // sairia quebrado por causa de um valor de querystring.
+  return Object.prototype.hasOwnProperty.call(MENSAGENS_ERRO, codigo)
+    ? MENSAGENS_ERRO[codigo]
+    : MENSAGEM_ERRO_GENERICA;
+}
+
 export default async function Crm({
   searchParams,
 }: {
-  searchParams: { q?: string; estagio?: string; visao?: string };
+  searchParams: { q?: string; estagio?: string; visao?: string; erro?: string };
 }) {
   const db = getDB();
   const [alunos, ds, estagios, atividades, interacoes] = await Promise.all([
@@ -92,9 +149,13 @@ export default async function Crm({
     return true;
   });
 
-  // kanban
+  // kanban — as colunas na ordem da escada (ver `ordenarPelaEscada`). Esta
+  // lista é a que a tela inteira usa daqui para baixo: o quadro, o filtro de
+  // estágio e a ordenação da visão em lista. Duas ordens diferentes para a
+  // mesma escada, na mesma tela, é a confusão que a Fase 2 veio desfazer.
+  const estagiosNaEscada = ordenarPelaEscada(estagios);
   const colunas: Record<string, CartaoKanban[]> = {};
-  for (const e of estagios) colunas[e.id] = [];
+  for (const e of estagiosNaEscada) colunas[e.id] = [];
   for (const a of filtrados) {
     const st = statsAluno(porAluno.get(a.id) ?? []);
     const cartao: CartaoKanban = {
@@ -105,10 +166,14 @@ export default async function Crm({
       ltv: st.ltv,
       diasSemContato: diasSem(a.id),
     };
-    const chave = a.estagioId && colunas[a.estagioId] ? a.estagioId : estagios[0]?.id;
+    // Sem estágio (ou com um id que não existe mais) a pessoa cai na PRIMEIRA
+    // coluna da escada, não na primeira linha que o banco devolveu: o começo
+    // do funil é o lugar que não afirma nada sobre ela — mesmo fail-closed de
+    // `jornadaDe`, que manda o desconhecido para `prospect`.
+    const chave = a.estagioId && colunas[a.estagioId] ? a.estagioId : estagiosNaEscada[0]?.id;
     if (chave) colunas[chave].push(cartao);
   }
-  for (const e of estagios) {
+  for (const e of estagiosNaEscada) {
     colunas[e.id].sort((x, y) => (y.diasSemContato ?? 0) - (x.diasSemContato ?? 0));
   }
 
@@ -120,9 +185,20 @@ export default async function Crm({
   const ltvTotal = ltvs.reduce((s, v) => s + v, 0);
   const ltvMedio = ltvs.length ? ltvTotal / ltvs.length : 0;
   const ativos = f.novo + f.recorrente;
-  // atenção: a coluna "Em risco" sai do kanban, que já respeita os filtros da
+  // A coluna de risco é achada pela CHAVE da escada, nunca por um id
+  // literal: `crm_estagios.id` é uuid gerado pelo Postgres (a 0014 não
+  // escreve id nenhum), e o `est-risco` que ficava aqui só existe na base de
+  // demonstração. Em Supabase de verdade a busca por id não achava nada e o
+  // KPI mostrava 0 — um zero apresentado como contagem, com composição
+  // detalhada, que é a pior forma de mentir número.
+  //
+  // `EtapaJornada` e não `string` para o `tsc` cobrar a chave: um typo aqui
+  // volta a zerar o cartão em silêncio.
+  const CHAVE_EM_RISCO: EtapaJornada = "em_risco";
+  const estagioDeRisco = estagiosNaEscada.find((e) => e.chave === CHAVE_EM_RISCO);
+  // atenção: a coluna de risco sai do kanban, que já respeita os filtros da
   // tela; `f.inativo` sai da base inteira. A ressalva vai na nota do KPI.
-  const emRisco = colunas["est-risco"]?.length ?? 0;
+  const emRisco = estagioDeRisco ? (colunas[estagioDeRisco.id]?.length ?? 0) : 0;
   const emRiscoOuInativos = emRisco + f.inativo;
   const dadosFunil = [
     { name: "Potencial", value: f.potencial },
@@ -132,8 +208,29 @@ export default async function Crm({
   ];
   const nomeEstagio = new Map(estagios.map((e) => [e.id, e] as const));
 
+  /**
+   * O degrau da escada que a visão em LISTA usa para ordenar cada pessoa.
+   *
+   * É a mesma conta que o quadro faz para escolher a coluna do cartão
+   * (`estagiosNaEscada[0]` quando o `estagioId` não resolve): sem isso, a
+   * mesma pessoa aparece no começo do funil no quadro e no fim da tabela na
+   * lista — duas respostas para "onde ela está" na mesma tela.
+   *
+   * Ordenar não é afirmar: a coluna "Estágio" da linha continua mostrando
+   * "—" para quem o banco não sabe dizer. O lugar é o do começo do funil, que
+   * é o que não afirma nada; o rótulo diz a verdade, que é não saber.
+   */
+  const degrauNaLista = (estagioId: string | null): number => {
+    const estagio = nomeEstagio.get(estagioId ?? "");
+    return ordemDaEtapa((estagio ?? estagiosNaEscada[0])?.chave);
+  };
+
   const linkVisao = (v: string) =>
     `/crm?visao=${v}${q ? `&q=${encodeURIComponent(searchParams.q ?? "")}` : ""}${estagioFiltro ? `&estagio=${estagioFiltro}` : ""}`;
+
+  // `searchParams.erro` NUNCA é renderizado direto — só o que a tabela
+  // fechada acima reconhece (ver `mensagemDeErro`).
+  const mensagemErro = mensagemDeErro(searchParams.erro);
 
   return (
     <>
@@ -153,6 +250,16 @@ export default async function Crm({
           ))}
         </div>
       </PageHeader>
+
+      {/* A recusa de `moverAlunoEstagio` volta aqui, em `?erro=<código>` —
+          mesmo banner (e mesmo estilo) do portal do mentorado. A frase diz o
+          que NÃO aconteceu, porque quem acabou de arrastar um card precisa
+          saber que o card voltou para o lugar. */}
+      {mensagemErro ? (
+        <p className="mb-4 rounded-xl border border-negativo/40 bg-negativo/10 px-4 py-3 text-sm text-negativo">
+          {mensagemErro}
+        </p>
+      ) : null}
 
       {/* A fila vem ANTES dos números. A pergunta que o dono faz ao abrir esta
           tela é "com quem eu falo agora", não "quantos alunos eu tenho" — e a
@@ -240,15 +347,26 @@ export default async function Crm({
           formato="numero"
           valorNumerico={emRiscoOuInativos}
           invertida
-          composicao={{
-            formula: "soma",
-            partes: [
-              { rotulo: "No estágio Em risco do pipeline", valor: emRisco },
-              { rotulo: "Marcados como inativos no funil", valor: f.inativo },
-            ],
-            nota: "Menor é melhor. A parcela Em risco respeita os filtros de busca e estágio da tela; a de inativos vem sempre da base inteira — com filtro ligado, as duas olham recortes diferentes. Estágio é campo editável: se alguém for posto em Em risco e também marcado como inativo, aparece nas duas linhas.",
-          }}
-          origem="listAlunos(): coluna est-risco do kanban (já filtrada) + situação inativo do funil, via funil()"
+          composicao={
+            estagioDeRisco
+              ? {
+                  formula: "soma",
+                  partes: [
+                    // O rótulo do BANCO, como no resto da tela: quem
+                    // renomeou a coluna para "Risco de churn" lê o nome que
+                    // escolheu, não o literal do código.
+                    { rotulo: `No estágio ${estagioDeRisco.nome} do pipeline`, valor: emRisco },
+                    { rotulo: "Marcados como inativos no funil", valor: f.inativo },
+                  ],
+                  nota: "Menor é melhor. A parcela do pipeline respeita os filtros de busca e estágio da tela; a de inativos vem sempre da base inteira — com filtro ligado, as duas olham recortes diferentes. Estágio é campo editável: se alguém for posto na coluna de risco e também marcado como inativo, aparece nas duas linhas.",
+                }
+              : // Sem coluna de risco no pipeline, a parcela do pipeline não
+                // é zero — ela não existe. Escrever "No estágio Em risco do
+                // pipeline 0" afirmaria duas coisas falsas de uma vez: que a
+                // coluna existe e que está vazia.
+                "Este pipeline não tem coluna de risco, então o número é só o de quem está marcado como inativo no funil."
+          }
+          origem="listAlunos(): coluna de chave em_risco no kanban (já filtrada) + situação inativo do funil, via funil()"
         />
       </div>
 
@@ -263,7 +381,7 @@ export default async function Crm({
             <Campo label="Estágio" className="min-w-[170px]">
               <Select name="estagio" defaultValue={estagioFiltro}>
                 <option value="">Todos</option>
-                {estagios.map((e) => (
+                {estagiosNaEscada.map((e) => (
                   <option key={e.id} value={e.id}>{e.nome}</option>
                 ))}
               </Select>
@@ -310,7 +428,7 @@ export default async function Crm({
 
       <div className="mt-4">
         {visao === "kanban" ? (
-          <KanbanCrm estagios={estagios} colunas={colunas} />
+          <KanbanCrm estagios={estagiosNaEscada} colunas={colunas} />
         ) : (
           <Card titulo={`Pessoas (${filtrados.length})`}>
             {filtrados.length ? (
@@ -328,7 +446,18 @@ export default async function Crm({
                 <tbody>
                   {filtrados
                     .slice()
-                    .sort((a, b) => (nomeEstagio.get(a.estagioId ?? "")?.ordem ?? 9) - (nomeEstagio.get(b.estagioId ?? "")?.ordem ?? 9))
+                    // A mesma escada do quadro (`ordenarPelaEscada`), pela
+                    // mesma razão: as duas visões da mesma tela não podem
+                    // discordar sobre a sequência do funil. Pessoa em estágio
+                    // fora da escada vai para o fim, com o nome do banco na
+                    // coluna "Estágio" — não some da lista. Empate resolvido
+                    // pelo nome, para a lista não trocar de ordem sozinha
+                    // entre duas aberturas.
+                    .sort(
+                      (a, b) =>
+                        degrauNaLista(a.estagioId) - degrauNaLista(b.estagioId) ||
+                        a.nome.localeCompare(b.nome, "pt-BR")
+                    )
                     .map((a) => {
                       const st = statsAluno(porAluno.get(a.id) ?? []);
                       const e = nomeEstagio.get(a.estagioId ?? "");

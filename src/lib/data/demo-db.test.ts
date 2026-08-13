@@ -18,6 +18,7 @@ import { describe, expect, it } from "vitest";
 import { demoProvider, demoProvider as db } from "./demo-db";
 import { lerExtrato } from "../extrato/extrato";
 import type { MensagemRecebida } from "../atendimento/contrato";
+import { ESCADA_JORNADA } from "../crm/jornada";
 
 // Conta já cadastrada no seed de demonstração (ver contasBancarias em demo-db.ts).
 const CONTA_DEMO = "cb-itau";
@@ -179,5 +180,32 @@ describe("demoProvider — fila de envio", () => {
 
     // Confirmacao repetida do agente nao reabre nem reescreve a linha.
     expect(await db.registrarResultadoEnvio([{ id, enviado: true, idExterno: "WA-OUT-1" }])).toBe(0);
+  });
+});
+
+// A base de demonstração é o que o produto mostra quando não há Supabase
+// configurado (`getDB()` cai em `demoProvider`, src/lib/data/index.ts). Ela
+// tem de se comportar como um workspace JÁ MIGRADO pela 0014 — senão a regra
+// da escada (`src/lib/crm/jornada.ts`) fica inalcançável justo no modo em que
+// a maioria das pessoas vê o produto pela primeira vez.
+describe("demoProvider.listEstagios — a escada da 0014 também vale na demo", () => {
+  it("tem os sete degraus da escada canônica, alumni e prospect inclusive", async () => {
+    const chaves = (await db.listEstagios()).map((e) => e.chave);
+
+    // Sem `alumni` não existe transição proibida, e sem `prospect` não existe
+    // o destino que a trava recusa: a regra inteira ficaria sem como acontecer.
+    for (const degrau of ESCADA_JORNADA) expect(chaves).toContain(degrau);
+  });
+
+  it("continua com o `inativo` de fora da escada: a 0014 acrescenta degrau, não apaga estágio", async () => {
+    const chaves = (await db.listEstagios()).map((e) => e.chave);
+
+    expect(chaves).toContain("inativo");
+  });
+
+  it("nenhuma chave repetida — no banco quem garante isso é o índice único da 0014", async () => {
+    const chaves = (await db.listEstagios()).map((e) => e.chave);
+
+    expect(chaves).toHaveLength(new Set(chaves).size);
   });
 });
