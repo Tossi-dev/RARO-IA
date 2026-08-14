@@ -22,7 +22,7 @@ vi.mock("../supabase/server", () => ({
   criarSupabaseServer: criarSupabaseServerMock,
 }));
 
-const { lerCarteira, lerFicha } = await import("./dados");
+const { lerCarteira, lerFicha, lerMentoradoDoAluno } = await import("./dados");
 
 // ============================================================
 // Dublê do cliente Supabase
@@ -670,5 +670,87 @@ describe("lerFicha", () => {
     expect(warnSpy).toHaveBeenCalled();
 
     warnSpy.mockRestore();
+  });
+});
+
+// ============================================================
+// lerMentoradoDoAluno — a ponte entre a ficha de CRM e a de mentoria
+// ============================================================
+//
+// `alunos` (funil de vendas) e `mentorado` (pós-venda) continuam sendo duas
+// tabelas, por decisão registrada no cabeçalho de `mentorado` em 0006. Esta
+// leitura é o LINK entre as duas fichas — não um `JOIN` que as funde.
+//
+// Tudo aqui é fail-closed no mesmo sentido: quando não dá para AFIRMAR que
+// existe um mentorado vinculado, a resposta é `null` e a ficha de CRM
+// simplesmente não desenha o link. Um atalho que falta é um incômodo
+// visível; um atalho que aponta para a ficha errada é uma pessoa lendo o
+// histórico de outra.
+
+describe("lerMentoradoDoAluno", () => {
+  it("devolve o id do mentorado vinculado", async () => {
+    ligarSupabase();
+    ligarCliente({ mentorado: { data: linhaMentorado({ id: "ment-9", aluno_id: "aluno-1" }), error: null } });
+
+    expect(await lerMentoradoDoAluno("aluno-1")).toBe("ment-9");
+  });
+
+  it("sem Supabase configurado, NENHUMA consulta é feita e a resposta é null", async () => {
+    const cliente = ligarCliente({});
+
+    expect(await lerMentoradoDoAluno("aluno-1")).toBeNull();
+    expect(cliente.from).not.toHaveBeenCalled();
+  });
+
+  it("id vazio não vira consulta: `aluno_id = ''` não é pergunta que se faça ao banco", async () => {
+    ligarSupabase();
+    const cliente = ligarCliente({ mentorado: { data: linhaMentorado(), error: null } });
+
+    expect(await lerMentoradoDoAluno("   ")).toBeNull();
+    expect(cliente.from).not.toHaveBeenCalled();
+  });
+
+  it("conectou e não achou (aluno que nunca virou mentorado): null, e nada de erro", async () => {
+    ligarSupabase();
+    ligarCliente({ mentorado: { data: null, error: null } });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(await lerMentoradoDoAluno("aluno-1")).toBeNull();
+    // Não achar é uma RESPOSTA, não uma falha: lead em prospecção não tem
+    // ficha de mentoria, e isso não é assunto de log.
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it("erro na consulta (RLS, rede): null e o detalhe só no console.warn", async () => {
+    ligarSupabase();
+    ligarCliente({
+      mentorado: { data: null, error: { code: "PGRST301", message: "linha inacessível por RLS" } },
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(await lerMentoradoDoAluno("aluno-1")).toBeNull();
+    expect(warnSpy).toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it("exceção do cliente não sobe: a ficha de CRM inteira não pode cair por causa de um atalho", async () => {
+    ligarSupabase();
+    ligarCliente({}, "mentorado");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(await lerMentoradoDoAluno("aluno-1")).toBeNull();
+    expect(warnSpy).toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it("linha sem id utilizável devolve null — nunca um href `/mentoria/undefined`", async () => {
+    ligarSupabase();
+    ligarCliente({ mentorado: { data: { ...linhaMentorado(), id: null }, error: null } });
+
+    expect(await lerMentoradoDoAluno("aluno-1")).toBeNull();
   });
 });

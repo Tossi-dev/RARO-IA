@@ -10,7 +10,10 @@ import { lerTemperatura, type FatoObservado } from "@/lib/atendimento/temperatur
 import { getDB } from "@/lib/data";
 import { FORMA_PGTO_LABEL } from "@/lib/domain";
 import { fmtBRL, fmtBRLExato, fmtDate } from "@/lib/format";
+import { lerMentoradoDoAluno } from "@/lib/mentoria/dados";
 import { statsAluno } from "@/lib/metrics";
+import { papelAtual } from "@/lib/papel-atual";
+import { rotaPermitida } from "@/lib/papeis";
 import { linkWhatsApp } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
@@ -21,12 +24,29 @@ export default async function FichaAluno({ params }: { params: { id: string } })
   if (!detalhe) notFound();
   const { aluno, matriculas } = detalhe;
 
-  const [estagios, notas, atividades, interacoes] = await Promise.all([
+  const [estagios, notas, atividades, interacoes, mentoradoId, papel] = await Promise.all([
     db.listEstagios(),
     db.listNotas(aluno.id),
     db.listAtividades(aluno.id),
     db.listInteracoes(aluno.id),
+    // A ponte entre as duas fichas (Tarefa 12 da Fase 2). `alunos` e
+    // `mentorado` continuam sendo duas tabelas — decisão de modelagem
+    // registrada no cabeçalho de `mentorado` em 0006 —, e o que tira o
+    // histórico de "partido em dois" é este LINK, não um `JOIN` destrutivo.
+    // `null` quando não há vínculo, ou quando não deu para afirmar que há
+    // (ver `lerMentoradoDoAluno`): aí o atalho simplesmente não existe.
+    lerMentoradoDoAluno(aluno.id),
+    papelAtual(),
   ]);
+
+  // O atalho só é DESENHADO para quem consegue abrir a outra ponta. O papel
+  // `comercial` chega a esta ficha (`/crm` está nas rotas dele) mas não entra
+  // em `/mentoria` — ver `ROTAS_COMERCIAL` em `papeis.ts`, onde o padrão é
+  // NEGAR. Sem esta conferência, o link continuaria seguro (quem barra é o
+  // middleware, mais a RLS) e continuaria ERRADO: ele prometeria uma tela que
+  // devolve "sem acesso", e quem clicasse acharia que o sistema quebrou.
+  const linkDaMentoria = mentoradoId ? `/mentoria/${mentoradoId}` : "";
+  const mostrarLinkDaMentoria = linkDaMentoria !== "" && rotaPermitida(papel, linkDaMentoria);
 
   // A leitura de temperatura é DERIVADA aqui, a cada abertura da ficha, e
   // nunca lida de uma coluna: lead marcado como "quente" três meses atrás é a
@@ -374,7 +394,24 @@ export default async function FichaAluno({ params }: { params: { id: string } })
         <Link href="/crm" className="hover:text-primaria-2">← Central de Clientes</Link>
       </p>
       <PageHeader titulo={aluno.nome} sub={aluno.origem ? `Origem: ${aluno.origem}` : undefined}>
-        {estagio ? <Badge tom={(estagio.cor as Tom) ?? "cinza"}>{estagio.nome}</Badge> : null}
+        {/* `PageHeader` põe os filhos lado a lado com o título; o `div`
+            mantém a pílula do estágio e o link juntos, sem que o
+            `justify-between` os empurre para pontas opostas. */}
+        <div className="flex flex-wrap items-center gap-2">
+          {estagio ? <Badge tom={(estagio.cor as Tom) ?? "cinza"}>{estagio.nome}</Badge> : null}
+          {/* O caminho para o pós-venda desta mesma pessoa. Só aparece quando
+              existe mentorado vinculado E quem está lendo pode abrir a ficha
+              de mentoria — link que não leva a lugar nenhum é pior que a
+              ausência dele. */}
+          {mostrarLinkDaMentoria ? (
+            <Link
+              href={linkDaMentoria}
+              className="trans rounded-full border border-borda px-3 py-1 text-xs text-texto-2 hover:border-borda-forte hover:text-texto"
+            >
+              Ver ficha de mentoria
+            </Link>
+          ) : null}
+        </div>
       </PageHeader>
 
       <Tabs

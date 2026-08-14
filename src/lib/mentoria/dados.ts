@@ -502,3 +502,56 @@ export async function lerFicha(mentoradoId: string, agoraIso: string): Promise<F
     return fichaDesconectada(MOTIVO_ERRO_LEITURA);
   }
 }
+
+/**
+ * O id do mentorado vinculado a um aluno do CRM — ou `null`.
+ *
+ * É a PONTE entre `/crm/[id]` e `/mentoria/[id]`, e ela é um link, não um
+ * `JOIN`: `alunos` (funil de vendas) e `mentorado` (pós-venda) continuam
+ * sendo duas tabelas, pela decisão de modelagem registrada no cabeçalho de
+ * `mentorado` em 0006. Quem faz a ponte é a coluna `mentorado.aluno_id`.
+ *
+ * Devolve só o ID, e não a linha inteira, porque é só isso que o atalho
+ * precisa: a ficha de CRM não desenha nada do mentorado, ela oferece o
+ * caminho até a outra ficha — e o que a pessoa pode ver LÁ é decidido lá,
+ * pela RLS de quem abrir.
+ *
+ * FAIL-CLOSED EM TODOS OS CAMINHOS. Sem Supabase, id vazio, erro de leitura,
+ * exceção do cliente, nenhuma linha, ou linha sem id utilizável: `null`, e a
+ * ficha de CRM não desenha o link. Um atalho que falta é um incômodo que a
+ * pessoa vê; um `/mentoria/undefined` é uma tela de erro, e um id lido
+ * errado seria o histórico de outra pessoa. Nenhuma dessas trocas vale o
+ * atalho.
+ *
+ * `maybeSingle()` de propósito: dois mentorados apontando para o mesmo aluno
+ * é dado inconsistente, e nesse caso o supabase-js devolve ERRO em vez de
+ * escolher um — o que também derruba no `null`. Escolher "o primeiro"
+ * mandaria a pessoa para uma das duas fichas sem dizer que havia outra.
+ */
+export async function lerMentoradoDoAluno(alunoId: string): Promise<string | null> {
+  if (!supabaseConfigurado()) return null;
+
+  // `aluno_id = ''` não é pergunta que se faça ao banco: nenhuma linha tem
+  // essa chave, e a consulta só existiria para voltar vazia.
+  const id = typeof alunoId === "string" ? alunoId.trim() : "";
+  if (id === "") return null;
+
+  try {
+    const s = criarSupabaseServer();
+    const { data, error } = await s.from("mentorado").select("id").eq("aluno_id", id).maybeSingle();
+
+    if (error) {
+      avisar("lerMentoradoDoAluno", error);
+      return null;
+    }
+
+    // Conectou e não achou: aluno que ainda não virou mentorado é o caso
+    // NORMAL (lead em prospecção), não uma falha — por isso não passa por
+    // `avisar`, que encheria o log de ruído a cada ficha de lead aberta.
+    const bruto = (data as Row | null)?.id;
+    return typeof bruto === "string" && bruto.trim() !== "" ? bruto.trim() : null;
+  } catch (excecao) {
+    avisar("lerMentoradoDoAluno", excecao);
+    return null;
+  }
+}
