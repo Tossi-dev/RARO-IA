@@ -1,21 +1,38 @@
 // A parte PURA de apresentação da ficha do mentorado — recebe a `Ficha`
-// (contrato de `src/lib/mentoria/dados.ts`) já resolvida e um `erro`
-// opcional (já traduzido, vindo de `?erro=`), e só desenha. `page.tsx`
-// cuida da busca (`lerFicha`) e da leitura de `params`/`searchParams`;
-// nenhuma consulta aqui — mesma disciplina de `../portal/visao.tsx`.
+// (contrato de `src/lib/mentoria/dados.ts`), o `HistoricoDaFicha`
+// (`dados-historico.ts`, que já traz os fatos ordenados e o score de saúde) e
+// um `erro` opcional (já traduzido, vindo de `?erro=`), e só desenha.
+// `page.tsx` cuida da busca (`lerFicha`/`lerHistorico`) e da leitura de
+// `params`/`searchParams`; nenhuma consulta aqui — mesma disciplina de
+// `../portal/visao.tsx`.
 //
 // NÃO usa `notFound()` — mesma razão do `page.tsx` original: `lerFicha`
 // distingue "não existe" (`conectado: true`, `mentorado: null`) de "não
 // consegui ler" (`conectado: false`), e a tela precisa deixar essa
 // diferença visível.
+//
+// ESTA É A FICHA DO TIME, E ELA MOSTRA O QUE É DO TIME. A aba "Histórico"
+// desenha os fatos como `lerHistorico` os devolveu, INCLUSIVE os `interno`
+// (nota de CRM, cobrança, temperatura do lead). O portal é a outra tela, e é
+// lá que `projetarParaPortal` (historico.ts) corta — trocar as duas por
+// engano em qualquer direção é o defeito mais caro possível aqui: ou o time
+// perde metade da história, ou o cliente ganha a metade que não é dele.
 
 import Link from "next/link";
-import { Badge, Botao, Campo, Card, Input, PageHeader, ProgressBar, Select, TextArea, Vazio, type Tom } from "@/components/ui";
+import { Tabs } from "@/components/tabs";
+import { Timeline } from "@/components/timeline";
+import { Badge, Botao, Campo, Card, Input, PageHeader, ProgressBar, Select, TextArea, Vazio, cx, type Tom } from "@/components/ui";
+import type { ListaDocumentos } from "@/lib/documentos/dados";
 import { agendarSessao, darBaixaNaSessao } from "@/lib/mentoria/acoes";
 import type { Ficha } from "@/lib/mentoria/dados";
+import type { HistoricoDaFicha } from "@/lib/mentoria/dados-historico";
+import type { FatoHistorico, TipoFato } from "@/lib/mentoria/historico";
+import { NIVEL_SAUDE_MENTORADO_LABEL, type NivelSaudeMentorado, type SaudeMentorado } from "@/lib/mentoria/saude-mentorado";
 import type { StatusMentorado, StatusSessao } from "@/lib/mentoria/tipos";
 import { STATUS_BAIXA_VALORES } from "@/lib/mentoria/validacao";
+import type { Atividade, AtividadeTipo } from "@/lib/types";
 import { dataBr, dataHoraBr, variacaoScore } from "../textos";
+import { DocumentosDoMentorado } from "./documentos";
 
 const LABEL_STATUS_MENTORADO: Record<StatusMentorado, string> = {
   lead: "Lead",
@@ -62,7 +79,294 @@ const LABEL_STATUS_BAIXA: Record<(typeof STATUS_BAIXA_VALORES)[number], string> 
   cancelada: LABEL_STATUS_SESSAO.cancelada,
 };
 
-export function FichaVisao({ ficha, erro }: { ficha: Ficha; erro?: string }) {
+// ============================================================
+// Card "Saúde do mentorado"
+// ============================================================
+
+const COR_NIVEL_SAUDE: Record<NivelSaudeMentorado, string> = {
+  critico: "text-negativo",
+  atencao: "text-aviso",
+  saudavel: "text-positivo",
+  excelente: "text-ouro",
+};
+
+/** Os fatores que não pontuaram, nomeados — é o texto da parcialidade. */
+function nomesSemBase(saude: SaudeMentorado): string {
+  return saude.fatores
+    .filter((fator) => !fator.temBase)
+    .map((fator) => fator.nome)
+    .join(", ");
+}
+
+/**
+ * O score de saúde, os fatores e — sempre — o que ficou de fora.
+ *
+ * As três coisas que este card NÃO faz, e por quê:
+ *
+ * 1) Não desenha `0` nem barra quando `score` é `null`. `saude-mentorado.ts`
+ *    devolve `null` justamente para obrigar cada tela a decidir o que dizer
+ *    sem base, em vez de deixar a ausência de dado virar nota baixa — e a
+ *    tela que desenha zero transforma "não sei" em "vai mal", com cor
+ *    semântica e tudo. Aqui a ausência é dita com todas as letras.
+ * 2) Não esconde a parcialidade. Score renormalizado sobre 55 pontos é uma
+ *    afirmação diferente de score sobre 100, e a diferença tem que estar na
+ *    tela: o denominador considerado aparece, e os fatores de fora aparecem
+ *    NOMEADOS. Um "71" solto pareceria completo.
+ * 3) Não recalcula nada. O número vem inteiro de `lerHistorico`, que o pega
+ *    de `saudeDoMentorado` — a única conta de saúde do sistema. Qualquer
+ *    aritmética aqui seria a segunda conta entrando pela porta dos fundos.
+ * 4) Não transforma falha de leitura em afirmação sobre a pessoa. "Não deu
+ *    para ler" e "não há o que medir" chegam aqui parecidos (nos dois casos a
+ *    saúde vem sem base) e saem diferentes na tela — ver `semLeituraCompleta`
+ *    abaixo. Sem essa separação, um `permission denied` viraria "nenhuma
+ *    sessão passada" na ficha de quem está em dia.
+ */
+function CardSaudeMentorado({ historico }: { historico: HistoricoDaFicha }) {
+  const { saude } = historico;
+  const total = saude.fatores.length;
+  const comBase = saude.fatores.filter((fator) => fator.temBase).length;
+
+  // Leitura incompleta + saúde sem base é o par que `lerHistorico` produz
+  // quando UMA das quatro consultas da conta falha (ver "A CONTA DA SAÚDE SÓ
+  // RODA SOBRE LEITURA COMPLETA", em `dados-historico.ts`): a saúde vem da
+  // conta de sempre chamada com LISTAS VAZIAS, e lista vazia lá dentro quer
+  // dizer "não houve". Sem esta distinção, um `permission denied` da RLS
+  // chega ao mentor como "nenhuma sessão passada com presença registrada" e
+  // "sem matrícula" — afirmação categórica sobre a vida de alguém que pode
+  // estar em dia, deduzida de um vazio que ninguém verificou. Aqui a tela
+  // para de deduzir: diz que não leu tudo, e não diz mais nada.
+  const semLeituraCompleta = historico.parcial && saude.semBase;
+
+  // Histórico que não pôde ser lido não tem score para mostrar — e o motivo
+  // ("não deu para ler") não é o mesmo que "não há dado", então a frase é
+  // outra. Confundir os dois faria a tela culpar o mentorado por uma falha
+  // de leitura.
+  if (!historico.conectado) {
+    return (
+      <Card titulo="Saúde do mentorado">
+        <p className="text-sm text-texto-2">{historico.motivo}</p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card
+      titulo="Saúde do mentorado"
+      acao={
+        <span className="text-[11px] text-texto-3">
+          {semLeituraCompleta
+            ? "leitura incompleta"
+            : saude.semBase
+              ? `nenhum dos ${total} fatores com base`
+              : `${comBase} de ${total} fatores com base · peso considerado ${saude.maxComBase}`}
+        </span>
+      }
+    >
+      {/* Regra 4 de `dados-historico.ts` aplicada à aba que ABRE: o aviso de
+          parcialidade que já existia vivia só dentro de `AbaHistorico`, e
+          `Tabs` desenha aquele painel `hidden` — ou seja, ninguém lia. */}
+      {historico.parcial ? (
+        <p className="mb-4 rounded-xl border border-aviso/40 bg-aviso/10 px-4 py-3 text-sm text-aviso">
+          Parte da leitura falhou agora: o que falta abaixo pode ser leitura que não veio, e não
+          ausência na vida do mentorado. Atualize a página em instantes.
+        </p>
+      ) : null}
+
+      <div className="grid gap-4 lg:grid-cols-[200px_minmax(0,1fr)]">
+        <div className="rounded-xl border border-borda-sutil bg-poco p-4 text-center">
+          {saude.score === null || saude.nivel === null ? (
+            <>
+              <p
+                className="font-display text-2xl font-semibold text-texto-3"
+                aria-label="Score de saúde do mentorado"
+              >
+                {semLeituraCompleta ? "não calculado" : "sem base"}
+              </p>
+              <p className="mt-1 text-xs uppercase tracking-wider text-texto-3">
+                {semLeituraCompleta ? "leitura incompleta" : "nada a pontuar"}
+              </p>
+              <p className="mt-3 text-left text-[11px] leading-relaxed text-texto-3">
+                {semLeituraCompleta
+                  ? "A conta da saúde não roda sobre leitura incompleta: o score não está baixo, ele não foi calculado. Daqui não dá para saber se falta andamento registrado ou se faltou leitura."
+                  : `Nenhum dos ${total} fatores tem dado suficiente para pontuar. Sem sessão passada, tarefa vencida, matrícula ou score registrado, qualquer nota seria inventada — registre o andamento e o score aparece.`}
+              </p>
+            </>
+          ) : (
+            <>
+              <p
+                className={cx(
+                  "font-display text-5xl font-semibold tabular-nums",
+                  COR_NIVEL_SAUDE[saude.nivel]
+                )}
+                aria-label="Score de saúde do mentorado"
+              >
+                {saude.score}
+              </p>
+              <p className="mt-1 text-xs uppercase tracking-wider text-texto-3">
+                {NIVEL_SAUDE_MENTORADO_LABEL[saude.nivel]}
+              </p>
+              <div className="mt-3">
+                <ProgressBar pct={saude.score} tom={saude.score >= 80 ? "ouro" : "violeta"} />
+              </div>
+              {saude.parcial ? (
+                <p className="mt-3 text-left text-[11px] leading-relaxed text-aviso">
+                  Score parcial: calculado só sobre {comBase} de {total} fatores, num total de{" "}
+                  {saude.maxComBase} pontos possíveis. Ficaram de fora, por não haver o que medir:{" "}
+                  {nomesSemBase(saude)}.
+                </p>
+              ) : null}
+            </>
+          )}
+        </div>
+
+        {/* Todos os fatores, com base ou sem — o `detalhe` de cada um é a
+            frase que `saude-mentorado.ts` já escreveu explicando a conta (ou
+            a falta dela). A tela não reescreve nenhuma.
+
+            MENOS quando a leitura veio pela metade: aí cada `detalhe` é uma
+            frase escrita sobre lista vazia ("nenhuma sessão passada com
+            presença registrada"), e listar as cinco seria trocar um "não
+            consegui ler" por cinco afirmações sobre a pessoa. */}
+        {semLeituraCompleta ? (
+          <p className="self-start text-xs leading-relaxed text-texto-3">
+            Os fatores não são detalhados enquanto a leitura estiver incompleta: a frase de cada um
+            descreve o que foi lido, e o que não foi lido viraria afirmação sobre o mentorado.
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {saude.fatores.map((fator) => (
+              <li key={fator.chave} className="flex items-baseline justify-between gap-3 text-xs">
+                <span className="text-texto-2">
+                  <span className={cx("font-medium", fator.temBase ? "text-texto" : "text-texto-3")}>
+                    {fator.nome}
+                  </span>{" "}
+                  — {fator.detalhe}
+                </span>
+                <span className="shrink-0 tabular-nums text-texto-3">
+                  {fator.pontos === null ? `sem base · peso ${fator.max}` : `${fator.pontos} de ${fator.max} pts`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+// ============================================================
+// Aba "Histórico"
+// ============================================================
+
+/**
+ * De que TIPO de atividade cada fato do histórico se parece, para reusar a
+ * `Timeline` que a ficha do CRM já usa (`src/components/timeline.tsx`, que
+ * fala `Atividade`).
+ *
+ * `Record<TipoFato, …>` de propósito: tipo novo em `TIPOS_FATO` sem entrada
+ * aqui NÃO COMPILA — o mesmo cinto de `VISIBILIDADE_POR_TIPO` em
+ * `historico.ts`, pelo mesmo motivo (o erro aparece antes do review, não na
+ * tela).
+ *
+ * "sistema" é o destino de tudo que não é literalmente um encontro, uma
+ * tarefa, uma nota ou uma mensagem — e não é preguiça: o rótulo da `Timeline`
+ * é uma AFIRMAÇÃO sobre o que aconteceu. Chamar uma cobrança de "Compra"
+ * diria que alguém pagou; chamar um fato de `atividade` de "Contato" ou
+ * "Ligação" escolheria um canal que ninguém registrou (o tipo original da
+ * atividade não atravessa `FatoHistorico`). "Sistema" diz só o que se sabe:
+ * é um registro do sistema. O QUE aconteceu já está no título que
+ * `historico.ts` escreveu ("Cobrança vencida — R$ 500,00", "Marco: …").
+ */
+const TIPO_ATIVIDADE_DO_FATO: Record<TipoFato, AtividadeTipo> = {
+  marco: "sistema",
+  sessao: "evento",
+  tarefa: "tarefa",
+  conteudo: "sistema",
+  documento_portal: "sistema",
+  documento_interno: "sistema",
+  cobranca: "sistema",
+  score: "sistema",
+  temperatura: "sistema",
+  nota: "nota",
+  atividade: "sistema",
+  interacao: "whatsapp",
+};
+
+/**
+ * Os fatos, no formato que a `Timeline` desenha.
+ *
+ * NADA é filtrado e nada é higienizado aqui: esta é a ficha do TIME, e é a
+ * tela onde o fato interno PRECISA aparecer (a nota do CRM, a cobrança
+ * vencida, a temperatura do lead). `projetarParaPortal` é o portão da OUTRA
+ * tela — usar essa projeção aqui esvaziaria justamente a metade que o
+ * histórico 360° existe para juntar. Quem garante que este conjunto só chega
+ * a quem pode vê-lo é a RLS, mais o `papeis.ts` da rota — nunca este arquivo.
+ *
+ * `alunoId` vai vazio porque a `Timeline` não o usa (é campo de `Atividade`,
+ * o formato que ela fala); inventar um id aqui seria dado falso viajando sem
+ * necessidade. A chave usa o índice porque a lista é estática dentro de um
+ * render e dois fatos podem ser idênticos em tudo (dois "Mensagem recebida"
+ * no mesmo segundo) — o índice é o único desempate honesto.
+ */
+function atividadesDoHistorico(fatos: readonly FatoHistorico[]): Atividade[] {
+  return fatos.map((fato, indice) => ({
+    id: `${indice}-${fato.tipo}`,
+    alunoId: "",
+    tipo: TIPO_ATIVIDADE_DO_FATO[fato.tipo],
+    titulo: fato.titulo,
+    detalhe: fato.detalhe,
+    data: fato.quando,
+  }));
+}
+
+function AbaHistorico({ historico }: { historico: HistoricoDaFicha }) {
+  // Sem conexão não existe "nenhuma atividade registrada": isso seria uma
+  // afirmação sobre a vida da pessoa a partir de uma falha de leitura. O que
+  // a tela sabe é o motivo, e é o motivo que ela mostra.
+  if (!historico.conectado) {
+    return (
+      <Card titulo="Histórico">
+        <p className="text-sm text-texto-2">{historico.motivo}</p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card titulo={`Histórico (${historico.fatos.length})`}>
+      {/* Regra 4 de `dados-historico.ts`: histórico incompleto é entregue,
+          mas nunca em silêncio — sem este aviso, o buraco de uma leitura que
+          falhou viraria "ela não fez nada em maio". */}
+      {historico.parcial ? (
+        <p className="mb-3 rounded-xl border border-aviso/40 bg-aviso/10 px-4 py-3 text-sm text-aviso">
+          Parte do histórico não pôde ser lida agora, e o que está abaixo pode estar incompleto. Atualize a
+          página em instantes.
+        </p>
+      ) : null}
+      <Timeline atividades={atividadesDoHistorico(historico.fatos)} />
+    </Card>
+  );
+}
+
+export function FichaVisao({
+  ficha,
+  historico,
+  documentos,
+  erro,
+}: {
+  ficha: Ficha;
+  historico: HistoricoDaFicha;
+  /**
+   * Os arquivos deste mentorado, já lidos por `lerDocumentosDoMentorado`.
+   *
+   * Obrigatório, e não opcional: a lista carrega `conectado`/`motivo`, ou
+   * seja, ela sabe dizer sozinha que a leitura falhou. Uma prop opcional
+   * criaria um terceiro estado — o bloco inteiro sumindo da ficha sem que
+   * ninguém tivesse decidido isso, e sem nada escrito na tela explicando a
+   * ausência.
+   */
+  documentos: ListaDocumentos;
+  erro?: string;
+}) {
   // Estado 1: sem Supabase configurado, ou a leitura falhou — mesma frase
   // humana da carteira, mesmo `motivo` pronto de `lerFicha`.
   if (!ficha.conectado) {
@@ -107,28 +411,15 @@ export function FichaVisao({ ficha, erro }: { ficha: Ficha; erro?: string }) {
   const variacao = variacaoScore(ficha.scores);
   const tarefasAbertas = ficha.tarefas.filter((t) => !t.concluida);
 
-  return (
+  // As duas abas: o que a ficha sempre mostrou (agora com a saúde no topo)
+  // e a linha do tempo unificada. `Tabs` recebe conteúdo já renderizado,
+  // então as duas nascem juntas — a de trás não fica esperando um clique
+  // para ir ao banco.
+  const visaoGeral = (
     <>
-      <p className="mb-2 text-xs text-texto-2">
-        <Link href="/mentoria" className="hover:text-primaria-2">
-          ← Mentoria
-        </Link>
-      </p>
+      <CardSaudeMentorado historico={historico} />
 
-      <PageHeader titulo={mentorado.nome}>
-        <Badge tom={TOM_STATUS_MENTORADO[mentorado.status]}>{LABEL_STATUS_MENTORADO[mentorado.status]}</Badge>
-      </PageHeader>
-
-      {/* Erro de `agendarSessao`/`darBaixaNaSessao` (validação ou banco) volta
-          aqui, em `?erro=` — mensagem já humana, sem detalhe técnico (ver
-          `acoes.ts`). Mesmo estilo visual do banner de erro de `/agenda`. */}
-      {erro ? (
-        <p className="mb-4 rounded-xl border border-negativo/40 bg-negativo/10 px-4 py-3 text-sm text-negativo">
-          {erro}
-        </p>
-      ) : null}
-
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <Card titulo="Contato">
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between gap-2">
@@ -325,6 +616,49 @@ export function FichaVisao({ ficha, erro }: { ficha: Ficha; erro?: string }) {
           </Card>
         </div>
       </div>
+
+      {/* Os arquivos ficam na aba que ABRE, e não numa terceira aba: anexar
+          contrato e anamnese é parte do trabalho corrente da ficha, e a
+          `Tabs` desenha o painel de trás `hidden` — bloco escondido é bloco
+          que ninguém lembra que existe. Ver `./documentos.tsx`. */}
+      <div className="mt-4">
+        <DocumentosDoMentorado mentoradoId={mentorado.id} lista={documentos} />
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      <p className="mb-2 text-xs text-texto-2">
+        <Link href="/mentoria" className="hover:text-primaria-2">
+          ← Mentoria
+        </Link>
+      </p>
+
+      <PageHeader titulo={mentorado.nome}>
+        <Badge tom={TOM_STATUS_MENTORADO[mentorado.status]}>{LABEL_STATUS_MENTORADO[mentorado.status]}</Badge>
+      </PageHeader>
+
+      {/* Erro de `agendarSessao`/`darBaixaNaSessao` (validação ou banco) volta
+          aqui, em `?erro=` — mensagem já humana, sem detalhe técnico (ver
+          `acoes.ts`). Mesmo estilo visual do banner de erro de `/agenda`. */}
+      {erro ? (
+        <p className="mb-4 rounded-xl border border-negativo/40 bg-negativo/10 px-4 py-3 text-sm text-negativo">
+          {erro}
+        </p>
+      ) : null}
+
+      <Tabs
+        abas={[
+          { id: "visao", rotulo: "Visão geral", conteudo: visaoGeral },
+          {
+            id: "historico",
+            rotulo: "Histórico",
+            badge: historico.fatos.length,
+            conteudo: <AbaHistorico historico={historico} />,
+          },
+        ]}
+      />
     </>
   );
 }

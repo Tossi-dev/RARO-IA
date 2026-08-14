@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<!-- o recarregamento e feito pelo JS abaixo, para o contador nao mentir -->
+<title>MentorOS - Fase 2</title>
+<style>
+  :root{
+    --fundo:#0a0f1e; --poco:#0d1b3e; --linha:#1e2a4a;
+    --azul:#3b82f6; --azul2:#2563eb; --verde:#10b981; --dourado:#f59e0b;
+    --texto:#f1f5f9; --texto2:#94a3b8; --texto3:#64748b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px;background:var(--fundo);color:var(--texto);
+       font-family:Inter,-apple-system,"Segoe UI",system-ui,sans-serif;font-size:14px}
+  header{max-width:900px;margin:0 auto 22px}
+  h1{margin:0 0 4px;font-size:22px;font-weight:600}
+  .sub{color:var(--texto2);font-size:13px}
+  .barra{height:8px;background:var(--poco);border-radius:99px;overflow:hidden;margin:16px 0 8px}
+  .barra i{display:block;height:100%;background:linear-gradient(90deg,var(--azul2),var(--azul));width:12%}
+  .numeros{display:flex;gap:26px;flex-wrap:wrap;margin-top:14px}
+  .numeros div{background:var(--poco);border:1px solid var(--linha);border-radius:12px;padding:10px 16px}
+  .numeros b{display:block;font-size:20px;font-weight:600}
+  .numeros span{color:var(--texto3);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  main{max-width:900px;margin:0 auto;display:grid;gap:12px}
+  .bloco{background:var(--poco);border:1px solid var(--linha);border-radius:14px;padding:14px 18px}
+  .bloco.pronto{opacity:.55}
+  .bloco.andando{border-color:var(--azul)}
+  h2{margin:0 0 8px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px}
+  h2 em{margin-left:auto;font-style:normal;color:var(--texto3);font-size:12px;font-weight:400}
+  .nb{background:var(--azul2);color:#fff;width:22px;height:22px;border-radius:7px;
+      display:inline-flex;align-items:center;justify-content:center;font-size:11px}
+  .bloco.pronto .nb{background:var(--verde)}
+  .bloco.espera .nb{background:var(--linha);color:var(--texto3)}
+  ul{list-style:none;margin:0;padding:0}
+  li{padding:3px 0;color:var(--texto2);display:flex;gap:9px;align-items:baseline;font-size:13px}
+  li.feita{color:var(--texto3)}
+  li.feita .g{color:var(--verde)}
+  li.aberta .g{color:var(--linha)}
+  li.andando{color:var(--texto)}
+  li.andando .g{color:var(--dourado)}
+  .g{width:12px}
+  .n{color:var(--texto3);width:22px;text-align:right;font-variant-numeric:tabular-nums}
+  .previsao{max-width:900px;margin:0 auto 12px;background:var(--poco);border:1px solid var(--linha);
+            border-left:3px solid var(--dourado);border-radius:14px;padding:14px 18px}
+  .previsao.pronta{border-left-color:var(--verde)}
+  .previsao h2{margin:0 0 10px}
+  .previsao h2 em{font-style:normal;color:var(--texto3);font-size:11px;font-weight:400;text-transform:uppercase;letter-spacing:.06em}
+  .faixa{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:10px}
+  .faixa b{display:block;font-size:18px;font-weight:600;color:var(--texto)}
+  .faixa span{color:var(--texto3);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  .rodape-prev{color:var(--texto3);font-size:11px;line-height:1.6;margin:8px 0 0}
+  footer{max-width:900px;margin:18px auto 0;color:var(--texto3);font-size:12px;line-height:1.6}
+  .aovivo{display:flex;align-items:center;gap:8px;color:var(--texto3);font-size:12px;margin-top:12px;flex-wrap:wrap}
+  #idade{color:var(--texto3)}
+  #idade:before{content:"-";margin:0 8px}
+  .pulso{width:8px;height:8px;border-radius:99px;background:var(--verde);animation:bate 2s ease-in-out infinite}
+  @keyframes bate{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
+  #aviso{position:fixed;left:50%;transform:translateX(-50%) translateY(-140%);top:16px;z-index:9;
+         background:var(--verde);color:#04231a;font-weight:600;font-size:13px;
+         padding:10px 18px;border-radius:99px;box-shadow:0 10px 30px rgba(0,0,0,.45);
+         transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+  #aviso.aparece{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<header>
+  <h1>MentorOS &mdash; Fase 2</h1>
+  <div class="sub">Os 12 modulos da apresentacao, quebrados em 75 tarefas. Cada uma passa por implementacao, revisao adversarial e correcao.</div>
+  <div class="barra"><i></i></div>
+  <div class="numeros">
+    <div><b>9 de 75</b><span>tarefas</span></div>
+    <div><b>12%</b><span>concluido</span></div>
+    <div><b>1.732</b><span>testes passando</span></div>
+    <div><b id="verificacao">--:--</b><span>ultima verificacao (Brasilia)</span></div>
+    <div><b>13/08/2026 20:12</b><span>ultima MUDANCA nos dados</span></div>
+  </div>
+  <div class="aovivo"><span class="pulso"></span><span>Verificando de novo em <strong id="conta">60</strong>s</span><span id="idade"></span></div>
+  <p class="sub" style="margin-top:14px">Rodando agora: <strong style="color:var(--dourado)">tarefas 10 a 14</strong> &mdash; ainda nao entram na conta acima.</p>
+</header>
+<section class="previsao">
+    <h2>Previsao de termino <em>estimativa, nao promessa</em></h2>
+    <div class="faixa">
+      <div><b>31h</b><span>de trabalho restante</span></div>
+      <div><b>66</b><span>tarefas na fila</span></div>
+      <div><b>28 min</b><span>por tarefa (medido)</span></div>
+    </div>
+    <p class="sub">Se o ritmo se mantiver, entre <strong style="color:var(--dourado)">14/08 as 19:23</strong>
+    e <strong style="color:var(--dourado)">15/08 as 17:02</strong>.</p>
+    <p class="rodape-prev">O ritmo vem de 9 tarefas ja cronometradas
+    (Bloco 1 (tarefas 1 a 9)), nao de estimativa. A faixa e larga porque as tarefas nao sao iguais:
+    migracao fecha em 15 minutos, tela com teste de render passa de uma hora.</p>
+  </section>
+<main>
+<section class="bloco pronto">
+  <h2><span class="nb">1</span> Fundacao transversal <em>9 de 9</em></h2>
+  <ul><li class="feita"><span class="g">&#9650;</span><span class="n">1</span>Migracao: escada Prospect -> Alumni</li>
+<li class="feita"><span class="g">&#9650;</span><span class="n">2</span>Modulo puro: jornada do cliente</li>
+<li class="feita"><span class="g">&#9650;</span><span class="n">3</span>Tela: kanban na escada nova</li>
+<li class="feita"><span class="g">&#9650;</span><span class="n">4</span>Migracao: tabela documento</li>
+<li class="feita"><span class="g">&#9650;</span><span class="n">5</span>Modulo puro: validacao de arquivo</li>
+<li class="feita"><span class="g">&#9650;</span><span class="n">6</span>Leitura: documentos</li>
+<li class="feita"><span class="g">&#9650;</span><span class="n">7</span>Escrita: anexar e arquivar documento</li>
+<li class="feita"><span class="g">&#9650;</span><span class="n">8</span>Modulo puro: score de saude do mentorado</li>
+<li class="feita"><span class="g">&#9650;</span><span class="n">9</span>Modulo puro: historico 360 unificado</li></ul>
+</section>
+<section class="bloco andando">
+  <h2><span class="nb">2</span> CRM, Sessoes e Portal <em>0 de 12 &middot; 5 rodando</em></h2>
+  <ul><li class="andando"><span class="g">&#9654;</span><span class="n">10</span>Leitura: historico da ficha</li>
+<li class="andando"><span class="g">&#9654;</span><span class="n">11</span>Tela: ficha com historico e saude</li>
+<li class="andando"><span class="g">&#9654;</span><span class="n">12</span>Tela: documentos na ficha</li>
+<li class="andando"><span class="g">&#9654;</span><span class="n">13</span>Migracao: colunas de agenda e liberacao</li>
+<li class="andando"><span class="g">&#9654;</span><span class="n">14</span>Modulo puro: evento de calendario</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">15</span>Integracao: escrita na agenda do Google</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">16</span>Escrita: amarrar sessao e evento</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">17</span>Escrita: transcrever a sessao</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">18</span>Tela: botoes de agenda e transcricao</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">19</span>Leitura: portal com linha do tempo</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">20</span>Tela: timeline, gravacao e transcricao</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">21</span>Escrita: liberar conteudo</li></ul>
+</section>
+<section class="bloco espera">
+  <h2><span class="nb">3</span> Plataforma de Conteudo <em>0 de 10</em></h2>
+  <ul><li class="aberta"><span class="g">&#9644;</span><span class="n">22</span>Migracao: trilha e trilha_aula</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">23</span>Migracao: progresso e certificado</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">24</span>Modulo puro: liberacao gradual</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">25</span>Modulo puro: progresso e direito ao certificado</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">26</span>Modulo puro: codigo do certificado</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">27</span>Leitura: trilhas</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">28</span>Escrita: trilhas e progresso</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">29</span>Registrar rotas nos tres catalogos</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">30</span>Tela: gestao de trilhas</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">31</span>Tela: trilha no portal e certificado</li></ul>
+</section>
+<section class="bloco espera">
+  <h2><span class="nb">4</span> Feed e comunicacao <em>0 de 5</em></h2>
+  <ul><li class="aberta"><span class="g">&#9644;</span><span class="n">32</span>Migracao: post, destinatario e comentario</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">33</span>Modulo puro: quem ve o que</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">34</span>Leitura: feed</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">35</span>Escrita: publicar, comentar, marcar lido</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">36</span>Rota e tela do feed</li></ul>
+</section>
+<section class="bloco espera">
+  <h2><span class="nb">5</span> Motor de onboarding <em>0 de 4</em></h2>
+  <ul><li class="aberta"><span class="g">&#9644;</span><span class="n">37</span>Migracao: modelo e progresso de onboarding</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">38</span>Modulo puro: roteiro de onboarding</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">39</span>Leitura e escrita do onboarding</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">40</span>Rota e tela do onboarding</li></ul>
+</section>
+<section class="bloco espera">
+  <h2><span class="nb">6</span> Pipeline comercial <em>0 de 9</em></h2>
+  <ul><li class="aberta"><span class="g">&#9644;</span><span class="n">41</span>Migracao: funil_etapa e oportunidade</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">42</span>Migracao: scripts, propostas e leitura por token</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">43</span>Modulo puro: conversao</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">44</span>Modulo puro: token de proposta</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">45</span>Leitura: pipeline</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">46</span>Escrita: oportunidades e propostas</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">47</span>Rota e tela do pipeline</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">48</span>Tela: proposta publica rastreavel</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">49</span>Tela: dashboard de conversao</li></ul>
+</section>
+<section class="bloco espera">
+  <h2><span class="nb">7</span> Financeiro do negocio <em>0 de 8</em></h2>
+  <ul><li class="aberta"><span class="g">&#9644;</span><span class="n">50</span>Migracao: cobranca</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">51</span>Migracao: contrato</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">52</span>Modulo puro: recorrencia</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">53</span>Modulo puro: regua de inadimplencia</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">54</span>Modulo puro: MRR, ARR e LTV</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">55</span>Leitura: cobrancas e contratos</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">56</span>Escrita: gerar, baixar e anexar</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">57</span>Telas: cobrancas, contratos e recorrencia</li></ul>
+</section>
+<section class="bloco espera">
+  <h2><span class="nb">8</span> Financas pessoais <em>0 de 3</em></h2>
+  <ul><li class="aberta"><span class="g">&#9644;</span><span class="n">58</span>Migracao: patrimonio, investimento e renda</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">59</span>Modulo puro: patrimonio liquido</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">60</span>Leitura, escrita e tela das financas pessoais</li></ul>
+</section>
+<section class="bloco espera">
+  <h2><span class="nb">9</span> IA de evolucao <em>0 de 6</em></h2>
+  <ul><li class="aberta"><span class="g">&#9644;</span><span class="n">61</span>Migracao: analise_sessao e alerta_risco</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">62</span>Modulo puro: prompt e leitura da resposta</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">63</span>Modulo puro: alertas de risco</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">64</span>Escrita: score semanal e analise sob demanda</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">65</span>O gatilho automatico, escrito e desligado</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">66</span>Tela: painel de risco</li></ul>
+</section>
+<section class="bloco espera">
+  <h2><span class="nb">10</span> IA de vendas <em>0 de 3</em></h2>
+  <ul><li class="aberta"><span class="g">&#9644;</span><span class="n">67</span>Migracao: analise_call</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">68</span>Modulo puro: leitura da analise de call</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">69</span>Escrita e tela da IA de vendas</li></ul>
+</section>
+<section class="bloco espera">
+  <h2><span class="nb">11</span> Marketing e captacao <em>0 de 4</em></h2>
+  <ul><li class="aberta"><span class="g">&#9644;</span><span class="n">70</span>Migracao: captura, link e clique</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">71</span>Modulo puro: UTM e codigo de link</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">72</span>Rotas publicas: captura e redirecionamento</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">73</span>Rota, leitura e tela de marketing</li></ul>
+</section>
+<section class="bloco espera">
+  <h2><span class="nb">12</span> Auditoria e prova de aceite <em>0 de 2</em></h2>
+  <ul><li class="aberta"><span class="g">&#9644;</span><span class="n">74</span>Auditoria de RLS contra Postgres de verdade</li>
+<li class="aberta"><span class="g">&#9644;</span><span class="n">75</span>Inventario DEPOIS: a prova de aceite</li></ul>
+</section>
+</main>
+<footer>
+  Esta pagina se recarrega sozinha a cada 60 segundos. Ela mostra o estado da ultima vez que o arquivo foi reescrito &mdash;
+  o que acontece toda vez que um lote de tarefas fecha. Entre um lote e outro os agentes estao rodando e nada muda aqui.
+</footer>
+<div id="aviso"></div>
+<script>
+// COMO ESTA PAGINA SABE QUE MUDOU, SEM SERVIDOR E SEM STORAGE
+// ------------------------------------------------------------
+// O estado da geracao anterior viaja no HASH da URL, que sobrevive ao
+// location.reload(). Ao carregar, o hash ainda carrega os numeros da versao
+// ANTERIOR; se eles diferem dos numeros embutidos nesta pagina, o arquivo foi
+// reescrito e o aviso aparece. Depois a pagina grava os proprios numeros no
+// hash, para a proxima comparacao.
+//
+// Por que nao sessionStorage: em file:// a origem e "null" e o comportamento
+// de storage varia entre navegadores. O hash e so texto na barra de
+// enderecos -- funciona em qualquer lugar, sem permissao nenhuma.
+//
+// O aviso NUNCA aparece sem mudanca de verdade: se os numeros forem iguais,
+// nada e mostrado. Painel que pisca "atualizado" sem ter atualizado ensina a
+// pessoa a ignorar o piscar.
+(function () {
+  var AGORA = "9|1732|13/08/2026 20:12";
+  var anterior = decodeURIComponent(location.hash.replace(/^#/, ""));
+
+  if (anterior && anterior !== AGORA) {
+    var a = anterior.split("|"), b = AGORA.split("|");
+    var dTarefas = Number(b[0]) - Number(a[0]);
+    var dTestes = Number(b[1]) - Number(a[1]);
+    var partes = [];
+    if (dTarefas > 0) partes.push(dTarefas + (dTarefas === 1 ? " tarefa concluida" : " tarefas concluidas"));
+    if (dTestes > 0) partes.push("+" + dTestes.toLocaleString("pt-BR") + " testes");
+    var el = document.getElementById("aviso");
+    el.textContent = partes.length ? "Atualizado: " + partes.join(", ") : "Atualizado agora";
+    el.classList.add("aparece");
+    setTimeout(function () { el.classList.remove("aparece"); }, 9000);
+  }
+
+  history.replaceState(null, "", location.pathname + "#" + encodeURIComponent(AGORA));
+
+  // POR QUE NAO location.reload() E SIM UM ENDERECO NOVO A CADA VEZ
+  // ---------------------------------------------------------------
+  // Em file:// o Chrome serve o arquivo do cache com frequencia, e reload()
+  // podia devolver a MESMA copia antiga mesmo depois de eu ter reescrito o
+  // arquivo no disco. O contador andaria, a pagina "recarregaria", e os
+  // numeros ficariam velhos sem ninguem saber -- o pior dos mundos: parece
+  // vivo e esta mentindo. Um parametro diferente a cada volta obriga o
+  // navegador a ler o disco de novo.
+  var GERADO_MS = 1786662737445;
+  var restam = 60;
+  var campo = document.getElementById("conta");
+  var idade = document.getElementById("idade");
+
+  // DOIS RELOGIOS DIFERENTES, E ESSE ERA O MAL-ENTENDIDO
+  // -----------------------------------------------------
+  // "Ultima verificacao" e a hora em que ESTA pagina foi carregada -- ela
+  // anda a cada minuto e e a prova de que o ciclo esta vivo. "Ultima
+  // mudanca" e a hora em que os NUMEROS mudaram pela ultima vez, e fica
+  // parada de proposito por horas. O rotulo antigo dizia so "ultima
+  // atualizacao" para as duas coisas, entao a tela parecia travada quando na
+  // verdade estava certa: ela verificava e nao havia o que mudar.
+  document.getElementById("verificacao").textContent = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).format(new Date());
+
+  function escreverIdade() {
+    var min = Math.floor((Date.now() - GERADO_MS) / 60000);
+    if (min < 1) { idade.textContent = "os numeros acima acabaram de mudar"; return; }
+    if (min < 60) { idade.textContent = "sem novidade ha " + min + " min"; return; }
+    var h = Math.floor(min / 60);
+    idade.textContent = "sem novidade ha " + h + "h" + String(min % 60).padStart(2, "0");
+  }
+  escreverIdade();
+
+  setInterval(function () {
+    restam -= 1;
+    if (restam <= 0) {
+      location.replace(location.pathname + "?v=" + Date.now() + location.hash);
+      return;
+    }
+    campo.textContent = restam;
+    if (restam % 30 === 0) escreverIdade();
+  }, 1000);
+})();
+</script>
+</body>
+</html>
