@@ -284,6 +284,9 @@ const TABELAS_CRM = [
 // quem chama, não de quem criou — senão RLS das tabelas de baixo é
 // ignorado (crítico 1 e crítico 2 do relatório).
 const VIEWS_DO_SCHEMA = ["v_financeiro_mensal", "matricula_progresso"];
+// A lista acima e conferida contra 0001+0006+0008. `sessao_do_portal` nasce
+// em 0017 e por isso tem lista propria — mas a exigencia e a mesma.
+const VIEWS_DO_SCHEMA_COM_PORTAL = [...VIEWS_DO_SCHEMA, "sessao_do_portal"];
 
 describe("0006 — todas as tabelas de mentoria nascem multi-tenant", () => {
   it.each(TABELAS_NOVAS_0006)(
@@ -1712,5 +1715,249 @@ describe("storage.objects — toda política de bucket, em qualquer migração",
         `política "${p.comando}" em ${p.arquivo} não cita workspace_atual(): o arquivo de um inquilino fica ao alcance do outro`,
       ).toMatch(/public\.workspace_atual\(\)/i);
     }
+  });
+});
+
+// ============================================================
+// 0016 — `diagnostico_lead`: as cinco respostas da landing do Jefson.
+//
+// O QUE ESTE BLOCO PROTEGE, E POR QUE MERECE TESTE DE FORMA
+// ---------------------------------------------------------
+// Esta é a primeira tabela do projeto escrita por MÁQUINA e nunca por
+// alguém logado: a landing (rota pública) e a junção no recebimento do
+// WhatsApp, as duas com a chave de serviço, que ignora RLS. A ausência
+// de política de insert/update/delete não é esquecimento — é a regra.
+// Sem um teste que exija essa ausência, a primeira pessoa que abrir uma
+// tela de edição vai "consertar" o que parece faltar e abrir escrita de
+// lead para qualquer usuário autenticado do workspace.
+//
+// A outra garantia é a inversa: a LEITURA precisa existir e precisa ser
+// escopada. Lead carrega faturamento declarado e a trava emocional que
+// a pessoa admitiu — é o dado mais sensível que este banco guarda sobre
+// alguém que ainda nem é cliente.
+// ============================================================
+
+const ARQUIVO_0016 = "0016_diagnostico_lead.sql";
+const ARQUIVO_EXEC_0016 = "_exec_0016_diagnostico_lead.sql";
+const m0016 = existeArquivoDeMigracao(ARQUIVO_0016) ? lerMigracao(ARQUIVO_0016) : "";
+const exec0016 = semComentarios(m0016);
+
+describe("0016 — diagnostico_lead nasce fechado para escrita de usuário", () => {
+  it("a migração 0016 existe, e a versão _exec_ também", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0016), `esperava supabase/migrations/${ARQUIVO_0016}`).toBe(true);
+    // `arquivosDeMigracao()` lista só os numerados; o par `_exec_` fica de fora
+    // de propósito (texto diferente contaria política em dobro). Aqui a
+    // pergunta é outra — o arquivo para colar no SQL Editor foi escrito? — e
+    // por isso a checagem vai direto no diretório.
+    expect(
+      readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0016),
+      `esperava supabase/migrations/${ARQUIVO_EXEC_0016}`,
+    ).toBe(true);
+  });
+
+  it("a tabela existe e é multi-tenant, com o default do workspace padrão", () => {
+    const bloco = blocoCreateTable(exec0016, "diagnostico_lead");
+    expect(bloco, "create table public.diagnostico_lead não encontrado").not.toBe("");
+    expect(bloco).toMatch(/workspace_id\s+uuid\s+not null/i);
+    expect(bloco).toMatch(/workspace_id[\s\S]*?default\s+'00000000-0000-0000-0000-000000000001'/i);
+  });
+
+  it("o código é a chave primária — é ele que viaja na mensagem", () => {
+    const bloco = blocoCreateTable(exec0016, "diagnostico_lead");
+    expect(bloco).toMatch(/codigo\s+text\s+primary key/i);
+  });
+
+  it("as quatro respostas do meio aceitam nulo: quem é recusado na 1 nunca chega na 3", () => {
+    const bloco = blocoCreateTable(exec0016, "diagnostico_lead");
+    for (const coluna of ["papel", "trava", "inacabados", "urgencia"]) {
+      expect(bloco, `coluna ${coluna} não encontrada`).toMatch(new RegExp(`\\b${coluna}\\b`, "i"));
+      // Um `not null` aqui obrigaria a gravar zero para pergunta que ninguém
+      // respondeu — e esse zero entraria depois numa média como se fosse dado.
+      // Mede a LINHA de definição da coluna, não o bloco inteiro: a restrição
+      // `check` mais abaixo cita `papel = 'D' and trava is not null`, e uma
+      // busca no bloco todo casaria com ela e reprovaria por engano.
+      const definicao = bloco
+        .split("\n")
+        .find((l) => new RegExp(`^\\s*${coluna}\\s+\\w`, "i").test(l)) ?? "";
+      expect(definicao, `linha de definição de ${coluna} não encontrada`).not.toBe("");
+      expect(
+        /not null/i.test(definicao),
+        `${coluna} não pode ser not null: quem para na pergunta 1 não responde as outras`,
+      ).toBe(false);
+    }
+  });
+
+  it("lead qualificado tem as cinco respostas — a restrição impede ficha vazia no meio da venda", () => {
+    const bloco = blocoCreateTable(exec0016, "diagnostico_lead");
+    expect(bloco).toMatch(/check\s*\(\s*not qualificado/i);
+    expect(bloco).toMatch(/papel\s*=\s*'D'/i);
+  });
+
+  it("junção pela metade é impossível: dono sem data, ou data sem dono", () => {
+    const bloco = blocoCreateTable(exec0016, "diagnostico_lead");
+    expect(bloco).toMatch(/aluno_id is null and casado_em is null/i);
+  });
+
+  it("NÃO existe coluna de trava de trabalho: a regra da porta e do quarto mora no TypeScript", () => {
+    // Guardada aqui, ela existiria em dois lugares — e a versão SQL
+    // envelheceria calada no dia em que a de TypeScript mudasse. Mesmo motivo
+    // pelo qual a temperatura do lead é derivada na abertura da ficha.
+    const bloco = blocoCreateTable(exec0016, "diagnostico_lead");
+    expect(/trava_trabalho|trava_de_trabalho/i.test(bloco)).toBe(false);
+  });
+
+  it("existe leitura, e ela é de dono/gestor/comercial escopada por workspace", () => {
+    const selects = politicasDe(todasPoliticas(exec0016), "diagnostico_lead", "select");
+    expect(selects.length, "sem política de select ninguém lê o próprio lead").toBeGreaterThan(0);
+    for (const p of selects) {
+      expect(p.texto).toMatch(/papel_atual\(\)/i);
+      expect(p.texto).toMatch(/'comercial'/i);
+      expect(p.texto, "leitura sem escopo de workspace vaza lead entre inquilinos").toMatch(
+        /workspace_id\s*=\s*public\.workspace_atual\(\)/i,
+      );
+    }
+  });
+
+  it("NENHUMA política de insert, update ou delete — escrever aqui é papel de máquina", () => {
+    const todas = todasPoliticas(exec0016);
+    for (const comando of ["insert", "update", "delete", "all"] as const) {
+      const achadas = politicasDe(todas, "diagnostico_lead", comando);
+      expect(
+        achadas.length,
+        `política de ${comando} em diagnostico_lead: a escrita é da chave de serviço (landing e junção), ` +
+          "e abrir isso para authenticated deixa qualquer usuário do workspace forjar lead",
+      ).toBe(0);
+    }
+  });
+
+  it("RLS está ligado — sem isso as políticas acima não valem nada", () => {
+    expect(exec0016).toMatch(/alter table public\.diagnostico_lead enable row level security/i);
+  });
+
+  it("nenhum 'using (true)' nesta migração", () => {
+    expect(/using\s*\(\s*true\s*\)/i.test(exec0016)).toBe(false);
+  });
+
+  it("não usa alter type add value, que não roda na mesma transação", () => {
+    expect(/alter\s+type[\s\S]*?add\s+value/i.test(exec0016)).toBe(false);
+  });
+
+  it("os três enums nascem de forma idempotente", () => {
+    for (const tipo of ["trava_lead", "faixa_lead", "papel_lead"]) {
+      expect(exec0016, `enum ${tipo} não encontrado`).toMatch(new RegExp(`create type ${tipo} as enum`, "i"));
+    }
+    expect(contarOcorrencias(exec0016.toLowerCase(), "exception when duplicate_object")).toBeGreaterThanOrEqual(3);
+  });
+
+  it("existe índice para achar quem preencheu e não mandou mensagem", () => {
+    // Essa lista é o ativo que quase todo funil joga fora. Sem índice parcial
+    // ela vira varredura de tabela, e ninguém abre o que demora.
+    expect(exec0016).toMatch(/create index[\s\S]*?diagnostico_lead[\s\S]*?where\s+aluno_id is null/i);
+  });
+});
+
+// ============================================================
+// 0017 — a sessão ganha agenda, gravação e transcrição
+// ============================================================
+//
+// O bloco existe por causa de uma lição cara: RLS decide se a LINHA
+// aparece, e quando aparece, aparece INTEIRA. O mentorado já enxerga as
+// próprias sessões — então, no instante em que `transcricao` virou coluna
+// de `sessao`, um GET direto no PostgREST com a anon key (que é pública)
+// passou a alcançá-la. Esconder na tela seria repetir o erro de 0012, onde
+// a Server Action "protegia" um campo que um PATCH direto alcançava assim
+// mesmo. Por isso o portal lê uma VIEW que zera as colunas na origem, e por
+// isso os testes abaixo travam o `case`, o `security_invoker` e o default
+// `false` das duas flags.
+const ARQUIVO_0017 = "0017_sessao_agenda_gravacao.sql";
+const ARQUIVO_EXEC_0017 = "_exec_0017_sessao_agenda_gravacao.sql";
+const m0017 = existeArquivoDeMigracao(ARQUIVO_0017) ? lerMigracao(ARQUIVO_0017) : "";
+const exec0017 = semComentarios(m0017);
+
+const COLUNAS_NOVAS_0017 = [
+  "evento_google_id",
+  "link_reuniao",
+  "gravacao_liberada",
+  "transcricao_liberada",
+  "transcrita_em",
+  "transcricao_origem",
+];
+
+describe("0017 — sessão com agenda, gravação e transcrição", () => {
+  it("a migração 0017 existe, e a versão _exec_ também", () => {
+    expect(
+      existeArquivoDeMigracao(ARQUIVO_0017),
+      `esperava supabase/migrations/${ARQUIVO_0017}`,
+    ).toBe(true);
+    // `existeArquivoDeMigracao` so enxerga os numerados NNNN_*.sql, de
+    // proposito (o par _exec_ tem texto aparado e contaria tabela em
+    // dobro na varredura). Para o gemeo, a checagem e direta no disco.
+    expect(
+      readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0017),
+      `esperava supabase/migrations/${ARQUIVO_EXEC_0017}`,
+    ).toBe(true);
+  });
+
+  it("não usa o número 0016, que já pertence a outra migração", () => {
+    // Duas migrações com o mesmo número não dão erro: elas rodam em ordem
+    // alfabética e uma some do radar de quem for conferir o estado do
+    // banco depois. O teste existe para o dia em que alguém renumerar sem
+    // olhar o diretório.
+    expect(existeArquivoDeMigracao("0016_diagnostico_lead.sql")).toBe(true);
+    expect(existeArquivoDeMigracao("0016_sessao_agenda_gravacao.sql")).toBe(false);
+  });
+
+  it.each(COLUNAS_NOVAS_0017)("sessao ganha a coluna %s", (coluna) => {
+    expect(exec0017).toMatch(
+      new RegExp(`alter table public\\.sessao\\s+add column if not exists ${coluna}\\b`, "i"),
+    );
+  });
+
+  it.each(["gravacao_liberada", "transcricao_liberada"])(
+    "%s nasce FALSA — publicar é ato explícito, esconder não pode depender de memória",
+    (flag) => {
+      const linha = new RegExp(
+        `add column if not exists ${flag}\\s+boolean\\s+not null\\s+default\\s+(\\w+)`,
+        "i",
+      ).exec(exec0017);
+      expect(linha, `não achei a coluna ${flag}`).not.toBeNull();
+      expect(linha![1].toLowerCase()).toBe("false");
+    },
+  );
+
+  it("a view sessao_do_portal existe e roda com security_invoker = true", () => {
+    // Sem isto a view roda com os direitos de quem a criou e devolve a
+    // sessão de TODOS os mentorados para qualquer um — o crítico 1 e o
+    // crítico 2 da auditoria de 0008, repetidos.
+    expect(exec0017).toMatch(/create (or replace )?view public\.sessao_do_portal/i);
+    expect(exec0017).toMatch(
+      /create (or replace )?view public\.sessao_do_portal[\s\S]*?with\s*\(\s*security_invoker\s*=\s*true\s*\)/i,
+    );
+  });
+
+  it.each([
+    ["link_gravacao", "gravacao_liberada"],
+    ["transcricao", "transcricao_liberada"],
+  ])("a view zera %s enquanto %s for falsa", (coluna, flag) => {
+    expect(exec0017).toMatch(
+      new RegExp(`case when s\\.${flag} then s\\.${coluna} else ''\\s*end as ${coluna}`, "i"),
+    );
+  });
+
+  it("a view NÃO expõe colunas que o portal não precisa ver", () => {
+    // `transcricao_origem` diz de qual motor veio o texto: é dado de
+    // operação, não do cliente. Manter a view enxuta é o que impede que
+    // uma coluna sensível futura entre nela por descuido de copiar e colar.
+    const corpo = /create (or replace )?view public\.sessao_do_portal[\s\S]*?;/i.exec(exec0017);
+    expect(corpo).not.toBeNull();
+    expect(corpo![0]).not.toMatch(/transcricao_origem/i);
+  });
+
+  it("0017 não contém alter type ... add value (não pode dividir transação)", () => {
+    expect(exec0017).not.toMatch(/alter\s+type[\s\S]*?add\s+value/i);
+  });
+
+  it("a view entra na lista das que precisam de security_invoker", () => {
+    expect(VIEWS_DO_SCHEMA_COM_PORTAL).toContain("sessao_do_portal");
   });
 });
