@@ -13,6 +13,8 @@
 
 import { NextResponse } from "next/server";
 import { normalizarLote } from "@/lib/atendimento/contrato";
+import { planejarJuncao } from "@/lib/diagnostico/juncao";
+import { casarJuncoes } from "@/lib/diagnostico/registro";
 import { getDB } from "@/lib/data";
 import { conferirAgente, corpoJson } from "../porta";
 
@@ -34,6 +36,27 @@ export async function POST(req: Request) {
 
   try {
     const r = await getDB().registrarInteracoes(mensagens);
+
+    // A JUNÇÃO DO DIAGNÓSTICO ENTRA AQUI, DEPOIS E SEPARADA
+    // -----------------------------------------------------
+    // Algumas mensagens carregam no texto o código do diagnóstico da landing
+    // (`[JR-B1-T5-3-K7QM]`). Quando carregam, elas juntam as cinco respostas
+    // já gravadas com a pessoa que acabou de escrever — e é isso que faz a
+    // ficha abrir com a abordagem pronta em vez de "oi, tudo bem?".
+    //
+    // POR QUE DEPOIS DA GRAVAÇÃO, E DENTRO DE UM `try` PRÓPRIO: a gravação do
+    // lote é o compromisso desta rota com o agente; a junção é enriquecimento.
+    // Se a junção falhar, o agente NÃO pode achar que o lote se perdeu e
+    // reenviar tudo — perderíamos mensagem de conversa por causa de um lead.
+    // Falha aqui é silenciosa por desenho: o código continua legível dentro da
+    // própria mensagem, que é a rota de degradação do funil inteiro.
+    let diagnosticos = { casados: 0, fichasCriadas: 0, reconstruidos: 0 };
+    try {
+      diagnosticos = await casarJuncoes(planejarJuncao(mensagens));
+    } catch {
+      /* ver comentário acima */
+    }
+
     return NextResponse.json({
       gravadas: r.gravadas,
       ignoradas: r.ignoradas,
@@ -43,6 +66,9 @@ export async function POST(req: Request) {
       // agente as duas significam a mesma coisa — "não insista com esta".
       descartadas: malformadas + r.descartadas,
       leadsCriados: r.leadsCriados,
+      // Aditivo: agente antigo ignora o campo, agente novo consegue mostrar
+      // "3 diagnósticos casados" no log local em vez de silêncio.
+      diagnosticos,
     });
   } catch (erro) {
     // O agente precisa distinguir "recebi e descartei" de "não consegui
