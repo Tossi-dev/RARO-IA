@@ -171,9 +171,17 @@ export default async function Integracoes() {
       nome: "Google Calendar (criar reunião)",
       categoria: "agenda",
       conectado: calendarConfigurado(),
+      // Esta linha fala do caminho por VARIÁVEL DE AMBIENTE
+      // (GOOGLE_REFRESH_TOKEN, em `integracoes/calendar.ts`) — a conta fixa do
+      // negócio, que cria reunião sem ninguém logar. Ela não fala do caminho
+      // do cookie (`google-agenda.ts` + `google-agenda-escrita.ts`), que desde
+      // a Tarefa 15 escreve o evento das sessões. A frase antiga ("ainda não
+      // escreve no Google — só leitura está ligada") era verdadeira sobre ESTE
+      // caminho, mas aparecia colada na linha da agenda do Google e se lia
+      // como "o sistema não escreve na sua agenda", o que virou falso.
       detalhe: calendarConfigurado()
-        ? "Reuniões criadas direto na agenda conectada."
-        : "Criar reunião pelo app ainda não escreve no Google (só leitura está ligada).",
+        ? "Reuniões criadas direto na agenda conectada (conta fixa do negócio, por variável de ambiente)."
+        : "Este caminho — a conta fixa do negócio, por GOOGLE_REFRESH_TOKEN — ainda não cria reunião. A agenda conectada pelo login do Google (tela /agenda) é outra conexão, e essa já escreve o evento das sessões sincronizadas.",
       passo: "Definir GOOGLE_CLIENT_ID/SECRET + refresh token do calendário do Jefson.",
     },
     {

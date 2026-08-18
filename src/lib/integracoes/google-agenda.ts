@@ -18,14 +18,38 @@
 // planilha nem para variável de ambiente. Ele pertence a quem clicou em
 // "Entrar", e sair da conta é apagar o cookie — sem admin, sem suporte.
 //
-// PERMISSÃO PEDIDA: `calendar.readonly`. Só isso. O app não consegue criar,
-// mover nem apagar evento nenhum, mesmo que alguém queira.
+// PERMISSÃO PEDIDA (Tarefa 15 — reescrito; a versão anterior deste parágrafo
+// dizia que o app não tinha nenhuma capacidade de escrita, e isso deixou de
+// ser verdade quando `./google-agenda-escrita.ts` passou a existir — um
+// comentário que virou mentira é pior que nenhum, por isso o texto velho
+// não fica nem entre aspas aqui). O escopo pedido agora é `calendar.readonly`
+// + `calendar.events`. A leitura (`lerAgendaGoogle`, abaixo) continua neste
+// arquivo; CRIAR/ATUALIZAR/CANCELAR evento mora em
+// `./google-agenda-escrita.ts`, módulo separado — mas os dois dependem do
+// MESMO cookie e do MESMO escopo concedido na tela de consentimento, então
+// não há como pedir só leitura para uns e escrita para outros: quem conecta
+// a conta autoriza os dois de uma vez.
+//
+// CONTA CONECTADA ANTES DESTA MUDANÇA: o refresh token dela só cobre
+// `calendar.readonly` — a API do Google recusa (403/401) qualquer tentativa
+// de escrita com esse token, mesmo que o código deste arquivo já peça o
+// escopo novo. Não tem correção automática: quem já conectou precisa
+// reconectar (o botão "Entrar com o Google" de novo, que passa pela tela de
+// consentimento com o escopo atual). `google-agenda-escrita.ts` detecta esse
+// caso pela resposta 403/401 da própria chamada de escrita e devolve um
+// motivo humano pedindo a reconexão — não há como saber de antemão, do lado
+// de cá, se o token guardado no cookie é do escopo antigo ou do novo.
 
 import { cookies } from "next/headers";
 import type { EventoAgenda } from "./ics";
 
 export const COOKIE_GOOGLE = "raro_google_agenda";
-export const ESCOPO_AGENDA = "https://www.googleapis.com/auth/calendar.readonly";
+// Ordem importa por documentação, não por comportamento (o Google não liga
+// para ordem dentro do `scope`): readonly primeiro porque é o escopo
+// original deste arquivo, e `calendar.events` foi ACRESCENTADO na Tarefa 15
+// — a ordem no código conta essa história.
+export const ESCOPO_AGENDA =
+  "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events";
 
 /** As credenciais do app (uma vez, por quem publica) estão configuradas? */
 export function googleAppConfigurado(): boolean {
@@ -107,7 +131,23 @@ export async function trocarCodigoPorTokens(
   return { ok: true, refreshToken: dados.refresh_token };
 }
 
-async function accessTokenDoCookie(): Promise<string | null> {
+/**
+ * EXPORTADA a partir da Tarefa 15 — decisão consciente, além do "só o
+ * escopo" que o plano previa para este arquivo.
+ *
+ * `google-agenda-escrita.ts` também precisa trocar o refresh token do
+ * cookie por um access_token antes de cada chamada à API do Google. A
+ * alternativa seria o módulo novo reimplementar o mesmo POST para
+ * `oauth2.googleapis.com/token` — e aí o projeto passaria a ter DUAS
+ * implementações do mesmo fluxo de refresh, que podem divergir (um corrige
+ * um bug de fuso ou de tratamento de erro aqui, esquece de espelhar lá) sem
+ * nenhum teste perceber, porque cada suíte testa só o próprio módulo. Este
+ * projeto já tem uma cicatriz de exatamente essa classe de bug (duas
+ * implementações do mesmo cálculo divergindo em silêncio — ver o histórico
+ * de `paredeParaInstante`/`interpretarQuando` em `mentoria/calendario.ts`).
+ * Reexportar e reutilizar é a correção; duplicar seria repetir o erro.
+ */
+export async function accessTokenDoCookie(): Promise<string | null> {
   const refresh = cookies().get(COOKIE_GOOGLE)?.value;
   if (!refresh || !googleAppConfigurado()) return null;
   const r = await fetch("https://oauth2.googleapis.com/token", {

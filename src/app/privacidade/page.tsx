@@ -115,10 +115,15 @@ export default function PoliticaDePrivacidadePage() {
             </P>
             <ul className="mt-3 space-y-3">
               <ItemIntegracao titulo="Agenda do Google (Google Calendar)">
-                Usada para ler os horários de reunião já marcados na agenda da empresa. O acesso
-                pedido é <strong className="text-texto">só de leitura</strong> (escopo técnico{" "}
-                <code className="font-mono text-xs">calendar.readonly</code>) — o sistema enxerga
-                a agenda, mas não cria, edita nem apaga nada nela.
+                Usada para ler os horários de reunião já marcados na agenda da empresa, e para
+                sincronizar as sessões de mentoria que o próprio mentor manda agendar. O acesso
+                pedido cobre leitura e escrita de eventos (escopo técnico{" "}
+                <code className="font-mono text-xs">calendar.readonly</code> +{" "}
+                <code className="font-mono text-xs">calendar.events</code>): além de enxergar a
+                agenda, o sistema pode criar, atualizar e cancelar o evento de uma sessão — só
+                dela, só quando o mentor pede a sincronização. Nenhum outro evento da agenda é
+                tocado: o sistema marca os eventos que ele mesmo cria e confere essa marca antes
+                de alterar ou cancelar qualquer coisa; evento sem a marca é recusado.
               </ItemIntegracao>
               <ItemIntegracao titulo="Gateway de pagamento">
                 Quando uma cobrança é processada por um gateway (por exemplo Hotmart, Kiwify ou
