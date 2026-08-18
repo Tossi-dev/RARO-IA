@@ -284,7 +284,7 @@ describe("lerPortal — erro na consulta", () => {
           data: null,
           error: { code: "42501", message: 'permission denied for table "matricula"' },
         },
-        sessao: { data: [], error: null },
+        sessao_do_portal: { data: [], error: null },
         ...tabelasVazias(),
       },
       { data: "ment-1", error: null }
@@ -307,7 +307,7 @@ describe("lerPortal — erro na consulta", () => {
     ligarCliente(
       {
         mentorado: { data: linhaMentorado(), error: null },
-        sessao: { data: [], error: null },
+        sessao_do_portal: { data: [], error: null },
         ...tabelasVazias(),
       },
       { data: "ment-1", error: null },
@@ -367,7 +367,7 @@ describe("lerPortal — caminho feliz", () => {
           data: [linhaMatricula({ id: "mat-1", mentorado_id: "ment-1", sessoes_previstas: 12 })],
           error: null,
         },
-        sessao: {
+        sessao_do_portal: {
           data: [
             linhaSessao({ id: "s1", matricula_id: "mat-1", status: "realizada", quando: "2026-01-05T10:00:00Z" }),
             linhaSessao({ id: "s2", matricula_id: "mat-1", status: "realizada", quando: "2026-01-12T10:00:00Z" }),
@@ -458,7 +458,7 @@ describe("lerPortal — enum desconhecido não vaza", () => {
       {
         mentorado: { data: linhaMentorado({ status: "valor-que-nao-existe" }), error: null },
         matricula: { data: [], error: null },
-        sessao: { data: [], error: null },
+        sessao_do_portal: { data: [], error: null },
         ...tabelasVazias(),
       },
       { data: "ment-1", error: null }
@@ -471,24 +471,34 @@ describe("lerPortal — enum desconhecido não vaza", () => {
 });
 
 // ============================================================
-// BAIXO 7 — sessao: select explícito de colunas, sem transcricao.
+// A VIEW `sessao_do_portal` — o portão que substituiu a lista de colunas
 // ============================================================
 //
-// `lerPortal` fazia `s.from("sessao").select("*")` — puxando `transcricao`
-// (o campo mais pesado E mais sensível da tabela: o texto integral de uma
-// call gravada) do banco A CADA RENDER do portal, mesmo a tela nunca
-// mostrando esse campo. Dado que não vai para a tela não precisa sair do
-// banco. A correção lista as colunas explicitamente, deixando `transcricao`
-// de fora.
+// Este bloco ERA o teste do BAIXO 7 da auditoria: `lerPortal` fazia
+// `s.from("sessao").select("*")` e puxava `transcricao` do banco a cada
+// render, mesmo a tela nunca mostrando o campo. A correção de então listou as
+// colunas e deixou `transcricao` de fora.
+//
+// A Tarefa 19 inverteu a decisão, e é importante entender por quê antes de
+// achar que a proteção afrouxou. A gravação e a transcrição PASSAM a aparecer
+// no portal — quando o mentor liberar. Manter a coluna fora da consulta
+// impediria o recurso de existir; e, o que é pior, a proteção morava numa
+// linha de código, que só protege quem passa por ela. Um curl com a anon key
+// nunca passou por ela.
+//
+// Agora a régua é a view (0017): ela devolve `''` em `transcricao` e em
+// `link_gravacao` enquanto as flags forem falsas, para qualquer cliente. O
+// portal lê a view; a gestão continua lendo a tabela. O que estes testes
+// travam é isso: a consulta do portal nunca mais toca em `sessao`.
 
-describe("lerPortal — BAIXO 7: select de sessao é explícito e não pede transcricao", () => {
-  it("select('*') não é mais usado para sessao — argumento é uma lista de colunas", async () => {
+describe("lerPortal — lê a view do portal, nunca a tabela", () => {
+  it("consulta `sessao_do_portal` e NUNCA `sessao`", async () => {
     ligarSupabase();
     const cliente = ligarCliente(
       {
         mentorado: { data: linhaMentorado({ id: "ment-1" }), error: null },
         matricula: { data: [], error: null },
-        sessao: { data: [], error: null },
+        sessao_do_portal: { data: [], error: null },
         ...tabelasVazias(),
       },
       { data: "ment-1", error: null }
@@ -496,34 +506,173 @@ describe("lerPortal — BAIXO 7: select de sessao é explícito e não pede tran
 
     await lerPortal(AGORA);
 
-    const chamadasSessao = cliente.selecoes.sessao ?? [];
-    expect(chamadasSessao.length).toBeGreaterThan(0);
-    for (const colunas of chamadasSessao) {
-      expect(typeof colunas).toBe("string");
+    const tabelas = cliente.from.mock.calls.map((c) => c[0]);
+    expect(tabelas).toContain("sessao_do_portal");
+    // A tabela crua não aparece em NENHUMA chamada — nem por engano, nem
+    // como consulta extra "só para conferir alguma coisa".
+    expect(tabelas).not.toContain("sessao");
+  });
+
+  it("pede colunas explícitas da view, nunca `*`", async () => {
+    ligarSupabase();
+    const cliente = ligarCliente(
+      {
+        mentorado: { data: linhaMentorado({ id: "ment-1" }), error: null },
+        matricula: { data: [], error: null },
+        sessao_do_portal: { data: [], error: null },
+        ...tabelasVazias(),
+      },
+      { data: "ment-1", error: null }
+    );
+
+    await lerPortal(AGORA);
+
+    const chamadas = cliente.selecoes.sessao_do_portal ?? [];
+    expect(chamadas.length).toBeGreaterThan(0);
+    for (const colunas of chamadas) {
       const texto = String(colunas);
       expect(texto.trim()).not.toBe("*");
-      expect(texto).not.toContain("transcricao");
-      // as colunas que a tela de fato usa (ver `linhaParaSessao`,
-      // `dados.ts`) continuam sendo pedidas — a mudança é SÓ tirar
-      // `transcricao`, não empobrecer o resto do portal.
+      // As colunas que a tela desenha continuam vindo -- incluindo agora
+      // `transcricao`, que a view já censura quando não foi liberada.
       for (const coluna of [
         "id",
-        "workspace_id",
         "matricula_id",
         "turma_id",
         "numero",
         "quando",
-        "duracao_min",
         "status",
         "link_gravacao",
+        "transcricao",
         "resumo",
-        "criado_em",
       ]) {
         expect(texto).toContain(coluna);
       }
     }
   });
+
+  // O que a view devolve chega inteiro ao contrato, sem a leitura reescrever
+  // nada: se ela censurou, o portal recebe vazio; se ela liberou, recebe o
+  // texto. A decisão de liberar mora no banco, e só lá.
+  it("repassa o que a view devolveu, sem censurar de novo nem preencher", async () => {
+    ligarSupabase();
+    ligarCliente(
+      {
+        mentorado: { data: linhaMentorado({ id: "ment-1" }), error: null },
+        matricula: { data: [linhaMatricula({ id: "mat-1" })], error: null },
+        sessao_do_portal: {
+          data: [
+            linhaSessao({ id: "s-liberada", matricula_id: "mat-1", transcricao: "o que foi combinado", link_gravacao: "https://exemplo.com/g1" }),
+            linhaSessao({ id: "s-censurada", matricula_id: "mat-1", quando: "2026-04-01T10:00:00Z", transcricao: "", link_gravacao: "" }),
+          ],
+          error: null,
+        },
+        ...tabelasVazias(),
+      },
+      { data: "ment-1", error: null }
+    );
+
+    const portal = await lerPortal(AGORA);
+    const porId = new Map(portal.sessoes.map((s) => [s.id, s]));
+
+    expect(porId.get("s-liberada")?.transcricao).toBe("o que foi combinado");
+    expect(porId.get("s-censurada")?.transcricao).toBe("");
+    expect(porId.get("s-censurada")?.linkGravacao).toBe("");
+  });
 });
+
+// ============================================================
+// A linha do tempo — o portão público, alimentado de propósito com algo que
+// ele precisa barrar.
+// ============================================================
+
+describe("lerPortal — linhaTempo", () => {
+  it("monta a jornada com marcos, sessões, tarefas e conteúdos", async () => {
+    ligarSupabase();
+    ligarCliente(
+      {
+        mentorado: { data: linhaMentorado({ id: "ment-1" }), error: null },
+        matricula: { data: [linhaMatricula({ id: "mat-1" })], error: null },
+        sessao_do_portal: {
+          data: [linhaSessao({ id: "s-1", matricula_id: "mat-1", status: "realizada" })],
+          error: null,
+        },
+        ...tabelasVazias(),
+        marco: { data: [linhaMarco({ id: "m-1" })], error: null },
+      },
+      { data: "ment-1", error: null }
+    );
+
+    const portal = await lerPortal(AGORA);
+    const tipos = portal.linhaTempo.map((f) => f.tipo);
+
+    expect(tipos).toContain("marco");
+    expect(tipos).toContain("sessao");
+    // E tudo o que saiu é público — nenhum fato interno atravessou.
+    for (const fato of portal.linhaTempo) {
+      expect(fato.visibilidade).toBe("publico");
+    }
+  });
+
+  // O fato de `score` carrega `motivo`: a frase que o mentor escreveu para si
+  // mesmo sobre por que a nota caiu. É interno, e o portão precisa derrubá-lo
+  // mesmo com a leitura entregando os scores para a montagem.
+  it("fato interno injetado na entrada NÃO aparece na linha do tempo", async () => {
+    ligarSupabase();
+    const SEGREDO = "o cliente sumiu depois da conversa sobre o socio";
+    ligarCliente(
+      {
+        mentorado: { data: linhaMentorado({ id: "ment-1" }), error: null },
+        matricula: { data: [], error: null },
+        sessao_do_portal: { data: [], error: null },
+        ...tabelasVazias(),
+        score_evolucao: {
+          data: [
+            {
+              id: "sc-1",
+              workspace_id: "ws-1",
+              mentorado_id: "ment-1",
+              semana: "2026-05-04",
+              score: 40,
+              motivo: SEGREDO,
+              criado_em: "2026-05-04T00:00:00Z",
+            },
+          ],
+          error: null,
+        },
+      },
+      { data: "ment-1", error: null }
+    );
+
+    const portal = await lerPortal(AGORA);
+
+    // O score continua chegando pelo card de evolução (é a série numérica),
+    // mas o FATO dele não entra na linha do tempo, e o motivo não aparece em
+    // lugar nenhum da projeção.
+    expect(portal.scores).toHaveLength(1);
+    expect(portal.linhaTempo.map((f) => f.tipo)).not.toContain("score");
+    expect(JSON.stringify(portal.linhaTempo)).not.toContain(SEGREDO);
+  });
+
+  it("sem nada a contar, a linha do tempo é uma lista vazia — nunca inventada", async () => {
+    ligarSupabase();
+    ligarCliente(
+      {
+        mentorado: { data: linhaMentorado({ id: "ment-1" }), error: null },
+        matricula: { data: [], error: null },
+        sessao_do_portal: { data: [], error: null },
+        ...tabelasVazias(),
+      },
+      { data: "ment-1", error: null }
+    );
+
+    const portal = await lerPortal(AGORA);
+
+    expect(portal.linhaTempo).toEqual([]);
+  });
+});
+
+// A aridade de `lerPortal` (um parâmetro só, a defesa contra "trocar o id na
+// URL") já é travada mais abaixo, em "nunca recebe id vindo de fora".
 
 // ============================================================
 // A assinatura da função — regra dura #4
