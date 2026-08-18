@@ -348,5 +348,12 @@ export interface ConteudoLiberado {
   titulo: string;
   url: string;
   liberadoEm: string;
+  /**
+   * Revogado (0018). A linha FICA -- conteudo liberado e uma promessa feita a
+   * um cliente, e apagar a linha apagaria a prova de que a promessa existiu.
+   * O mentorado deixa de enxergar a linha pela politica de select, nao por
+   * filtro de tela; a gestao continua vendo.
+   */
+  arquivado: boolean;
   criadoEm: string;
 }

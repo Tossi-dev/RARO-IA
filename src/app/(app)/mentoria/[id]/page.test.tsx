@@ -55,6 +55,8 @@ vi.mock("@/lib/mentoria/acoes-ficha", () => ({
   sincronizarSessaoDaFicha: vi.fn(),
   transcreverSessaoDaFicha: vi.fn(),
   liberarNoPortalDaFicha: vi.fn(),
+  liberarConteudoDaFicha: vi.fn(),
+  revogarConteudoDaFicha: vi.fn(),
 }));
 
 vi.mock("@/lib/documentos/acoes", () => ({

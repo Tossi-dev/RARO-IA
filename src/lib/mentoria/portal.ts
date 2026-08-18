@@ -76,6 +76,7 @@ import { progressoDe, proximaSessao, type ProgressoMatricula } from "./progresso
 import {
   linhaParaMarco,
   linhaParaMatricula,
+  linhaParaConteudoLiberado,
   linhaParaMentorado,
   linhaParaProgramaOuNulo,
   linhaParaScoreEvolucao,
@@ -208,24 +209,11 @@ function avisar(operacao: string, erro: unknown): void {
   }
 }
 
-// ============================================================
-// conteudo_liberado — não existe mapeador em `dados.ts` (essa tabela só é
-// lida pelo portal hoje), então o mapeador mora aqui, mesmo estilo dos
-// `linhaPara*` de `dados.ts`: campo a campo, `?? ""` para os opcionais,
-// nada de `as Tipo` em cima do dado cru.
-// ============================================================
-
-function linhaParaConteudoLiberado(r: Row): ConteudoLiberado {
-  return {
-    id: r.id,
-    workspaceId: r.workspace_id,
-    mentoradoId: r.mentorado_id,
-    titulo: r.titulo,
-    url: r.url ?? "",
-    liberadoEm: r.liberado_em,
-    criadoEm: r.criado_em,
-  };
-}
+// O mapeador de `conteudo_liberado` MUDOU DE CASA na Tarefa 21: nasceu aqui
+// porque só o portal lia essa tabela, e agora a ficha da gestão também lê.
+// Dois mapeadores da mesma tabela em arquivos diferentes divergem no primeiro
+// conserto feito só de um lado — foi assim que o `.ics` ganhou dobra de linha
+// só na leitura. Ele agora mora com os outros `linhaPara*`, em `dados.ts`.
 
 // ============================================================
 // Sessões de uma matrícula / de todas as matrículas do mentorado — mesma
