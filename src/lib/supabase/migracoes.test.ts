@@ -2037,3 +2037,159 @@ describe("0018 — conteudo_liberado ganha arquivado", () => {
     expect(exec0018).not.toMatch(/create type/i);
   });
 });
+
+// ============================================================
+// 0019 — trilhas e aulas
+// ============================================================
+//
+// A armadilha deste bloco, e o motivo de ele existir escrito assim: o NOME da
+// política contém a palavra "mentorado". Uma asserção ingênua
+// (`expect(sql).toContain("mentorado")`) passaria mesmo que o `using` inteiro
+// tivesse virado `true` — o nome sozinho satisfaria a busca. Por isso as
+// asserções abaixo removem o nome da política ANTES de olhar para o corpo.
+// É o mesmo defeito que já custou uma rodada de revisão neste projeto, num
+// `toContain("8")` que passava porque o "8" aparecia na data.
+
+const ARQUIVO_0019 = "0019_trilha.sql";
+const ARQUIVO_EXEC_0019 = "_exec_0019_trilha.sql";
+const m0019 = existeArquivoDeMigracao(ARQUIVO_0019) ? lerMigracao(ARQUIVO_0019) : "";
+const exec0019 = semComentarios(m0019);
+
+const TABELAS_0019 = ["trilha", "trilha_aula"];
+
+/** O corpo das políticas, SEM as linhas de `create policy "..."` — ver o comentário acima. */
+function politicasSemNome(sql: string): string {
+  return sql
+    .split("\n")
+    .filter((l) => !/^\s*(create|drop) policy/i.test(l))
+    .join("\n");
+}
+
+/** O trecho de uma política específica, do `create policy` até o `;` que a fecha. */
+function corpoDaPolitica(sql: string, nome: string): string {
+  const i = sql.indexOf(`create policy "${nome}"`);
+  if (i < 0) return "";
+  const fim = sql.indexOf("\n\n", i);
+  return sql.slice(i, fim < 0 ? undefined : fim);
+}
+
+describe("0019 — trilha e trilha_aula", () => {
+  it("a migração existe, e a versão _exec_ também", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0019), `esperava supabase/migrations/${ARQUIVO_0019}`).toBe(true);
+    expect(
+      readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0019),
+      `esperava supabase/migrations/${ARQUIVO_EXEC_0019}`,
+    ).toBe(true);
+  });
+
+  it.each(TABELAS_0019)("public.%s é criada e tem workspace_id", (tabela) => {
+    const criacao = new RegExp(`create table if not exists public\\.${tabela}\\s*\\(([\\s\\S]*?)\\n\\);`, "i");
+    const m = criacao.exec(exec0019);
+    expect(m, `esperava create table public.${tabela} em 0019`).not.toBeNull();
+    // Multi-tenant não é opcional: sem `workspace_id` a tabela não tem como
+    // ser escopada por `workspace_atual()`, e toda política dela viraria
+    // "todo mundo do banco vê tudo".
+    expect(m?.[1]).toMatch(/workspace_id uuid not null references public\.workspace/i);
+  });
+
+  it.each(TABELAS_0019)("public.%s tem RLS ligada", (tabela) => {
+    expect(exec0019).toContain(`alter table public.${tabela} enable row level security`);
+  });
+
+  // ATENÇÃO À FORMA DESTA ASSERÇÃO. A primeira versão dela procurava
+  // `workspace_id = public.workspace_atual()` em QUALQUER lugar do texto da
+  // política — e passava mesmo com o escopo do topo trocado por `true`,
+  // porque a mesma string aparece dentro da subconsulta de matrícula
+  // (`m.workspace_id = ...`). Um mutante que abria a trilha para o banco
+  // inteiro atravessou 427 testes verdes. O que vale é a PRIMEIRA condição
+  // do `using`/`with check`, e é ela que este teste lê.
+  it.each(TABELAS_0019)("toda política de public.%s começa escopada por workspace_atual()", (tabela) => {
+    const politicas = exec0019
+      .split(/create policy /i)
+      .slice(1)
+      .filter((bloco) => bloco.includes(`on public.${tabela}`));
+    expect(politicas.length, `esperava políticas em public.${tabela}`).toBeGreaterThan(0);
+    for (const politica of politicas) {
+      const clausulas = [...politica.matchAll(/(?:using|with check)\s*\(/gi)];
+      expect(clausulas.length, `política sem using/with check: ${politica.slice(0, 60)}`).toBeGreaterThan(0);
+      for (const clausula of clausulas) {
+        const depois = politica.slice((clausula.index ?? 0) + clausula[0].length);
+        expect(
+          depois.trimStart().startsWith("workspace_id = public.workspace_atual()"),
+          `a primeira condição de ${tabela} deveria ser o escopo de workspace, e é: ${depois.trimStart().slice(0, 60)}`,
+        ).toBe(true);
+      }
+      expect(politica).not.toMatch(/using\s*\(\s*true\s*\)/i);
+    }
+  });
+
+  // O coração da migração: o mentorado só enxerga trilha de programa em que
+  // ele tem matrícula ATIVA. As três peças da condição são conferidas no
+  // corpo da política, com o nome dela já removido.
+  it("a política de leitura de trilha exige matrícula ATIVA do mentorado_atual()", () => {
+    const corpo = politicasSemNome(corpoDaPolitica(exec0019, "leitura: gestao e mentorado com matricula ativa"));
+    expect(corpo, "não achei a política de leitura de trilha").not.toBe("");
+    expect(corpo).toContain("public.mentorado_atual()");
+    expect(corpo).toContain("public.matricula");
+    expect(corpo).toMatch(/m\.status\s*=\s*'ativa'/);
+    // Trilha sem programa é material interno: nenhum mentorado a enxerga.
+    expect(corpo).toContain("programa_id is not null");
+  });
+
+  it("a política de leitura de trilha_aula NÃO repete a regra — pergunta pela trilha", () => {
+    const corpo = corpoDaPolitica(exec0019, "leitura: quem enxerga a trilha enxerga a aula");
+    expect(corpo).not.toBe("");
+    expect(corpo).toContain("from public.trilha t");
+    // Se repetisse a condição de matrícula aqui, seriam duas cópias da mesma
+    // regra — e a segunda é a que ninguém lembra de atualizar.
+    expect(corpo).not.toContain("m.status");
+  });
+
+  it.each(TABELAS_0019)("public.%s NÃO tem política de escrita para mentorado", (tabela) => {
+    const politicas = exec0019
+      .split(/create policy /i)
+      .slice(1)
+      .filter((bloco) => bloco.includes(`on public.${tabela}`));
+    const deEscrita = politicas.filter((p) => /for\s+(insert|update|delete)/i.test(p));
+    expect(deEscrita.length, `esperava políticas de escrita em public.${tabela}`).toBeGreaterThan(0);
+    for (const politica of deEscrita) {
+      const corpo = politicasSemNome(politica);
+      expect(corpo).not.toContain("'mentorado'");
+      expect(corpo).toContain("public.papel_atual() in ('dono', 'gestor')");
+    }
+  });
+
+  it.each(TABELAS_0019)("public.%s não tem política de DELETE para ninguém", (tabela) => {
+    // Regra da casa: status muda, linha fica. `trilha.ativa` e o
+    // encadeamento por `on delete cascade` cobrem o que precisa sumir.
+    const politicas = exec0019
+      .split(/create policy /i)
+      .slice(1)
+      .filter((bloco) => bloco.includes(`on public.${tabela}`));
+    for (const politica of politicas) {
+      expect(politica).not.toMatch(/for\s+delete/i);
+    }
+  });
+
+  it("libera_em_dias tem default 0 e check >= 0", () => {
+    expect(exec0019).toMatch(/libera_em_dias int not null default 0/i);
+    // Sem o check, um valor negativo abriria a aula ANTES do início da
+    // trilha, e o cálculo de liberação gradual passaria a operar sobre uma
+    // data que não aconteceu. Erro que não dá erro.
+    expect(exec0019).toMatch(/check\s*\(\s*libera_em_dias\s*>=\s*0\s*\)/i);
+  });
+
+  it("reaproveita o enum tipo_aula de 0009 em vez de criar outro", () => {
+    expect(exec0019).toMatch(/tipo tipo_aula not null default 'video'/i);
+    // `alter type ... add value` não roda na mesma transação que o resto, e
+    // `create type` de um enum que já existe quebraria a migração inteira.
+    expect(exec0019).not.toMatch(/alter type .* add value/i);
+    expect(exec0019).not.toMatch(/create type\s+tipo_aula/i);
+  });
+
+  it("não apaga nada", () => {
+    expect(exec0019).not.toMatch(/\bdelete\s+from\b/i);
+    expect(exec0019).not.toMatch(/\bdrop\s+table\b/i);
+    expect(exec0019).not.toMatch(/\bdrop\s+column\b/i);
+  });
+});
