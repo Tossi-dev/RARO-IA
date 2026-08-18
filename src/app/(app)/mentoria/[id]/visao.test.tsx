@@ -60,6 +60,8 @@ vi.mock("@/lib/mentoria/acoes-ficha", () => ({
   sincronizarSessaoDaFicha: vi.fn(),
   transcreverSessaoDaFicha: vi.fn(),
   liberarNoPortalDaFicha: vi.fn(),
+  liberarConteudoDaFicha: vi.fn(),
+  revogarConteudoDaFicha: vi.fn(),
 }));
 
 // Mesma razão, para o bloco de documentos que a ficha passou a montar
@@ -105,6 +107,7 @@ function fichaVazia(): Ficha {
     tarefas: [],
     marcos: [],
     scores: [],
+    conteudos: [],
   };
 }
 

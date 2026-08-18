@@ -82,6 +82,7 @@ function conteudoDe(parcial: Partial<ConteudoLiberado>): ConteudoLiberado {
     titulo: "Aula 3 — precificação",
     url: "https://exemplo.com/aula-3?token=abcdef",
     liberadoEm: "2026-05-07T08:00:00.000Z",
+    arquivado: false,
     criadoEm: "2026-05-07T08:00:00.000Z",
     ...parcial,
   };

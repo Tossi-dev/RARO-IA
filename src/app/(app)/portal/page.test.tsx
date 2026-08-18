@@ -176,8 +176,8 @@ function portalConectado(parcial: Partial<PortalDados> = {}): PortalDados {
     marcos: [],
     scores: [],
     conteudos: [
-      { id: "c-hostil", workspaceId: "ws-1", mentoradoId: "ment-1", titulo: "Conteúdo hostil", url: URL_HOSTIL, liberadoEm: "2026-01-01T00:00:00Z", criadoEm: "2026-01-01T00:00:00Z" },
-      { id: "c-valido", workspaceId: "ws-1", mentoradoId: "ment-1", titulo: "Conteúdo válido", url: URL_VALIDA, liberadoEm: "2026-01-01T00:00:00Z", criadoEm: "2026-01-01T00:00:00Z" },
+      { id: "c-hostil", workspaceId: "ws-1", mentoradoId: "ment-1", titulo: "Conteúdo hostil", url: URL_HOSTIL, liberadoEm: "2026-01-01T00:00:00Z", arquivado: false, criadoEm: "2026-01-01T00:00:00Z" },
+      { id: "c-valido", workspaceId: "ws-1", mentoradoId: "ment-1", titulo: "Conteúdo válido", url: URL_VALIDA, liberadoEm: "2026-01-01T00:00:00Z", arquivado: false, criadoEm: "2026-01-01T00:00:00Z" },
     ],
     // Vazia na fixture base: a linha do tempo entra na tela na Tarefa 20, e
     // quem a preenche é `lerPortal` (Tarefa 19), não esta fixture.

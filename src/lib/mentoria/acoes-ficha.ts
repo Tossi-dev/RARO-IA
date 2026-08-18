@@ -21,6 +21,7 @@
 
 import { redirect } from "next/navigation";
 import { sincronizarSessaoNaAgenda } from "./acoes-calendario";
+import { liberarConteudo, revogarConteudo } from "./acoes-conteudo-liberado";
 import { liberarNoPortal } from "./acoes-liberacao";
 import { transcreverSessao } from "./acoes-transcricao";
 
@@ -72,4 +73,19 @@ export async function transcreverSessaoDaFicha(formData: FormData): Promise<void
  */
 export async function liberarNoPortalDaFicha(formData: FormData): Promise<void> {
   await liberarNoPortal(formData);
+}
+
+/**
+ * Liberar e revogar conteúdo, a partir da ficha.
+ *
+ * Como os dois de cima: as funções de dentro já são void e já redirecionam com
+ * `?erro=`. Estes invólucros existem só para a ação atravessar a fronteira de
+ * Server Action por este arquivo — o único que os formulários chamam.
+ */
+export async function liberarConteudoDaFicha(formData: FormData): Promise<void> {
+  await liberarConteudo(formData);
+}
+
+export async function revogarConteudoDaFicha(formData: FormData): Promise<void> {
+  await revogarConteudo(formData);
 }

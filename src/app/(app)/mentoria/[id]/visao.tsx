@@ -46,6 +46,7 @@ import {
   variacaoScore,
 } from "../textos";
 import { DocumentosDoMentorado } from "./documentos";
+import { ConteudosLiberados } from "./liberados";
 
 const LABEL_STATUS_MENTORADO: Record<StatusMentorado, string> = {
   lead: "Lead",
@@ -769,6 +770,10 @@ export function FichaVisao({
           contrato e anamnese é parte do trabalho corrente da ficha, e a
           `Tabs` desenha o painel de trás `hidden` — bloco escondido é bloco
           que ninguém lembra que existe. Ver `./documentos.tsx`. */}
+      <div className="mt-4">
+        <ConteudosLiberados mentoradoId={mentorado.id} conteudos={ficha.conteudos} />
+      </div>
+
       <div className="mt-4">
         <DocumentosDoMentorado mentoradoId={mentorado.id} lista={documentos} />
       </div>

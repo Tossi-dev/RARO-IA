@@ -1961,3 +1961,79 @@ describe("0017 — sessão com agenda, gravação e transcrição", () => {
     expect(VIEWS_DO_SCHEMA_COM_PORTAL).toContain("sessao_do_portal");
   });
 });
+
+// ============================================================
+// 0018 — revogar conteúdo liberado sem apagar a linha
+// ============================================================
+//
+// Duas coisas que este bloco trava, e as duas nasceram de lição paga:
+//
+// 1) REVOGAR NÃO É DELETE. A linha fica, com a data e o título originais.
+//    Conteúdo liberado é uma promessa feita a um cliente, e apagar a linha
+//    apagaria a prova de que a promessa existiu.
+// 2) REVOGAR PRECISA REVOGAR DE VERDADE. Filtrar `arquivado = false` na
+//    consulta do portal resolveria a tela e não resolveria o PostgREST: a
+//    anon key é pública, e um GET direto continuaria devolvendo a linha
+//    revogada para o próprio mentorado. Por isso a condição entra na
+//    POLÍTICA, no ramo do mentorado — e a gestão continua vendo tudo.
+
+const ARQUIVO_0018 = "0018_conteudo_liberado_arquivado.sql";
+const ARQUIVO_EXEC_0018 = "_exec_0018_conteudo_liberado_arquivado.sql";
+const m0018 = existeArquivoDeMigracao(ARQUIVO_0018) ? lerMigracao(ARQUIVO_0018) : "";
+const exec0018 = semComentarios(m0018);
+
+describe("0018 — conteudo_liberado ganha arquivado", () => {
+  it("a migração 0018 existe, e a versão _exec_ também", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0018), `esperava supabase/migrations/${ARQUIVO_0018}`).toBe(true);
+    expect(
+      readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0018),
+      `esperava supabase/migrations/${ARQUIVO_EXEC_0018}`,
+    ).toBe(true);
+  });
+
+  it("a coluna nasce com default FALSE — nada é revogado por acidente de migração", () => {
+    expect(exec0018).toMatch(
+      /add column if not exists\s+arquivado\s+boolean\s+not null\s+default\s+false/i,
+    );
+    // `default true` revogaria, na hora em que a migração rodasse, todo
+    // conteúdo já liberado de todo mentorado. O teste falha se alguém
+    // trocar.
+    expect(exec0018).not.toMatch(/arquivado\s+boolean[^;]*default\s+true/i);
+  });
+
+  it("a migração não apaga nada: nenhum delete, nenhum drop de tabela ou coluna", () => {
+    expect(exec0018).not.toMatch(/\bdelete\s+from\b/i);
+    expect(exec0018).not.toMatch(/\bdrop\s+table\b/i);
+    expect(exec0018).not.toMatch(/\bdrop\s+column\b/i);
+    // O único `drop policy` aceitável é o da própria política que ela
+    // recria em seguida — e ele vem com `if exists`, no par com o `create`.
+    const dropsDePolitica = exec0018.match(/drop policy/gi) ?? [];
+    const createsDePolitica = exec0018.match(/create policy/gi) ?? [];
+    expect(dropsDePolitica.length).toBe(createsDePolitica.length);
+  });
+
+  it("a política de select do MENTORADO exige arquivado = false", () => {
+    const politica = exec0018.slice(exec0018.indexOf("create policy"));
+    expect(politica).toContain("papel_atual() = 'mentorado'");
+    expect(politica).toMatch(/arquivado\s*=\s*false/i);
+    // E a condição precisa estar DENTRO do ramo do mentorado, não solta no
+    // topo: solta no topo, ela esconderia o revogado também da gestão — que
+    // é justamente quem precisa conferir o que foi liberado um dia.
+    const posMentorado = politica.indexOf("papel_atual() = 'mentorado'");
+    const posArquivado = politica.search(/arquivado\s*=\s*false/i);
+    expect(posArquivado).toBeGreaterThan(posMentorado);
+  });
+
+  it("a política recriada mantém o filtro de workspace e o ramo da gestão", () => {
+    const politica = exec0018.slice(exec0018.indexOf("create policy"));
+    expect(politica).toContain("workspace_id = public.workspace_atual()");
+    expect(politica).toContain("papel_atual() in ('dono', 'gestor')");
+    expect(politica).toContain("mentorado_id = public.mentorado_atual()");
+    expect(politica).not.toMatch(/using\s*\(\s*true\s*\)/i);
+  });
+
+  it("não cria enum novo nem mexe em tipo existente", () => {
+    expect(exec0018).not.toMatch(/alter type .* add value/i);
+    expect(exec0018).not.toMatch(/create type/i);
+  });
+});

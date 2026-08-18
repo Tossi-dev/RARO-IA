@@ -44,6 +44,7 @@ import {
   statusMatriculaDe,
   statusMentoradoDe,
   statusSessaoDe,
+  type ConteudoLiberado,
   type Marco,
   type Matricula,
   type Mentorado,
@@ -94,6 +95,16 @@ export interface Ficha {
   marcos: Marco[];
   /** Ordem cronológica CRESCENTE — é série temporal, gráfico ao contrário mente. */
   scores: ScoreEvolucao[];
+  /**
+   * O que já foi liberado para este mentorado, INCLUINDO o revogado.
+   *
+   * A ficha é a tela da gestão, e ela precisa da visão completa: "não é mais
+   * oferecido a ele" e "nunca aconteceu" são coisas diferentes, e só a
+   * primeira é verdade depois de uma revogação. Quem enxerga só o ativo é o
+   * mentorado — e não por filtro de código, mas pela política de select de
+   * 0018, que exige `arquivado = false` no ramo dele.
+   */
+  conteudos: ConteudoLiberado[];
 }
 
 // ============================================================
@@ -121,6 +132,7 @@ function fichaDesconectada(motivo: string): Ficha {
     tarefas: [],
     marcos: [],
     scores: [],
+    conteudos: [],
   };
 }
 
@@ -238,6 +250,28 @@ export function linhaParaSessao(r: Row): Sessao {
     transcricaoLiberada: Boolean(r.transcricao_liberada),
     transcritaEm: r.transcrita_em ?? null,
     transcricaoOrigem: r.transcricao_origem ?? "",
+    criadoEm: r.criado_em,
+  };
+}
+
+/**
+ * `conteudo_liberado` — material que o mentor liberou para UMA pessoa.
+ *
+ * `arquivado` é a revogação (0018): a linha fica, com a data e o título
+ * originais, e apenas deixa de ser oferecida. `?? false` cobre a linha lida de
+ * um banco onde a 0018 ainda não rodou — e cobre para o lado seguro, o de
+ * continuar oferecendo o que foi prometido, em vez de revogar em silêncio o
+ * material de todo mundo por causa de uma coluna ausente.
+ */
+export function linhaParaConteudoLiberado(r: Row): ConteudoLiberado {
+  return {
+    id: r.id,
+    workspaceId: r.workspace_id,
+    mentoradoId: r.mentorado_id,
+    titulo: r.titulo,
+    url: r.url ?? "",
+    liberadoEm: r.liberado_em,
+    arquivado: Boolean(r.arquivado ?? false),
     criadoEm: r.criado_em,
   };
 }
@@ -443,12 +477,12 @@ export async function lerFicha(mentoradoId: string, agoraIso: string): Promise<F
     if (!mentoradoRow) {
       // Regra 7: CONECTOU e não achou. Diferente de "não consegui
       // conectar" — por isso `conectado: true` aqui, não `false`.
-      return { conectado: true, motivo: "", mentorado: null, matriculas: [], sessoes: [], tarefas: [], marcos: [], scores: [] };
+      return { conectado: true, motivo: "", mentorado: null, matriculas: [], sessoes: [], tarefas: [], marcos: [], scores: [], conteudos: [] };
     }
 
     const mentorado = linhaParaMentorado(mentoradoRow as Row);
 
-    const [matriculasRes, sessoesRes, tarefasRes, marcosRes, scoresRes] = await Promise.all([
+    const [matriculasRes, sessoesRes, tarefasRes, marcosRes, scoresRes, conteudosRes] = await Promise.all([
       s.from("matricula").select("*, programa(*)").eq("mentorado_id", mentoradoId),
       // Todas as sessões, não só `eq("matricula_id", ...)`: sessão de turma
       // não carrega mentorado_id nem matricula_id (ver `sessoesDaMatricula`
@@ -458,9 +492,20 @@ export async function lerFicha(mentoradoId: string, agoraIso: string): Promise<F
       s.from("tarefa_mentoria").select("*").eq("mentorado_id", mentoradoId),
       s.from("marco").select("*").eq("mentorado_id", mentoradoId),
       s.from("score_evolucao").select("*").eq("mentorado_id", mentoradoId),
+      // A ficha da GESTÃO lê o conteúdo liberado inteiro, revogado incluído:
+      // "não é mais oferecido a ele" e "nunca aconteceu" são coisas
+      // diferentes. Quem vê só o ativo é o mentorado, e não por filtro aqui —
+      // pela política de select de 0018.
+      s.from("conteudo_liberado").select("*").eq("mentorado_id", mentoradoId),
     ]);
 
-    const erro = matriculasRes.error ?? sessoesRes.error ?? tarefasRes.error ?? marcosRes.error ?? scoresRes.error;
+    const erro =
+      matriculasRes.error ??
+      sessoesRes.error ??
+      tarefasRes.error ??
+      marcosRes.error ??
+      scoresRes.error ??
+      conteudosRes.error;
     if (erro) {
       avisar("lerFicha", erro);
       return fichaDesconectada(MOTIVO_ERRO_LEITURA);
@@ -496,6 +541,12 @@ export async function lerFicha(mentoradoId: string, agoraIso: string): Promise<F
       .map(linhaParaScoreEvolucao)
       .sort((a, b) => quandoOuLimite(a.semana, -Infinity) - quandoOuLimite(b.semana, -Infinity));
 
+    // Mais recente primeiro: a lista da ficha é operacional, e o que foi
+    // liberado agora é o que a pessoa acabou de combinar com o mentorado.
+    const conteudos = ((conteudosRes.data ?? []) as Row[])
+      .map(linhaParaConteudoLiberado)
+      .sort((a, b) => quandoOuLimite(b.liberadoEm, -Infinity) - quandoOuLimite(a.liberadoEm, -Infinity));
+
     return {
       conectado: true,
       motivo: "",
@@ -505,6 +556,7 @@ export async function lerFicha(mentoradoId: string, agoraIso: string): Promise<F
       tarefas,
       marcos,
       scores,
+      conteudos,
     };
   } catch (excecao) {
     avisar("lerFicha", excecao);
