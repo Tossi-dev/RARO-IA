@@ -21,6 +21,7 @@
 import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { FatoHistorico } from "@/lib/mentoria/historico";
 import type { Portal as PortalDados } from "@/lib/mentoria/portal";
 
 const { lerPortalMock } = vi.hoisted(() => ({ lerPortalMock: vi.fn() }));
@@ -331,13 +332,70 @@ describe("Portal — estado conectado (ehMentorado: true)", () => {
     expect(html).not.toContain(EMAIL_SECRETO);
   });
 
-  it("a transcrição da sessão NUNCA aparece no HTML (só o resumo, que É exibido)", async () => {
-    lerPortalMock.mockResolvedValue(portalConectado());
+  // ESTE TESTE FOI INVERTIDO NA TAREFA 20, e a inversão precisa ser lida
+  // inteira antes de alguém achar que a proteção afrouxou.
+  //
+  // Ele dizia: "a transcrição NUNCA aparece no HTML". Fazia sentido enquanto a
+  // leitura do portal nem pedia a coluna ao banco. Agora o portal lê
+  // `sessao_do_portal` (0017), e a view devolve `''` em `transcricao` enquanto
+  // a liberação estiver desligada. Ou seja: se o campo chegou preenchido à
+  // tela, é porque o mentor liberou — o banco já decidiu, e a tela apenas
+  // desenha o que recebeu.
+  //
+  // O invariante que sobrou é mais forte que o antigo, porque não depende de a
+  // tela lembrar de nada: TEXTO VAZIO NÃO DESENHA SEÇÃO. O par de testes
+  // abaixo trava os dois lados.
+  it("transcrição vazia (não liberada pela view) não desenha seção nenhuma, nem cabeçalho", async () => {
+    lerPortalMock.mockResolvedValue(
+      portalConectado({
+        sessoes: [
+          {
+            ...portalConectado().sessoes[0],
+            transcricao: "",
+            linkGravacao: "",
+          },
+        ],
+      })
+    );
 
     const html = await renderizarPortal();
 
     expect(html).not.toContain(TRANSCRICAO_SECRETA);
+    // Nem o rótulo do bloco fechado: "Ver a transcrição desta sessão" contaria
+    // à pessoa que existe uma transcrição que ela não pode abrir, o que é uma
+    // forma mais lenta de vazar a mesma informação.
+    expect(html).not.toContain("Ver a transcrição");
+    expect(html).not.toContain("Assistir à gravação");
+    // E o resumo, que sempre foi público, continua aparecendo.
     expect(html).toContain("Resumo público da sessão.");
+  });
+
+  it("transcrição preenchida (liberada pela view) aparece — é o que a liberação significa", async () => {
+    lerPortalMock.mockResolvedValue(portalConectado());
+
+    const html = await renderizarPortal();
+
+    // A fixture base traz a transcrição preenchida, e preenchida só chega da
+    // view quando `transcricao_liberada` é verdadeira.
+    expect(html).toContain(TRANSCRICAO_SECRETA);
+    expect(html).toContain("Ver a transcrição desta sessão");
+  });
+
+  // A tela não pode ter uma segunda régua de visibilidade: quem decide é a
+  // view. Este teste falha se alguém acrescentar um `if (flag)` na tela — com
+  // a flag desligada e o campo preenchido, o texto TEM que aparecer, porque
+  // nesse cenário quem mentiu foi a flag, não a view.
+  it("desenha pelo CONTEÚDO do campo, nunca por uma flag da linha", async () => {
+    const base = portalConectado().sessoes[0];
+    lerPortalMock.mockResolvedValue(
+      portalConectado({
+        sessoes: [{ ...base, transcricao: TRANSCRICAO_SECRETA, transcricaoLiberada: false }],
+      })
+    );
+
+    const html = await renderizarPortal();
+
+    expect(html).toContain(TRANSCRICAO_SECRETA);
   });
 
   it("zero emoji no HTML do estado conectado", async () => {
@@ -458,3 +516,159 @@ describe("Portal — estado conectado (ehMentorado: true)", () => {
 //      de base do passo 1 — o arquivo final é bit a bit o original, não
 //      uma versão "quase igual".
 // ============================================================
+
+// ============================================================
+// Tarefa 20 — linha do tempo e link de gravação
+// ============================================================
+
+describe("Portal — Sua evolução (linha do tempo)", () => {
+  function fato(over: Partial<FatoHistorico> = {}): FatoHistorico {
+    return {
+      quando: "2026-08-01T10:00:00Z",
+      tipo: "marco",
+      titulo: "Marco: primeiro cliente fechado",
+      detalhe: "",
+      visibilidade: "publico",
+      ...over,
+    };
+  }
+
+  it("lista vazia mostra frase honesta, e não uma lista vazia calada", async () => {
+    lerPortalMock.mockResolvedValue(portalConectado({ linhaTempo: [] }));
+
+    const html = await renderizarPortal();
+
+    expect(html).toContain("Sua evolução");
+    expect(html).toContain("Ainda não há nada para contar por aqui");
+  });
+
+  it("desenha o que a leitura projetou, sem filtrar de novo", async () => {
+    lerPortalMock.mockResolvedValue(
+      portalConectado({
+        linhaTempo: [
+          fato({ titulo: "Marco: primeiro cliente fechado", detalhe: "Fechou em julho." }),
+          fato({ tipo: "sessao", titulo: "Sessão 2 realizada", quando: "2026-08-01T10:00:00Z" }),
+        ],
+      })
+    );
+
+    const html = await renderizarPortal();
+
+    expect(html).toContain("Marco: primeiro cliente fechado");
+    expect(html).toContain("Fechou em julho.");
+    expect(html).toContain("Sessão 2 realizada");
+  });
+
+  // A tela NÃO tem régua de visibilidade própria — quem projeta é `lerPortal`
+  // (Tarefa 19). Este teste documenta essa fronteira em vez de fingir que a
+  // tela protege: se um fato interno chegar aqui, ele é desenhado, e o defeito
+  // está na leitura. Duas réguas seriam pior que uma: a segunda é a que
+  // ninguém lembra de atualizar.
+  it("não é a tela que filtra — o portão é a leitura (fronteira documentada)", async () => {
+    lerPortalMock.mockResolvedValue(
+      portalConectado({ linhaTempo: [fato({ tipo: "nota", titulo: "Nota interna", visibilidade: "interno" })] })
+    );
+
+    const html = await renderizarPortal();
+
+    expect(html).toContain("Nota interna");
+  });
+
+  it("data inválida não vira data inventada — some a linha, fica o fato", async () => {
+    lerPortalMock.mockResolvedValue(
+      portalConectado({ linhaTempo: [fato({ titulo: "Marco sem data", quando: "ontem à noite" })] })
+    );
+
+    const html = await renderizarPortal();
+
+    expect(html).toContain("Marco sem data");
+    expect(html).not.toContain("ontem à noite");
+    expect(html).not.toContain("Invalid Date");
+    expect(html).not.toContain("NaN");
+  });
+});
+
+describe("Portal — link de gravação liberado", () => {
+  function comLink(linkGravacao: string) {
+    const base = portalConectado().sessoes[0];
+    return portalConectado({ sessoes: [{ ...base, linkGravacao, transcricao: "" }] });
+  }
+
+  it("link http(s) válido vira âncora clicável", async () => {
+    lerPortalMock.mockResolvedValue(comLink("https://exemplo.com/gravacao-1"));
+
+    const html = await renderizarPortal();
+
+    expect(html).toContain('href="https://exemplo.com/gravacao-1"');
+    expect(html).toContain("Assistir à gravação");
+    // Nunca sem `rel`: `target="_blank"` sem `noopener` entrega à página
+    // aberta uma referência para esta.
+    expect(html).toContain('rel="noopener noreferrer"');
+  });
+
+  it.each([
+    ["javascript:alert(1)"],
+    ["data:text/html,<script>alert(1)</script>"],
+    ["/caminho/relativo"],
+    ["exemplo.com/sem-esquema"],
+    ["   "],
+  ])("link %j não vira âncora, e nem o rótulo aparece", async (link) => {
+    lerPortalMock.mockResolvedValue(comLink(link));
+
+    const html = await renderizarPortal();
+
+    expect(html).not.toContain("Assistir à gravação");
+    expect(html.toLowerCase()).not.toContain("javascript:alert");
+    expect(html).not.toContain("data:text/html");
+  });
+});
+
+describe("Portal — identificadores nunca chegam à marcação", () => {
+  it("nem mentorado_id, nem perfil_id, nem telefone, nem papel", async () => {
+    lerPortalMock.mockResolvedValue(
+      portalConectado({
+        linhaTempo: [
+          {
+            quando: "2026-08-01T10:00:00Z",
+            tipo: "marco",
+            titulo: "Marco: primeiro cliente fechado",
+            detalhe: "",
+            visibilidade: "publico",
+          },
+        ],
+      })
+    );
+
+    const html = await renderizarPortal();
+
+    // O id da pessoa e o id do perfil de autenticação não têm serventia
+    // nenhuma na tela dela, e são exatamente o que alguém tentaria trocar.
+    expect(html).not.toContain("ment-1");
+    expect(html).not.toContain("perfil-1");
+    expect(html).not.toContain(TELEFONE_SECRETO);
+    expect(html).not.toContain(EMAIL_SECRETO);
+    for (const papel of ["dono", "gestor", "mentor", "mentorado"]) {
+      expect(html).not.toContain(`"${papel}"`);
+    }
+  });
+
+  it("zero emoji também com a linha do tempo e a transcrição desenhadas", async () => {
+    lerPortalMock.mockResolvedValue(
+      portalConectado({
+        linhaTempo: [
+          {
+            quando: "2026-08-01T10:00:00Z",
+            tipo: "marco",
+            titulo: "Marco: primeiro cliente fechado",
+            detalhe: "",
+            visibilidade: "publico",
+          },
+        ],
+      })
+    );
+
+    const html = await renderizarPortal();
+
+    expect(semEmoji(html)).toBe(true);
+  });
+});

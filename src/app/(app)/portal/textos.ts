@@ -280,3 +280,40 @@ export function mensagemDeErro(codigo: string | null | undefined): string | null
   if (typeof codigo !== "string" || codigo.trim() === "") return null;
   return MENSAGENS_ERRO[codigo] ?? MENSAGEM_ERRO_GENERICA;
 }
+
+// ============================================================
+// Linha do tempo e sessões liberadas (Tarefa 20)
+// ============================================================
+
+/**
+ * O título do card da jornada.
+ *
+ * "Sua evolução", e não "Histórico": histórico é palavra de sistema, e esta é
+ * a tela do cliente. O card ao lado, o do número, virou "Evolução do score" na
+ * mesma tarefa — dois cards chamados "Evolução" na mesma página obrigariam a
+ * pessoa a adivinhar qual é qual.
+ */
+export const TITULO_LINHA_TEMPO = "Sua evolução";
+
+/**
+ * O que a tela diz quando não há nada a contar.
+ *
+ * Escrita no futuro ("vão aparecer"), não no negativo ("nada encontrado"):
+ * lista vazia no portal de quem acabou de entrar é o estado NORMAL, não uma
+ * falha. Dizer "nenhum registro" para alguém na primeira semana de mentoria
+ * soa como se algo tivesse dado errado.
+ */
+export const VAZIO_LINHA_TEMPO =
+  "Ainda não há nada para contar por aqui. Conforme as sessões acontecerem e os marcos forem conquistados, eles aparecem nesta lista.";
+
+/** O rótulo do bloco que abre a transcrição — verbo, para a pessoa saber que é um clique. */
+export const ABRIR_TRANSCRICAO = "Ver a transcrição desta sessão";
+
+/**
+ * O rótulo do link de gravação.
+ *
+ * A tela só chega a desenhar isto quando a view devolveu o link preenchido —
+ * ou seja, quando o mentor liberou. Não há flag para consultar aqui, e é de
+ * propósito: campo vazio, seção não desenhada.
+ */
+export const VER_GRAVACAO = "Assistir à gravação";

@@ -20,7 +20,18 @@ import type { Portal } from "@/lib/mentoria/portal";
 import type { StatusMatricula, StatusSessao } from "@/lib/mentoria/tipos";
 import { linkGravacaoValido } from "@/lib/mentoria/validacao";
 import { dataBr, dataHoraBr, variacaoScore } from "../mentoria/textos";
-import { dataHoraPorExtenso, diasAte, mensagemDeErro, programaAtual, saudacao, tomDoPrazo } from "./textos";
+import {
+  ABRIR_TRANSCRICAO,
+  TITULO_LINHA_TEMPO,
+  VAZIO_LINHA_TEMPO,
+  VER_GRAVACAO,
+  dataHoraPorExtenso,
+  diasAte,
+  mensagemDeErro,
+  programaAtual,
+  saudacao,
+  tomDoPrazo,
+} from "./textos";
 
 const LABEL_STATUS_MATRICULA: Record<StatusMatricula, string> = {
   ativa: "Ativa",
@@ -113,6 +124,95 @@ function PortalAindaNaoLigado() {
         Se isso não for esperado, fale com quem administra o sistema.
       </p>
     </Card>
+  );
+}
+
+/**
+ * A jornada do mentorado, em ordem.
+ *
+ * A lista já vem projetada por `projetarParaPortal` (Tarefa 19) — esta tela
+ * NÃO filtra, não classifica e não decide o que é público. Se filtrasse aqui
+ * também, haveria duas regras de visibilidade no sistema, e a segunda seria a
+ * que ninguém lembra de atualizar. O portão é um só, e fica na leitura.
+ *
+ * A chave usa o índice porque `FatoHistorico` não tem id: dois fatos podem ser
+ * idênticos em tudo (duas tarefas concluídas no mesmo instante), e dentro de
+ * um render estático o índice é o único desempate honesto. Mesmo raciocínio já
+ * registrado em `atividadesDoHistorico`, na ficha do time.
+ */
+function LinhaDoTempo({ fatos }: { fatos: Portal["linhaTempo"] }) {
+  if (!fatos.length) return <Vazio>{VAZIO_LINHA_TEMPO}</Vazio>;
+
+  return (
+    <ol className="relative space-y-3 border-l border-borda pl-5">
+      {fatos.map((fato, indice) => (
+        <li key={`${indice}-${fato.tipo}`} className="relative">
+          <span
+            aria-hidden
+            className="absolute -left-[27px] top-1 flex h-5 w-5 items-center justify-center rounded-full border border-borda bg-painel text-[10px] text-texto-3"
+          >
+            ·
+          </span>
+          <p className="text-sm">
+            <span className="font-medium">{fato.titulo}</span>
+          </p>
+          {fato.detalhe ? <p className="mt-0.5 text-xs text-texto-2">{fato.detalhe}</p> : null}
+          {/* Data inválida não vira data inventada: some a linha, fica o fato. */}
+          {dataBr(fato.quando) ? (
+            <p className="mt-0.5 text-xs text-texto-3">{dataBr(fato.quando)}</p>
+          ) : null}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/**
+ * A gravação e a transcrição de UMA sessão, no portal.
+ *
+ * ESTA TELA NÃO CONSULTA FLAG NENHUMA, e é o ponto inteiro do desenho. A
+ * leitura vem de `sessao_do_portal` (migração 0017), que devolve `''` nesses
+ * dois campos enquanto a liberação estiver desligada. Campo vazio, seção não
+ * desenhada — nem o cabeçalho. Um "Transcrição" seguido de nada contaria à
+ * pessoa que existe uma transcrição que ela não pode ver, o que é uma forma
+ * mais lenta de vazar a mesma informação.
+ *
+ * Se um dia alguém puser um `if (sessao.transcricaoLiberada)` aqui, terá
+ * criado a segunda régua — e a segunda régua é a que diverge.
+ */
+function LiberadoNaSessao({ sessao }: { sessao: Portal["sessoes"][number] }) {
+  const link = sessao.linkGravacao.trim();
+  // `linkGravacaoValido` é a MESMA checagem da escrita (validacao.ts), não uma
+  // segunda opinião. Link torto não vira `<a href>`: o portal é a tela de um
+  // cliente, e `javascript:` num href ali é um problema de outra ordem.
+  const gravacao = link !== "" && linkGravacaoValido(link) ? link : "";
+  const transcricao = sessao.transcricao.trim();
+
+  if (!gravacao && !transcricao) return null;
+
+  return (
+    <div className="mt-2 space-y-2">
+      {gravacao ? (
+        <a
+          href={gravacao}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block text-xs text-primaria-2 hover:underline"
+        >
+          {VER_GRAVACAO}
+        </a>
+      ) : null}
+      {transcricao ? (
+        // Fechado por padrão: transcrição é texto longo, e a pessoa abre a
+        // página para ver a própria evolução, não para ler uma call inteira.
+        <details className="rounded-lg border border-borda-sutil bg-poco px-3 py-2">
+          <summary className="trans list-none cursor-pointer text-xs font-medium text-primaria-2 [&::-webkit-details-marker]:hidden">
+            {ABRIR_TRANSCRICAO}
+          </summary>
+          <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-texto-2">{transcricao}</p>
+        </details>
+      ) : null}
+    </div>
   );
 }
 
@@ -267,7 +367,7 @@ export function PortalVisao({
         </Card>
 
         {/* 5) Evolução — variação só com 2+ pontos; com 1, só o último valor; com 0, nada de número. */}
-        <Card titulo="Evolução">
+        <Card titulo="Evolução do score">
           {variacao ? (
             <p className="flex items-center gap-2">
               <Badge tom={TOM_VARIACAO[variacao.glifo]}>{variacao.texto}</Badge>
@@ -283,6 +383,11 @@ export function PortalVisao({
           ) : (
             <Vazio>Ainda não há histórico de evolução por aqui.</Vazio>
           )}
+        </Card>
+
+        {/* 5b) A jornada. Vem pronta da leitura, já projetada — ver `LinhaDoTempo`. */}
+        <Card titulo={TITULO_LINHA_TEMPO}>
+          <LinhaDoTempo fatos={portal.linhaTempo} />
         </Card>
 
         {/* 6) Marcos conquistados e conteúdos liberados. */}
@@ -356,6 +461,7 @@ export function PortalVisao({
                     </Badge>
                   </div>
                   {sessao.resumo ? <p className="mt-1 text-xs text-texto-2">{sessao.resumo}</p> : null}
+                  <LiberadoNaSessao sessao={sessao} />
                 </li>
               ))}
             </ul>
