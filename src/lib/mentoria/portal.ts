@@ -82,6 +82,7 @@ import {
   linhaParaSessao,
   linhaParaTarefaMentoria,
 } from "./dados";
+import { historicoDe, projetarParaPortal, type FatoHistorico } from "./historico";
 import type {
   ConteudoLiberado,
   Marco,
@@ -124,6 +125,22 @@ export interface Portal {
   /** Ordem cronológica CRESCENTE — é série temporal, gráfico ao contrário mente. */
   scores: ScoreEvolucao[];
   conteudos: ConteudoLiberado[];
+
+  /**
+   * A jornada do mentorado em ordem, já PASSADA PELO PORTÃO PÚBLICO.
+   *
+   * Montada aqui a partir do que o portal já leu (marcos, sessões, tarefas,
+   * conteúdos liberados) e projetada por `projetarParaPortal` — o mesmo
+   * portão que a ficha interna não usa. A projeção não é decoração: ela
+   * derruba todo fato de tipo interno e higieniza o texto dos que sobram.
+   *
+   * Passar pelo portão mesmo montando a lista aqui dentro é redundante DE
+   * PROPÓSITO. Hoje o portal só alimenta a montagem com entidades públicas;
+   * no dia em que alguém acrescentar uma entrada nova sem pensar nisso, o
+   * portão é o que impede a novidade de aparecer na tela de um cliente. Um
+   * cinto que só serve quando você lembra dele não é cinto.
+   */
+  linhaTempo: FatoHistorico[];
 }
 
 // ============================================================
@@ -150,6 +167,7 @@ function portalDesconectado(motivo: string): Portal {
     marcos: [],
     scores: [],
     conteudos: [],
+    linhaTempo: [],
   };
 }
 
@@ -170,6 +188,7 @@ function portalSemMentorado(): Portal {
     marcos: [],
     scores: [],
     conteudos: [],
+    linhaTempo: [],
   };
 }
 
@@ -315,19 +334,26 @@ export async function lerPortal(agoraIso: string): Promise<Portal> {
         // forma, à matrícula/turma do próprio mentorado.
         //
         // BAIXO 7 da auditoria — colunas EXPLÍCITAS, sem `transcricao`: o
-        // portal nunca exibe o texto integral de uma call gravada (só
-        // `resumo` — ver o "Histórico de sessões" em page.tsx), e
-        // `transcricao` é ao mesmo tempo o campo mais PESADO (texto longo)
-        // e mais SENSÍVEL (conteúdo literal de uma conversa) da tabela.
-        // Puxar do banco um dado que não vai para a tela, A CADA RENDER do
-        // portal, é trabalho e exposição desnecessários — dado que não sai
-        // na tela não precisa sair do banco. `linhaParaSessao` (dados.ts)
-        // continua atribuindo `r.transcricao ?? ""` sem quebrar nada: a
-        // coluna simplesmente nunca chega, e o `??` já cobre "ausente".
+        // A VIEW, NUNCA A TABELA. Esta consulta lia `sessao` com uma lista
+        // de colunas que deixava `transcricao` de fora de propósito, e o
+        // comentário aqui dizia que dado que não vai para a tela não precisa
+        // sair do banco. Os dois viraram mentira na Tarefa 19: a gravação e a
+        // transcrição PASSAM a aparecer no portal quando o mentor libera.
+        //
+        // O que mudou não foi a régua, foi quem a segura. Antes a proteção era
+        // esta linha de código não pedir a coluna — e uma linha de código só
+        // protege quem passa por ela. `sessao_do_portal` (0017) devolve `''`
+        // em `transcricao` e em `link_gravacao` enquanto as flags estiverem
+        // falsas, para QUALQUER cliente: esta consulta, um curl com a anon
+        // key, um PostgREST aberto no navegador. A tela nem sabe que existe
+        // flag; ela desenha o que veio, e o que veio já está censurado.
+        //
+        // Colunas listadas mesmo assim (nunca `*`): a view pode ganhar coluna
+        // um dia, e o portal deve continuar pedindo só o que sabe desenhar.
         s
-          .from("sessao")
+          .from("sessao_do_portal")
           .select(
-            "id, workspace_id, matricula_id, turma_id, numero, quando, duracao_min, status, link_gravacao, resumo, criado_em"
+            "id, workspace_id, matricula_id, turma_id, numero, quando, duracao_min, status, link_gravacao, transcricao, resumo, criado_em"
           ),
         s.from("tarefa_mentoria").select("*").eq("mentorado_id", meuId),
         s.from("marco").select("*").eq("mentorado_id", meuId),
@@ -394,6 +420,19 @@ export async function lerPortal(agoraIso: string): Promise<Portal> {
 
     const conteudos = ((conteudosRes.data ?? []) as Row[]).map(linhaParaConteudoLiberado);
 
+    // A linha do tempo. Entram só as entidades que o portal já mostra em
+    // outros cards -- e ainda assim tudo passa por `projetarParaPortal`.
+    //
+    // `scores` entra na montagem de propósito, sabendo que vai ser DERRUBADO:
+    // o fato de score carrega `motivo`, a frase que o mentor escreveu para si
+    // mesmo sobre por que a nota caiu, e por isso o tipo é interno. Alimentar
+    // o portão com algo que ele precisa barrar e provar em teste que barrou
+    // vale mais do que nunca oferecer: é o que mantém a proteção viva em vez
+    // de teórica.
+    const linhaTempo = projetarParaPortal(
+      historicoDe({ marcos, sessoes, tarefas, conteudos, scores }, agoraIso)
+    );
+
     return {
       conectado: true,
       motivo: "",
@@ -406,6 +445,7 @@ export async function lerPortal(agoraIso: string): Promise<Portal> {
       marcos,
       scores,
       conteudos,
+      linhaTempo,
     };
   } catch (excecao) {
     avisar("lerPortal", excecao);
