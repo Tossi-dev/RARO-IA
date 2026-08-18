@@ -9,9 +9,11 @@
 // arquivo .ics inteiro por GET simples, sem autenticação. Uma URL para colar,
 // zero tela de autorização.
 //
-// O preço é ser SOMENTE LEITURA. Criar evento continua pelo caminho OAuth de
-// ./calendar.ts, quando e se for configurado. Para "ver a agenda dividida em
-// dia, semana e mês", leitura basta.
+// O preço é ser SOMENTE LEITURA — deste arquivo, não do produto. Escrever
+// evento é pelos caminhos OAuth: ./calendar.ts (conta fixa do negócio, por
+// variável de ambiente) e ./google-agenda-escrita.ts (conta conectada por
+// cookie, que sincroniza o evento das sessões). Para "ver a agenda dividida
+// em dia, semana e mês", leitura basta.
 //
 // A URL é secreta: quem a tem lê a agenda inteira. Ela mora em variável de
 // ambiente de SERVIDOR (nunca NEXT_PUBLIC_), nunca aparece em tela, em log ou

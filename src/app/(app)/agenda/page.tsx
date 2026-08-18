@@ -213,10 +213,27 @@ export default async function AgendaPage({
                 <p className="font-display text-[17px] font-normal tracking-tight">
                   Entrar com a conta Google
                 </p>
+                {/* Esta frase é o CONSENTIMENTO: ela é lida logo antes do
+                    clique que abre a tela do Google, e a tela do Google vai
+                    pedir permissão de criar, editar e apagar evento. A versão
+                    anterior deste parágrafo negava qualquer capacidade de
+                    escrita — texto que virou mentira no dia em que
+                    `google-agenda-escrita.ts` nasceu, e que por isso não fica
+                    aqui nem entre aspas (mesma regra do cabeçalho de
+                    `google-agenda.ts`). Um texto de tela que descreve errado
+                    a permissão pedida não informa: ele desinforma, e
+                    consentimento desinformado não é consentimento. O limite
+                    prometido no fim (só o evento das sessões) não é boa
+                    vontade — `atualizarEventoDaSessao` e
+                    `cancelarEventoDaSessao` conferem a marca de origem do
+                    evento antes de escrever, e recusam evento que não foi
+                    criado por aqui. */}
                 <p className="mt-1 text-sm leading-relaxed text-texto-2">
-                  Um clique, você escolhe a conta e pronto. A permissão pedida é{" "}
-                  <span className="text-texto">somente leitura da agenda</span> — o sistema não
-                  consegue criar, mover nem apagar compromisso nenhum.
+                  Um clique, você escolhe a conta e pronto. A permissão pedida cobre{" "}
+                  <span className="text-texto">leitura e escrita de eventos</span>: além de ler a
+                  agenda, o sistema pode criar, atualizar e cancelar o evento das sessões de
+                  mentoria que você mandar sincronizar — e só esses, porque ele confere a marca de
+                  origem antes de tocar em qualquer compromisso.
                 </p>
               </div>
               <a
@@ -259,8 +276,16 @@ export default async function AgendaPage({
               print.
             </li>
           </ol>
+          {/* Frase do CARD DO iCAL, e por isso ela fala do iCal — não da
+              "plataforma". O endereço secreto em iCal é um GET num arquivo
+              .ics: por ele não existe escrita nem com má vontade. A versão
+              anterior desta linha negava escrita em nome da plataforma
+              INTEIRA — generalizava de um caminho para o produto, e o outro
+              caminho (o botão do Google, logo acima) escreve. */}
           <p className="mt-4 text-xs text-texto-3">
-            A leitura é só leitura: a plataforma nunca escreve, move nem apaga nada na sua agenda.
+            O endereço em iCal dá acesso só de leitura: por este caminho a plataforma não cria, não
+            move e não apaga nada na sua agenda. Quem escreve é a conexão pelo botão do Google
+            acima — e só no evento das sessões que você mandar sincronizar.
           </p>
         </Card>
       </>
@@ -283,9 +308,14 @@ export default async function AgendaPage({
           mas em 11px cinza no rodape da pagina -- ou seja, nao existia. */}
       {viaGoogle ? (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-borda-sutil bg-poco px-4 py-3">
+          {/* A negativa de escrita que ficava nesta linha saiu pelo mesmo
+              motivo do card de consentimento: a conexão pelo Google passou a
+              escrever. O que a frase diz agora é o que o código de fato
+              garante — escrita limitada ao evento marcado como criado por
+              este sistema. */}
           <p className="text-sm text-texto-2">
-            Lendo da <span className="text-texto">conta Google conectada</span>, em modo somente
-            leitura.
+            Lendo da <span className="text-texto">conta Google conectada</span>. Esta conexão
+            também escreve, mas só no evento das sessões que você mandar sincronizar.
           </p>
           <form action={desconectarGoogleAgenda}>
             <button
@@ -414,10 +444,18 @@ export default async function AgendaPage({
       )}
 
       <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-texto-3">
+        {/* O rodapé aparece nos DOIS caminhos, e os dois não têm mais a mesma
+            capacidade: pelo iCal a plataforma realmente só lê; pela conta
+            Google ela também escreve o evento das sessões. Uma frase única
+            para os dois era verdadeira em um e falsa no outro — por isso a
+            última parte é condicional. */}
         <span className="flex items-center gap-2">
           <CalendarClock size={13} aria-hidden strokeWidth={1.5} />
-          Leitura direta do Google Agenda · {fonteNome} · horários no fuso de Brasília · a
-          plataforma só lê, nunca escreve.
+          Leitura direta do Google Agenda · {fonteNome} · horários no fuso de Brasília ·{" "}
+          {viaGoogle
+            ? "escrita limitada ao evento das sessões sincronizadas"
+            : "o endereço em iCal não permite escrever nada"}
+          .
         </span>
       </div>
     </>
