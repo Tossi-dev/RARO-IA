@@ -256,3 +256,66 @@ export function rotuloContagemMentorados(linhas: readonly LinhaCarteira[]): stri
   const rotuloMatriculas = `${matriculas} ${matriculas === 1 ? "matrícula" : "matrículas"}`;
   return `${rotuloMentorados} · ${rotuloMatriculas}`;
 }
+
+// ============================================================
+// Sessão: estado da agenda e avisos de liberação (Tarefa 18)
+// ============================================================
+
+export interface EstadoDaAgenda {
+  /** O que a tela escreve na pílula. */
+  rotulo: string;
+  /**
+   * `true` quando o botão da ficha deve oferecer o `.ics` em vez da
+   * sincronização — ou seja, quando não há conta do Google ligada. A tela usa
+   * isto para TROCAR o texto do botão, nunca para esconder o botão: função que
+   * some é função que o dono conclui que não existe (ver o critério da Tarefa
+   * 18, e o mesmo raciocínio do caminho degradado em `acoes-calendario.ts`).
+   */
+  degradado: boolean;
+}
+
+/**
+ * O estado da sessão perante a agenda do Google, em três palavras honestas.
+ *
+ * A ordem das perguntas importa. "Não conectada" vem ANTES de "não
+ * sincronizada" porque, sem conta ligada, dizer "não sincronizada" jogaria a
+ * culpa na sessão quando o que falta é a conexão — e mandaria o dono clicar
+ * num botão que não tem como funcionar.
+ *
+ * `eventoGoogleId` vazio é o que significa "nunca foi para a agenda": é o
+ * mesmo campo que `sincronizarSessaoNaAgenda` usa para decidir entre criar e
+ * atualizar, então a tela e a ação leem o mesmo fato, e não duas versões dele.
+ */
+export function estadoDaAgendaDaSessao(
+  sessao: { eventoGoogleId: string },
+  agendaConectada: boolean,
+): EstadoDaAgenda {
+  if (!agendaConectada) return { rotulo: "agenda não conectada", degradado: true };
+  if (sessao.eventoGoogleId.trim() !== "") return { rotulo: "na agenda", degradado: false };
+  return { rotulo: "não sincronizada", degradado: false };
+}
+
+/**
+ * O aviso que acompanha cada interruptor de liberação.
+ *
+ * Escrito no presente e na voz de quem vai ser afetado ("o mentorado passa a
+ * ver"), não em jargão de sistema ("flag habilitada"): quem clica precisa
+ * entender a consequência antes, não descobrir depois.
+ */
+export const AVISO_LIBERAR_GRAVACAO =
+  "Ligando isto, o mentorado passa a ver o link da gravação no portal dele.";
+
+export const AVISO_LIBERAR_TRANSCRICAO =
+  "Ligando isto, o mentorado passa a ler a transcrição inteira desta sessão no portal dele.";
+
+/**
+ * O aviso EXTRA de sessão de turma, e a razão de ele existir separado.
+ *
+ * Numa sessão individual, liberar a transcrição devolve ao mentorado a própria
+ * conversa. Numa sessão de turma, a mesma transcrição contém a fala de TODOS
+ * os participantes — e liberar entrega essa fala a cada um deles. É a mesma
+ * lição que fez `eventoDaSessao` não convidar ninguém em sessão de turma: o
+ * que é coletivo carrega gente que não foi consultada.
+ */
+export const AVISO_LIBERAR_EM_TURMA =
+  "Esta é uma sessão de turma: liberar a transcrição entrega a fala de todos os participantes para cada um deles.";

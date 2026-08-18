@@ -1,4 +1,12 @@
-"use server";
+// NOTA DE FRONTEIRA (Tarefa 18): este arquivo NAO carrega mais "use server".
+// Um modulo "use server" so pode EXPORTAR funcao async -- e este exporta
+// tambem as constantes de mensagem, que os testes e a tela leem. Enquanto
+// ninguem importava este arquivo, o Next nunca chegou a aplicar a regra; a
+// ficha passou a importar, e o build quebrou na hora. A saida NAO foi
+// esconder as constantes: foi reconhecer que a fronteira de Server Action
+// e `acoes-ficha.ts`, o unico modulo que os formularios chamam. Daqui para
+// baixo e biblioteca de servidor comum, chamada por aquela fronteira e
+// pelas rotas -- e por isso pode exportar o que quiser.
 
 // Server Action que amarra uma sessão de mentoria ao evento correspondente
 // na agenda do Google — Tarefa 16 do plano. Mesma casa de `acoes.ts`
@@ -318,6 +326,60 @@ const SincronizarSchema = z.object({
   // raciocínio de `TarefaIdSchema` em `acoes-portal.ts`).
   sessaoId: z.string().trim().min(1, MOTIVO_SESSAO_INVALIDA).max(100, MOTIVO_SESSAO_NAO_ENCONTRADA),
 });
+
+/**
+ * O convite `.ics` de uma sessão, SEM tocar no Google.
+ *
+ * Existe para a rota de download da ficha (o botão que aparece quando a agenda
+ * não está conectada). É deliberadamente uma função separada de
+ * `sincronizarSessaoNaAgenda`, e não um parâmetro dela: a sincronização
+ * ESCREVE na agenda de quem estiver conectado, e um GET nunca pode escrever.
+ * Um navegador pré-carregando um link, um antivírus abrindo a URL, um
+ * `<link rel="prefetch">` — qualquer um deles dispararia a escrita.
+ *
+ * Devolve o mesmo `{ ok, erro, ics }` para a tela não precisar aprender um
+ * segundo formato, mas aqui `ok` nunca é `true`: não há o que dar certo, só o
+ * arquivo pronto ou um motivo humano.
+ */
+export async function conviteDaSessao(sessaoIdCru: string): Promise<ResultadoSincronizacao> {
+  const validacao = SincronizarSchema.safeParse({ sessaoId: String(sessaoIdCru ?? "") });
+  if (!validacao.success) {
+    return { ok: false, erro: validacao.error.issues[0]?.message ?? MOTIVO_SESSAO_INVALIDA };
+  }
+  const { sessaoId } = validacao.data;
+
+  try {
+    const s = criarSupabaseServer();
+    const { data: sessaoData, error: erroSessao } = await s
+      .from("sessao")
+      .select("*")
+      .eq("id", sessaoId)
+      .maybeSingle();
+    if (erroSessao) {
+      avisar("convite/sessao", erroSessao);
+      return { ok: false, erro: MOTIVO_ERRO_LEITURA };
+    }
+    const sessaoRow = comoRow(sessaoData);
+    if (!sessaoRow) return { ok: false, erro: MOTIVO_SESSAO_NAO_ENCONTRADA };
+
+    const sessao = linhaParaSessao(sessaoRow);
+    const contexto = await buscarContexto(s, sessaoRow);
+    if (!contexto.ok) return { ok: false, erro: contexto.erro };
+
+    const evento = eventoDaSessao(sessao, contexto.mentorado, contexto.programa);
+    if (!evento) return { ok: false, erro: MOTIVO_DATA_INVALIDA };
+
+    // Sessão cancelada produz arquivo de CANCELAMENTO, não convite — mesma
+    // regra do caminho degradado da sincronização.
+    return resultadoDegradado(sessaoId, evento, MOTIVO_SEM_CONEXAO_GOOGLE, sessao.status === "cancelada");
+  } catch (excecao) {
+    // Só o NOME da exceção vai para o log: a mensagem de um erro de rede ou de
+    // driver pode ecoar o corpo da requisição, e a linha lida aqui carrega a
+    // coluna `transcricao`.
+    avisar("conviteDaSessao", { code: excecao instanceof Error ? excecao.name : "excecao" });
+    return { ok: false, erro: MOTIVO_ERRO_INESPERADO };
+  }
+}
 
 export async function sincronizarSessaoNaAgenda(formData: FormData): Promise<ResultadoSincronizacao> {
   // ÚNICO campo lido do formulário. Qualquer `workspaceId`, `mentoradoId`

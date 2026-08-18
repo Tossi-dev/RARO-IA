@@ -24,14 +24,27 @@ import { Timeline } from "@/components/timeline";
 import { Badge, Botao, Campo, Card, Input, PageHeader, ProgressBar, Select, TextArea, Vazio, cx, type Tom } from "@/components/ui";
 import type { ListaDocumentos } from "@/lib/documentos/dados";
 import { agendarSessao, darBaixaNaSessao } from "@/lib/mentoria/acoes";
+import {
+  liberarNoPortalDaFicha,
+  sincronizarSessaoDaFicha,
+  transcreverSessaoDaFicha,
+} from "@/lib/mentoria/acoes-ficha";
 import type { Ficha } from "@/lib/mentoria/dados";
 import type { HistoricoDaFicha } from "@/lib/mentoria/dados-historico";
 import type { FatoHistorico, TipoFato } from "@/lib/mentoria/historico";
 import { NIVEL_SAUDE_MENTORADO_LABEL, type NivelSaudeMentorado, type SaudeMentorado } from "@/lib/mentoria/saude-mentorado";
-import type { StatusMentorado, StatusSessao } from "@/lib/mentoria/tipos";
+import type { Sessao, StatusMentorado, StatusSessao } from "@/lib/mentoria/tipos";
 import { STATUS_BAIXA_VALORES } from "@/lib/mentoria/validacao";
 import type { Atividade, AtividadeTipo } from "@/lib/types";
-import { dataBr, dataHoraBr, variacaoScore } from "../textos";
+import {
+  AVISO_LIBERAR_EM_TURMA,
+  AVISO_LIBERAR_GRAVACAO,
+  AVISO_LIBERAR_TRANSCRICAO,
+  dataBr,
+  dataHoraBr,
+  estadoDaAgendaDaSessao,
+  variacaoScore,
+} from "../textos";
 import { DocumentosDoMentorado } from "./documentos";
 
 const LABEL_STATUS_MENTORADO: Record<StatusMentorado, string> = {
@@ -347,14 +360,144 @@ function AbaHistorico({ historico }: { historico: HistoricoDaFicha }) {
   );
 }
 
+/**
+ * O bloco de agenda e transcrição de UMA sessão, dentro do histórico da ficha.
+ *
+ * TRÊS DECISÕES QUE ESTE BLOCO TOMA, E POR QUÊ
+ * --------------------------------------------
+ * 1) **A transcrição não é impressa aqui.** O bloco diz SE existe e QUANDO foi
+ *    feita; o texto em si é longo e é a conversa inteira do cliente. Imprimir
+ *    por padrão coloca a fala dele em qualquer tela que alguém deixe aberta —
+ *    e o teste de vazamento do portal já provou que transcrição impressa é o
+ *    tipo de coisa que passa despercebida.
+ * 2) **O botão de sincronizar não some quando o Google está desligado**: ele
+ *    vira um link de download do `.ics`. Função que some é função que o dono
+ *    conclui que não existe, e ele fica esperando por um recurso que já está
+ *    ali em outra forma.
+ * 3) **Os interruptores são dois formulários, não um checkbox.** Sem JavaScript
+ *    no meio, cada clique é um POST explícito com o valor de destino já
+ *    calculado — e o rótulo do botão diz o que VAI acontecer, não o estado
+ *    atual. Um switch que muda sozinho ao passar o dedo é a interface errada
+ *    para uma ação cujo erro publica a conversa de um cliente.
+ */
+function AgendaETranscricaoDaSessao({
+  sessao,
+  mentoradoId,
+  agendaConectada,
+}: {
+  sessao: Sessao;
+  mentoradoId: string;
+  agendaConectada: boolean;
+}) {
+  const agenda = estadoDaAgendaDaSessao(sessao, agendaConectada);
+  const sincronizada = sessao.eventoGoogleId.trim() !== "";
+  const tomAgenda: Tom = agenda.degradado ? "cinza" : sincronizada ? "verde" : "ouro";
+  // Sessão de turma: `turmaId` preenchido é o que a define (0006 garante o XOR
+  // com `matriculaId`). É a mesma pergunta que `eventoDaSessao` faz para não
+  // convidar ninguém — o que é coletivo carrega gente que não foi consultada.
+  const emTurma = sessao.turmaId !== null;
+
+  return (
+    <div className="mt-2 space-y-3 rounded-lg border border-borda-sutil bg-poco px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-texto-2">Agenda</span>
+        <Badge tom={tomAgenda}>{agenda.rotulo}</Badge>
+        {agenda.degradado ? (
+          // Link, e não botão de formulário: `.ics` é arquivo, e baixar arquivo
+          // é GET. A rota do outro lado é read-only de propósito — ver o
+          // cabeçalho de `api/agenda/sessao/[sessaoId]/route.ts`.
+          <a
+            href={`/api/agenda/sessao/${sessao.id}`}
+            className="trans rounded-full border border-borda px-3 py-1.5 text-xs text-texto-2 hover:border-borda-forte hover:bg-eleva hover:text-texto"
+          >
+            Baixar convite (.ics)
+          </a>
+        ) : (
+          <form action={sincronizarSessaoDaFicha}>
+            <input type="hidden" name="mentoradoId" value={mentoradoId} />
+            <input type="hidden" name="sessaoId" value={sessao.id} />
+            <Botao tipo="fantasma">{sincronizada ? "Atualizar na agenda" : "Sincronizar com a agenda"}</Botao>
+          </form>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-texto-2">Transcrição</span>
+          {/* O ESTADO da transcrição, nunca o texto dela. */}
+          <span className="text-xs text-texto-2">
+            {sessao.transcritaEm
+              ? `gerada em ${dataHoraBr(sessao.transcritaEm) || "data não informada"}`
+              : "ainda não transcrita"}
+          </span>
+        </div>
+        <form action={transcreverSessaoDaFicha} encType="multipart/form-data" className="flex flex-wrap items-end gap-2">
+          <input type="hidden" name="mentoradoId" value={mentoradoId} />
+          <input type="hidden" name="sessaoId" value={sessao.id} />
+          <Campo label="Áudio da sessão">
+            <Input type="file" name="audio" accept="audio/*,video/mp4,video/webm,video/quicktime" />
+          </Campo>
+          <Botao tipo="fantasma">Transcrever</Botao>
+        </form>
+      </div>
+
+      <div className="space-y-2 border-t border-borda-sutil pt-2">
+        <span className="text-xs font-medium text-texto-2">O que o mentorado vê no portal</span>
+
+        <div>
+          <form action={liberarNoPortalDaFicha}>
+            <input type="hidden" name="mentoradoId" value={mentoradoId} />
+            <input type="hidden" name="sessaoId" value={sessao.id} />
+            <input type="hidden" name="campo" value="gravacao" />
+            {/* O valor de DESTINO, calculado aqui: o botão diz o que vai
+                acontecer, e o POST carrega exatamente isso. */}
+            <input type="hidden" name="valor" value={sessao.gravacaoLiberada ? "0" : "1"} />
+            <Botao tipo="fantasma">
+              {sessao.gravacaoLiberada ? "Ocultar gravação do portal" : "Liberar gravação no portal"}
+            </Botao>
+          </form>
+          <p className="mt-1 text-xs text-texto-2">{AVISO_LIBERAR_GRAVACAO}</p>
+        </div>
+
+        <div>
+          <form action={liberarNoPortalDaFicha}>
+            <input type="hidden" name="mentoradoId" value={mentoradoId} />
+            <input type="hidden" name="sessaoId" value={sessao.id} />
+            <input type="hidden" name="campo" value="transcricao" />
+            <input type="hidden" name="valor" value={sessao.transcricaoLiberada ? "0" : "1"} />
+            <Botao tipo="fantasma">
+              {sessao.transcricaoLiberada ? "Ocultar transcrição do portal" : "Liberar transcrição no portal"}
+            </Botao>
+          </form>
+          <p className="mt-1 text-xs text-texto-2">{AVISO_LIBERAR_TRANSCRICAO}</p>
+          {emTurma ? (
+            <p className="mt-1 text-xs font-medium text-ouro">{AVISO_LIBERAR_EM_TURMA}</p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function FichaVisao({
   ficha,
   historico,
   documentos,
   erro,
+  agendaConectada = false,
 }: {
   ficha: Ficha;
   historico: HistoricoDaFicha;
+  /**
+   * Há uma conta do Google ligada neste navegador? Resolvido pela página
+   * (`googleConectado()` lê cookie, e cookie é assunto de borda) e passado
+   * pronto para cá, mantendo `FichaVisao` uma função sync e testável.
+   *
+   * Padrão `false` — fail-closed no sentido honesto: sem saber, a tela diz
+   * "agenda não conectada" e oferece o `.ics`, que funciona sempre. O inverso
+   * ofereceria um botão de sincronizar que não tem como funcionar.
+   */
+  agendaConectada?: boolean;
   /**
    * Os arquivos deste mentorado, já lidos por `lerDocumentosDoMentorado`.
    *
@@ -522,6 +665,11 @@ export function FichaVisao({
                         Ver gravação
                       </a>
                     ) : null}
+                    <AgendaETranscricaoDaSessao
+                      sessao={sessao}
+                      mentoradoId={mentorado.id}
+                      agendaConectada={agendaConectada}
+                    />
                     {/* Dar baixa só existe para quem ainda está "agendada" —
                         sair de agendada é o único movimento desta ação (ver
                         `validacao.ts`: o status de baixa nunca aceita voltar

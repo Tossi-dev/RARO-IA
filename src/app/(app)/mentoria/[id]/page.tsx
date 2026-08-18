@@ -12,6 +12,7 @@
 // `../../portal/visao.tsx`: borda aqui, desenho lá.
 
 import { lerDocumentosDoMentorado } from "@/lib/documentos/dados";
+import { googleConectado } from "@/lib/integracoes/google-agenda";
 import { lerFicha } from "@/lib/mentoria/dados";
 import { lerHistorico } from "@/lib/mentoria/dados-historico";
 import { FichaVisao } from "./visao";
@@ -50,7 +51,15 @@ export default async function FichaMentorado({
     lerDocumentosDoMentorado(params.id),
   ]);
 
+  // Lido AQUI, na borda, e não dentro da visão: `googleConectado()` lê cookie,
+  // e a visão é uma função sync pura que os testes chamam direto.
   return (
-    <FichaVisao ficha={ficha} historico={historico} documentos={documentos} erro={searchParams.erro} />
+    <FichaVisao
+      ficha={ficha}
+      historico={historico}
+      documentos={documentos}
+      erro={searchParams.erro}
+      agendaConectada={googleConectado()}
+    />
   );
 }
