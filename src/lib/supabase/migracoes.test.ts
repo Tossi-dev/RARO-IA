@@ -2193,3 +2193,169 @@ describe("0019 — trilha e trilha_aula", () => {
     expect(exec0019).not.toMatch(/\bdrop\s+column\b/i);
   });
 });
+
+// ============================================================
+// 0020 — matrícula em trilha, progresso e certificado
+// ============================================================
+//
+// O bloco existe por causa de uma lição que este projeto pagou com uma
+// auditoria contra um Postgres de verdade: RLS decide se a LINHA aparece,
+// nunca QUE COLUNA pode ser escrita. Uma política de UPDATE de linha inteira
+// em `progresso_trilha` para 'mentorado' permitiria forjar `concluida_em` e
+// mover a linha para outro `mentorado_id` com um PATCH direto no PostgREST.
+// Foi assim em 0012, e 0013 trocou a política por uma função. Os testes abaixo
+// travam a mesma escolha aqui — em especial o primeiro, que é a asserção que
+// TERIA pego o ataque de 0012 antes de ele acontecer.
+
+const ARQUIVO_0020 = "0020_trilha_progresso_certificado.sql";
+const ARQUIVO_EXEC_0020 = "_exec_0020_trilha_progresso_certificado.sql";
+const m0020 = existeArquivoDeMigracao(ARQUIVO_0020) ? lerMigracao(ARQUIVO_0020) : "";
+const exec0020 = semComentarios(m0020);
+
+const TABELAS_0020 = ["trilha_matricula", "progresso_trilha", "certificado"];
+
+/** O corpo da função `trilha_marcar_aula`, do `create or replace` até o `$$;`. */
+function corpoDaFuncao(sql: string, nome: string): string {
+  const i = sql.indexOf(`create or replace function public.${nome}`);
+  if (i < 0) return "";
+  const fim = sql.indexOf("$$;", i);
+  return sql.slice(i, fim < 0 ? undefined : fim + 3);
+}
+
+describe("0020 — progresso de trilha e certificado", () => {
+  it("a migração existe, e a versão _exec_ também", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0020), `esperava supabase/migrations/${ARQUIVO_0020}`).toBe(true);
+    expect(
+      readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0020),
+      `esperava supabase/migrations/${ARQUIVO_EXEC_0020}`,
+    ).toBe(true);
+  });
+
+  it.each(TABELAS_0020)("public.%s é criada, tem workspace_id e RLS ligada", (tabela) => {
+    const criacao = new RegExp(`create table if not exists public\\.${tabela}\\s*\\(([\\s\\S]*?)\\n\\);`, "i");
+    const m = criacao.exec(exec0020);
+    expect(m, `esperava create table public.${tabela} em 0020`).not.toBeNull();
+    expect(m?.[1]).toMatch(/workspace_id uuid not null references public\.workspace/i);
+    expect(exec0020).toContain(`alter table public.${tabela} enable row level security`);
+  });
+
+  it.each(TABELAS_0020)("toda política de public.%s começa escopada por workspace_atual()", (tabela) => {
+    const politicas = exec0020
+      .split(/create policy /i)
+      .slice(1)
+      .filter((bloco) => bloco.includes(`on public.${tabela}`));
+    expect(politicas.length, `esperava políticas em public.${tabela}`).toBeGreaterThan(0);
+    for (const politica of politicas) {
+      const clausulas = [...politica.matchAll(/(?:using|with check)\s*\(/gi)];
+      expect(clausulas.length).toBeGreaterThan(0);
+      for (const clausula of clausulas) {
+        const depois = politica.slice((clausula.index ?? 0) + clausula[0].length);
+        expect(
+          depois.trimStart().startsWith("workspace_id = public.workspace_atual()"),
+          `a primeira condição de ${tabela} deveria ser o escopo de workspace, e é: ${depois.trimStart().slice(0, 60)}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  // A ASSERÇÃO QUE TERIA PEGO O ATAQUE DE 0012.
+  it("progresso_trilha NÃO tem política de UPDATE para mentorado", () => {
+    const politicas = exec0020
+      .split(/create policy /i)
+      .slice(1)
+      .filter((bloco) => bloco.includes("on public.progresso_trilha"));
+    const deUpdate = politicas.filter((p) => /for\s+update/i.test(p));
+    expect(deUpdate.length, "esperava a política de update da gestão").toBeGreaterThan(0);
+    for (const politica of deUpdate) {
+      // Sem o nome da política no meio: o nome pode conter a palavra e faria
+      // a asserção passar por acidente (foi o defeito da 0019).
+      expect(politicasSemNome(politica)).not.toContain("'mentorado'");
+    }
+  });
+
+  it.each(TABELAS_0020)("public.%s não tem política de DELETE para ninguém", (tabela) => {
+    const politicas = exec0020
+      .split(/create policy /i)
+      .slice(1)
+      .filter((bloco) => bloco.includes(`on public.${tabela}`));
+    for (const politica of politicas) {
+      expect(politica).not.toMatch(/for\s+delete/i);
+    }
+  });
+
+  it("os três unique que sustentam o desenho existem", () => {
+    // Sem este, duas matrículas na mesma trilha com `inicio` diferentes
+    // fariam a liberação gradual calcular sobre qual das duas?
+    expect(exec0020).toMatch(/unique\s*\(mentorado_id, trilha_id\)/i);
+    // Sem este, o `on conflict` da função não teria em que se apoiar e cada
+    // clique criaria uma linha nova de progresso para a mesma aula.
+    expect(exec0020).toMatch(/unique\s*\(mentorado_id, trilha_aula_id\)/i);
+    // Único no banco INTEIRO: é o código que alguém digita para verificar se
+    // um certificado é real.
+    expect(exec0020).toMatch(/codigo text not null unique/i);
+  });
+
+  describe("trilha_marcar_aula", () => {
+    const funcao = corpoDaFuncao(exec0020, "trilha_marcar_aula");
+
+    it("é security definer com search_path fixo", () => {
+      expect(funcao, "não achei a função").not.toBe("");
+      expect(funcao).toContain("security definer");
+      // Sem `set search_path`, um schema malicioso no search_path do chamador
+      // poderia sequestrar o nome `public.progresso_trilha` de dentro de uma
+      // função que roda com os direitos do dono.
+      expect(funcao).toContain("set search_path = public");
+    });
+
+    it("não aceita data por parâmetro — o 'quando' é do servidor", () => {
+      const assinatura = funcao.slice(0, funcao.indexOf(")") + 1);
+      expect(assinatura).toContain("p_aula_id uuid");
+      expect(assinatura).toContain("p_concluida boolean");
+      // Um parâmetro de timestamp devolveria ao cliente exatamente a
+      // liberdade que a auditoria de 0012 usou para forjar uma conclusão em
+      // 2020.
+      expect(assinatura).not.toMatch(/timestamp|date|_em\b/i);
+      expect(funcao).toContain("case when p_concluida then now() else null end");
+    });
+
+    it("não aceita mentorado por parâmetro — deduz de mentorado_atual()", () => {
+      const assinatura = funcao.slice(0, funcao.indexOf(")") + 1);
+      expect(assinatura).not.toMatch(/mentorado/i);
+      expect(funcao).toContain("public.mentorado_atual()");
+    });
+
+    it("as cinco condições de defesa estão todas no where", () => {
+      // `security definer` desliga a RLS aqui dentro: o `where` é a linha
+      // inteira de defesa, e nenhuma condição pode sair.
+      expect(funcao).toContain("ta.id = p_aula_id");
+      expect(funcao).toContain("tm.mentorado_id = public.mentorado_atual()");
+      expect(funcao).toContain("and tm.ativa");
+      expect(funcao).toContain("ta.workspace_id = public.workspace_atual()");
+      expect(funcao).toContain("public.papel_atual() = 'mentorado'");
+    });
+
+    it("recusa em silêncio uniforme quando nada foi afetado", () => {
+      expect(funcao).toContain("get diagnostics linhas_afetadas = row_count");
+      expect(funcao).toMatch(/if linhas_afetadas = 0 then\s*\n\s*raise exception/);
+      // A mensagem não pode carregar nome de tabela, coluna ou id: ela chega
+      // perto do usuário, e separar os casos contaria a quem perguntou que
+      // aquela aula existe em algum lugar.
+      const mensagem = /raise exception '([^']*)'/.exec(funcao)?.[1] ?? "";
+      expect(mensagem).not.toMatch(/progresso_trilha|trilha_aula|workspace|mentorado_id/i);
+    });
+
+    it("não fica ao alcance da anon key", () => {
+      expect(exec0020).toContain("revoke all on function public.trilha_marcar_aula(uuid, boolean) from anon");
+      expect(exec0020).toContain("revoke all on function public.trilha_marcar_aula(uuid, boolean) from public");
+      expect(exec0020).toContain("grant execute on function public.trilha_marcar_aula(uuid, boolean) to authenticated");
+    });
+  });
+
+  it("não cria enum novo e não apaga nada", () => {
+    expect(exec0020).not.toMatch(/alter type .* add value/i);
+    expect(exec0020).not.toMatch(/create type/i);
+    expect(exec0020).not.toMatch(/\bdelete\s+from\b/i);
+    expect(exec0020).not.toMatch(/\bdrop\s+table\b/i);
+    expect(exec0020).not.toMatch(/\bdrop\s+column\b/i);
+  });
+});
