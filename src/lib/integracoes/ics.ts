@@ -1,4 +1,5 @@
-// Leitor de iCalendar (RFC 5545) — módulo NEUTRO, sem dependência externa.
+// Leitor E ESCRITOR de iCalendar (RFC 5545) — módulo NEUTRO, sem dependência
+// externa.
 //
 // POR QUE UM PARSER PRÓPRIO, E POR QUE ICS EM VEZ DE OAUTH
 // --------------------------------------------------------
@@ -9,18 +10,39 @@
 // arquivo .ics inteiro por GET simples, sem autenticação. Uma URL para colar,
 // zero tela de autorização.
 //
-// O preço é ser SOMENTE LEITURA — deste arquivo, não do produto. Escrever
-// evento é pelos caminhos OAuth: ./calendar.ts (conta fixa do negócio, por
-// variável de ambiente) e ./google-agenda-escrita.ts (conta conectada por
-// cookie, que sincroniza o evento das sessões). Para "ver a agenda dividida
-// em dia, semana e mês", leitura basta.
+// ESTE ARQUIVO DEIXOU DE SER SOMENTE LEITURA NA TAREFA 16 — o comentário
+// antigo dizia "o preço é ser SOMENTE LEITURA — deste arquivo, não do
+// produto", e isso parou de ser verdade quando `montarIcs` (ao final deste
+// arquivo) passou a existir: `mentoria/acoes-calendario.ts` usa esta função
+// para o CAMINHO DEGRADADO (Google não conectado / app não configurado) —
+// um convite `.ics` para a pessoa baixar e importar na mão. Comentário que
+// vira mentira é pior que nenhum (mesma lição já registrada em
+// `google-agenda.ts`).
 //
-// A URL é secreta: quem a tem lê a agenda inteira. Ela mora em variável de
-// ambiente de SERVIDOR (nunca NEXT_PUBLIC_), nunca aparece em tela, em log ou
-// em mensagem de erro.
+// POR QUE O ESCRITOR MORA AQUI, E NÃO NUM ARQUIVO PRÓPRIO — decisão
+// corrigida depois de reprovação em revisão independente: a primeira versão
+// deste escritor vivia dentro de `acoes-calendario.ts`, um segundo domicílio
+// para o MESMO formato (RFC 5545) que este arquivo já lê, sem nenhum
+// contrato entre os dois lados — e foi exatamente essa divisão que deixou a
+// dobra de linha (RFC 5545 §3.1) implementada só do lado da leitura
+// (`desdobrar`, abaixo) e esquecida do lado da escrita. Ler e escrever o
+// MESMO formato no mesmo arquivo é o que permite testar o ida-e-volta
+// (`montarIcs` -> `analisarICS` -> mesmo texto de volta) dentro de uma única
+// suíte, em vez de confiar que dois arquivos separados concordam sobre o que
+// é uma linha válida.
 //
-// O QUE ESTE ARQUIVO COBRE, E O QUE NÃO COBRE
-// -------------------------------------------
+// Escrever evento pela API do Google (quando ela responde) continua nos
+// caminhos OAuth: ./calendar.ts (conta fixa do negócio, por variável de
+// ambiente) e ./google-agenda-escrita.ts (conta conectada por cookie). O
+// `.ics` deste arquivo é o caminho SEM API nenhuma — leitura por endereço
+// secreto, escrita por arquivo para importar na mão.
+//
+// A URL de leitura é secreta: quem a tem lê a agenda inteira. Ela mora em
+// variável de ambiente de SERVIDOR (nunca NEXT_PUBLIC_), nunca aparece em
+// tela, em log ou em mensagem de erro.
+//
+// O QUE ESTE ARQUIVO COBRE, E O QUE NÃO COBRE (LEITURA)
+// -------------------------------------------------------
 // Cobre: desdobramento de linhas, escapes de texto, VEVENT, evento de dia
 // inteiro, DTSTART/DTEND com TZID ou em UTC, repetição (RRULE) nas frequências
 // diária, semanal, mensal e anual com INTERVAL/COUNT/UNTIL/BYDAY, datas
@@ -32,6 +54,24 @@
 // declarada, não um silêncio: `analisarICS` devolve `naoExpandidos` com a
 // contagem, para a tela poder avisar em vez de fingir que a agenda está
 // completa.
+//
+// O QUE A ESCRITA (`montarIcs`, ao final do arquivo) GARANTE
+// -------------------------------------------------------------
+// Dobra de linha a 75 OCTETOS (não caracteres — acento/emoji ocupam mais de
+// um octeto em UTF-8, e cortar no meio de um caractere multibyte corrompe o
+// arquivo), escape de texto simétrico ao `desescapar` da leitura — com UMA
+// normalização declarada e testada em tabela: CR e CRLF viram o mesmo `\n`
+// escapado que o LF, porque o RFC 5545 §3.3.11 não tem escape para CR
+// isolado e a leitura normaliza CR para LF de qualquer forma (deixar o CR
+// cru era um buraco de injeção, ver `escaparValorIcs`) — e
+// e-mail de convidado VALIDADO (fail-closed), nunca sanitizado: um valor de
+// `mentorado.email` com `\r`/`\n`/`;`/`:` embutido (coluna `text` sem CHECK
+// no banco) é descartado da lista de convidados, não escapado — porque
+// escapar um ATTENDEE ainda deixaria a estrutura de linhas do arquivo à
+// mercê do que estivesse gravado naquela coluna, e é exatamente essa
+// estrutura que um e-mail hostil tentaria quebrar para injetar propriedades
+// (`SUMMARY`, `LOCATION`, `BEGIN:VEVENT` de outro evento) que o dono do
+// produto nunca escreveu.
 
 export interface EventoAgenda {
   /** UID do evento; numa série repetida, todas as ocorrências compartilham. */
@@ -169,13 +209,30 @@ function lerPropriedade(linha: string): Propriedade | null {
   return { nome, params, valor };
 }
 
-/** Escapes de valor TEXT (RFC 5545 §3.3.11). */
-function desescapar(v: string): string {
-  return v
-    .replace(/\\n/gi, "\n")
-    .replace(/\\,/g, ",")
-    .replace(/\\;/g, ";")
-    .replace(/\\\\/g, "\\");
+/**
+ * Escapes de valor TEXT (RFC 5545 §3.3.11) — direção LER, par simétrico de
+ * `escaparValorIcs` (escrita, no fim do arquivo).
+ *
+ * UMA passada só, com `\\` (a barra) consumida junto do caractere que ela
+ * escapa. A versão anterior encadeava quatro `.replace()` — e quatro passadas
+ * quebram a simetria num caso real: um backslash literal seguido da letra
+ * "n" (`c:\nova`) sai da escrita como `c:\\nova`, e a passada que procura
+ * `\n` ANTES da que procura `\\` lê aquele par como quebra de linha,
+ * devolvendo `c:\` + LF + `ova`. Com uma passada da esquerda para a direita,
+ * `\\` casa primeiro e o "n" seguinte fica sendo o que sempre foi: uma letra.
+ *
+ * `\N` maiúsculo é o mesmo que `\n` (o RFC aceita os dois). Uma sequência
+ * desconhecida (`\q`) é devolvida intacta — inventar um significado para ela
+ * seria pior do que repassar o que estava escrito.
+ *
+ * Exportada porque a simetria com `escaparValorIcs` é testada em tabela de
+ * ida-e-volta (`ics.test.ts`): as duas funções são um PAR, e um par se prova
+ * junto ou não se prova.
+ */
+export function desescapar(v: string): string {
+  return v.replace(/\\([\\;,nN])/g, (_tudo: string, caractere: string) =>
+    caractere === "n" || caractere === "N" ? "\n" : caractere
+  );
 }
 
 interface DataICS {
@@ -529,4 +586,182 @@ export function analisarICS(texto: string, janelaDe: Date, janelaAte: Date): Age
 
   eventos.sort((a, z) => a.inicio.getTime() - z.inicio.getTime());
   return { eventos, nome, naoExpandidos };
+}
+
+// ============================================================================
+// ESCRITA — `montarIcs` (Tarefa 16). Ver o cabeçalho do arquivo para o
+// porquê de morar aqui.
+// ============================================================================
+
+/**
+ * Formato mínimo que `montarIcs` precisa — cópia ESTRUTURAL de
+ * `EventoDeCalendario` (`mentoria/calendario.ts`), não um import: este
+ * arquivo é a camada de baixo (`integracoes/`), e `mentoria/calendario.ts`
+ * já importa DAQUI (`paredeParaInstante`) — importar de volta inverteria a
+ * direção de dependência do projeto. Mesmo raciocínio documentado para
+ * `EventoParaGoogle` em `./google-agenda-escrita.ts`. TypeScript aceita
+ * passar um `EventoDeCalendario` aqui sem conversão nenhuma, porque a forma
+ * é idêntica.
+ */
+export interface EventoParaIcs {
+  titulo: string;
+  descricao: string;
+  /** ISO 8601 em UTC (`Date#toISOString()`). */
+  inicioIso: string;
+  /** ISO 8601 em UTC. */
+  fimIso: string;
+  convidados: string[];
+}
+
+// ---------------------------------------------------------------- escapes
+
+/**
+ * Escapes de valor TEXT do RFC 5545 §3.3.11 — direção ESCREVER, par simétrico
+ * de `desescapar` (leitura, acima).
+ *
+ * AS TRÊS FORMAS DE QUEBRA DE LINHA (CRLF, CR sozinho e LF) viram o MESMO
+ * `\n` escapado. Tratar só o LF — como esta função fazia até a revisão que
+ * pegou o defeito — deixava o octeto CR passar cru para dentro do arquivo, e
+ * um CR cru É quebra de linha na volta: `desdobrar` (no topo deste arquivo)
+ * converte CR em LF antes de separar as linhas. Ou seja, um `\r` no meio de
+ * um SUMMARY não ficava sendo texto: virava uma LINHA nova de verdade, e a
+ * primeira palavra depois dele virava uma PROPRIEDADE nova
+ * (`SUMMARY:`, `LOCATION:`, até um `BEGIN:VEVENT`) no arquivo que a pessoa
+ * baixa e importa na própria agenda. É a mesma classe de defeito do e-mail
+ * de convidado hostil (ver `emailAttendeeValido`), pela porta do texto.
+ *
+ * Por que NORMALIZAR (CR -> LF) em vez de preservar o CR: o §3.3.11 só
+ * define `\n` como escape de quebra de linha em valor TEXT — não existe
+ * escape para um CR isolado. Preservá-lo exigiria sintaxe fora do padrão, e
+ * a leitura o normalizaria para LF de qualquer jeito. Então o ida-e-volta é
+ * idêntico para tudo, MENOS por esta normalização declarada — que é o que a
+ * tabela de simetria em `ics.test.ts` afirma, caso a caso.
+ */
+export function escaparValorIcs(texto: string): string {
+  return texto
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r\n|\r|\n/g, "\\n");
+}
+
+// ------------------------------------------------------------- validação de convidado
+
+// Fail-closed, não sanitização — ver o cabeçalho do arquivo. Qualquer
+// caractere que pudesse quebrar a ESTRUTURA de linhas do arquivo (espaço,
+// tab, CR, LF — todos cobertos por `\s` — além de `;` e `:`, que abrem
+// parâmetro/valor de propriedade) reprova o endereço inteiro, mesma
+// disciplina de `linkGravacaoValido` em `mentoria/validacao.ts`: não tenta
+// consertar um valor perigoso, descarta.
+const FORMATO_EMAIL_ATTENDEE = /^[^@\s;:]+@[^@\s;:]+\.[^@\s;:]+$/;
+
+export function emailAttendeeValido(email: string): boolean {
+  const v = (email || "").trim();
+  if (v === "" || /[\s;:]/.test(v)) return false;
+  return FORMATO_EMAIL_ATTENDEE.test(v);
+}
+
+// ------------------------------------------------------------- dobra de linha (RFC 5545 §3.1)
+
+const LIMITE_OCTETOS_LINHA_ICS = 75;
+const codificadorUtf8 = new TextEncoder();
+
+function octetosDe(caractere: string): number {
+  return codificadorUtf8.encode(caractere).length;
+}
+
+/**
+ * Dobra uma linha de propriedade ICS: nenhuma linha física pode passar de
+ * 75 OCTETOS (não caracteres — um acento ocupa 2 em UTF-8, um emoji pode
+ * ocupar 4), e cada continuação entra numa linha nova que começa com um
+ * único espaço (RFC 5545 §3.1) — é esse mesmo espaço que `desdobrar`
+ * (leitura, no topo do arquivo) sabe remover ao juntar de volta.
+ *
+ * A unidade de corte é o CARACTERE completo (`Array.from`, que respeita
+ * pares substitutos/emoji): um caractere multibyte nunca é partido no meio,
+ * mesmo que isso deixe uma linha alguns octetos abaixo do teto — cortar no
+ * meio de um caractere produziria bytes UTF-8 inválidos, o que corrompe o
+ * arquivo inteiro, não só aquela linha.
+ */
+export function dobrarLinhaIcs(linha: string): string {
+  const caracteres = Array.from(linha);
+  const blocos: string[] = [];
+  let atual = "";
+  let usados = 0;
+  // Primeira linha: até 75 octetos. Da segunda em diante, o espaço de
+  // continuação consome 1 octeto do teto daquela linha.
+  let limite = LIMITE_OCTETOS_LINHA_ICS;
+
+  for (const c of caracteres) {
+    const tam = octetosDe(c);
+    if (atual !== "" && usados + tam > limite) {
+      blocos.push(atual);
+      atual = "";
+      usados = 0;
+      limite = LIMITE_OCTETOS_LINHA_ICS - 1;
+    }
+    atual += c;
+    usados += tam;
+  }
+  blocos.push(atual);
+  return blocos.join("\r\n ");
+}
+
+// ------------------------------------------------------------------ montarIcs
+
+export interface OpcoesMontarIcs {
+  /**
+   * Estável por sessão (não aleatório) — reimportar o mesmo arquivo
+   * substitui o evento anterior em vez de duplicar (RFC 5545 §3.8.4.7), em
+   * qualquer app de calendário que respeite UID.
+   */
+  uid: string;
+  evento: EventoParaIcs;
+  /**
+   * `true` monta um convite de CANCELAMENTO: `METHOD:CANCEL` no
+   * calendário inteiro e `STATUS:CANCELLED` no evento, com o MESMO `uid` —
+   * é assim que um app de calendário reconhece "isto substitui o evento
+   * anterior por uma versão cancelada" em vez de tratar como um evento novo
+   * e independente.
+   */
+  cancelado?: boolean;
+  /** Quando o arquivo foi montado (`DTSTAMP`). Parâmetro, nunca `new Date()` aqui dentro — mesma regra de `agoraIso` em `mentoria/dados.ts`: quem sabe que horas são é quem chama. */
+  agoraIso: string;
+}
+
+/** "2026-08-20T15:00:00.000Z" -> "20260820T150000Z" (RFC 5545 §3.3.5, forma UTC básica).
+ *  `inicioIso`/`fimIso`/`agoraIso` são sempre saída de `Date#toISOString()`, então sempre têm o "Z" e a fração de milissegundo. */
+function carimboIcs(iso: string): string {
+  return iso.replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+export function montarIcs(opcoes: OpcoesMontarIcs): string {
+  const { uid, evento, agoraIso } = opcoes;
+  const cancelado = opcoes.cancelado ?? false;
+
+  // Descarta (não escapa) qualquer convidado que não passe no formato
+  // fail-closed — ver `emailAttendeeValido` acima.
+  const convidadosValidos = evento.convidados.filter(emailAttendeeValido);
+
+  const linhas: string[] = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//MentorOS//sincronizarSessaoNaAgenda//PT-BR",
+    "CALSCALE:GREGORIAN",
+  ];
+  if (cancelado) linhas.push("METHOD:CANCEL");
+  linhas.push(
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${carimboIcs(agoraIso)}`,
+    `DTSTART:${carimboIcs(evento.inicioIso)}`,
+    `DTEND:${carimboIcs(evento.fimIso)}`,
+    `SUMMARY:${escaparValorIcs(evento.titulo)}`,
+    `DESCRIPTION:${escaparValorIcs(evento.descricao)}`
+  );
+  if (cancelado) linhas.push("STATUS:CANCELLED");
+  for (const email of convidadosValidos) linhas.push(`ATTENDEE;RSVP=TRUE:mailto:${email}`);
+  linhas.push("END:VEVENT", "END:VCALENDAR");
+
+  return linhas.map(dobrarLinhaIcs).join("\r\n");
 }
