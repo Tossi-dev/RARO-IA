@@ -1,4 +1,12 @@
-"use server";
+// NOTA DE FRONTEIRA (Tarefa 18): este arquivo NAO carrega mais "use server".
+// Um modulo "use server" so pode EXPORTAR funcao async -- e este exporta
+// tambem as constantes de mensagem, que os testes e a tela leem. Enquanto
+// ninguem importava este arquivo, o Next nunca chegou a aplicar a regra; a
+// ficha passou a importar, e o build quebrou na hora. A saida NAO foi
+// esconder as constantes: foi reconhecer que a fronteira de Server Action
+// e `acoes-ficha.ts`, o unico modulo que os formularios chamam. Daqui para
+// baixo e biblioteca de servidor comum, chamada por aquela fronteira e
+// pelas rotas -- e por isso pode exportar o que quiser.
 
 // Server Action que transcreve o áudio de uma sessão de mentoria —
 // Tarefa 17 do plano. Mesma casa de `acoes-calendario.ts` (validação na

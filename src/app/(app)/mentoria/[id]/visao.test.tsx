@@ -55,6 +55,13 @@ vi.mock("@/lib/mentoria/acoes", () => ({
   darBaixaNaSessao: vi.fn(),
 }));
 
+// Mesma razão, para as três Server Actions que a Tarefa 18 trouxe.
+vi.mock("@/lib/mentoria/acoes-ficha", () => ({
+  sincronizarSessaoDaFicha: vi.fn(),
+  transcreverSessaoDaFicha: vi.fn(),
+  liberarNoPortalDaFicha: vi.fn(),
+}));
+
 // Mesma razão, para o bloco de documentos que a ficha passou a montar
 // (Tarefa 12): `./documentos` só referencia as três Server Actions como
 // `action={...}`, mas o módulo real importa `next/cache`/`next/navigation`.
@@ -147,6 +154,12 @@ function fichaComMatriculaAtivaESessaoAgendada(): Ficha {
         linkGravacao: "",
         transcricao: "",
         resumo: "",
+        eventoGoogleId: "",
+        linkReuniao: "",
+        gravacaoLiberada: false,
+        transcricaoLiberada: false,
+        transcritaEm: null,
+        transcricaoOrigem: "",
         criadoEm: "2026-01-01T00:00:00Z",
       },
     ],
@@ -254,10 +267,17 @@ function render(
   ficha: Ficha,
   hist: HistoricoDaFicha = historico(),
   erro?: string,
-  docs: ListaDocumentos = documentos()
+  docs: ListaDocumentos = documentos(),
+  agendaConectada = false
 ): string {
   return renderToStaticMarkup(
-    <FichaVisao ficha={ficha} historico={hist} documentos={docs} erro={erro} />
+    <FichaVisao
+      ficha={ficha}
+      historico={hist}
+      documentos={docs}
+      erro={erro}
+      agendaConectada={agendaConectada}
+    />
   );
 }
 
@@ -795,5 +815,157 @@ describe("FichaVisao — o bloco de documentos entra na ficha", () => {
 
     expect(html.split('role="tabpanel"').length - 1).toBe(2);
     expect(textoDe(paineis(html).visaoGeral)).toContain("Nenhum arquivo anexado a este mentorado ainda.");
+  });
+});
+
+// ============================================================
+// Bloco 6 — agenda e transcrição na sessão (Tarefa 18)
+//
+// As cinco asserções do plano, mais as três palavras do estado da agenda.
+// Todas leem a MARCAÇÃO, e todas dentro do painel que ABRE — o histórico de
+// sessões vive na "Visão geral", então o que este bloco confere é o que a
+// pessoa vê ao abrir a ficha, não o que está escondido na outra aba.
+// ============================================================
+
+/** A mesma ficha da fixture, com a sessão ajustada campo a campo. */
+function fichaComSessao(over: Partial<Ficha["sessoes"][number]>): Ficha {
+  const base = fichaComMatriculaAtivaESessaoAgendada();
+  return { ...base, sessoes: [{ ...base.sessoes[0], ...over }] };
+}
+
+describe("agenda e transcrição na sessão", () => {
+  it("sem conta do Google, o botão de sincronizar VIRA o link do .ics — e não some", () => {
+    const { visaoGeral } = paineis(render(fichaComSessao({}), historico(), undefined, documentos(), false));
+
+    expect(visaoGeral).toContain("agenda não conectada");
+    // O caminho alternativo existe e aponta para a rota de download.
+    expect(visaoGeral).toContain('href="/api/agenda/sessao/s-1"');
+    expect(textoDe(visaoGeral)).toContain("Baixar convite (.ics)");
+    // E o botão que dependeria da conexão NÃO fica ali prometendo o que não
+    // pode cumprir.
+    expect(textoDe(visaoGeral)).not.toContain("Sincronizar com a agenda");
+  });
+
+  it("com conta ligada e sessão nunca sincronizada, oferece sincronizar", () => {
+    const { visaoGeral } = paineis(
+      render(fichaComSessao({ eventoGoogleId: "" }), historico(), undefined, documentos(), true)
+    );
+
+    expect(visaoGeral).toContain("não sincronizada");
+    expect(textoDe(visaoGeral)).toContain("Sincronizar com a agenda");
+    expect(visaoGeral).not.toContain('href="/api/agenda/sessao/s-1"');
+  });
+
+  it("com conta ligada e evento já criado, diz 'na agenda' e oferece atualizar", () => {
+    const { visaoGeral } = paineis(
+      render(fichaComSessao({ eventoGoogleId: "evt-123" }), historico(), undefined, documentos(), true)
+    );
+
+    expect(visaoGeral).toContain("na agenda");
+    expect(textoDe(visaoGeral)).toContain("Atualizar na agenda");
+    // O id do evento é dado do Google, não informação para a tela — e a
+    // pessoa não tem o que fazer com ele.
+    expect(visaoGeral).not.toContain("evt-123");
+  });
+
+  it("os dois interruptores nascem desligados", () => {
+    const { visaoGeral } = paineis(render(fichaComSessao({}), historico(), undefined, documentos(), true));
+    const texto = textoDe(visaoGeral);
+
+    // Desligado = o botão oferece LIGAR. Se nascesse ligado, ele ofereceria
+    // ocultar — e alguém teria publicado sem pedir.
+    expect(texto).toContain("Liberar gravação no portal");
+    expect(texto).toContain("Liberar transcrição no portal");
+    expect(texto).not.toContain("Ocultar gravação do portal");
+    expect(texto).not.toContain("Ocultar transcrição do portal");
+    // E o POST que cada um carrega é o de LIGAR.
+    expect(visaoGeral).toContain('name="campo" value="gravacao"');
+    expect(visaoGeral).toContain('name="campo" value="transcricao"');
+  });
+
+  it("já liberados, os botões oferecem ocultar e o POST é o de desligar", () => {
+    const { visaoGeral } = paineis(
+      render(
+        fichaComSessao({ gravacaoLiberada: true, transcricaoLiberada: true }),
+        historico(),
+        undefined,
+        documentos(),
+        true
+      )
+    );
+    const texto = textoDe(visaoGeral);
+
+    expect(texto).toContain("Ocultar gravação do portal");
+    expect(texto).toContain("Ocultar transcrição do portal");
+    expect(visaoGeral).toContain('name="valor" value="0"');
+    expect(visaoGeral).not.toContain('name="valor" value="1"');
+  });
+
+  it("sessão de turma mostra o aviso extra; sessão individual não", () => {
+    const emTurma = paineis(
+      render(
+        fichaComSessao({ matriculaId: null, turmaId: "turma-1" }),
+        historico(),
+        undefined,
+        documentos(),
+        true
+      )
+    ).visaoGeral;
+    const individual = paineis(
+      render(fichaComSessao({ matriculaId: "mat-1", turmaId: null }), historico(), undefined, documentos(), true)
+    ).visaoGeral;
+
+    expect(textoDe(emTurma)).toContain("a fala de todos os participantes");
+    expect(textoDe(individual)).not.toContain("a fala de todos os participantes");
+    // O aviso comum aparece nos dois — o extra é ACRÉSCIMO, não substituição.
+    expect(textoDe(individual)).toContain("passa a ler a transcrição inteira");
+  });
+
+  it("a transcrição em si NÃO é impressa na ficha; só o estado dela", () => {
+    const segredo = "o cliente contou que o socio esta saindo da empresa";
+    const html = render(
+      fichaComSessao({
+        transcricao: segredo,
+        transcritaEm: "2026-08-15T14:00:00Z",
+        transcricaoOrigem: "groq",
+      }),
+      historico(),
+      undefined,
+      documentos(),
+      true
+    );
+
+    // Em NENHUM lugar da marcação, nem no painel escondido.
+    expect(html).not.toContain(segredo);
+    expect(html).not.toContain("socio esta saindo");
+    // Mas a ficha diz que existe, e desde quando.
+    expect(textoDe(paineis(html).visaoGeral)).toContain("gerada em");
+  });
+
+  it("sem transcrição, a ficha diz que não tem em vez de ficar calada", () => {
+    const { visaoGeral } = paineis(
+      render(fichaComSessao({ transcricao: "", transcritaEm: null }), historico(), undefined, documentos(), true)
+    );
+
+    expect(textoDe(visaoGeral)).toContain("ainda não transcrita");
+  });
+
+  it("o campo de áudio existe e o formulário sabe enviar arquivo", () => {
+    const { visaoGeral } = paineis(render(fichaComSessao({}), historico(), undefined, documentos(), true));
+
+    expect(visaoGeral).toContain('type="file"');
+    expect(visaoGeral).toContain('name="audio"');
+    // Sem `multipart/form-data` o arquivo chega como nome, não como conteúdo —
+    // e a ação recusaria por "0 byte" sem ninguém entender por quê.
+    // `encType` com T maiúsculo é como o React serializa o atributo (o
+    // formulário de documentos, que já funcionava, sai igual); HTML não
+    // diferencia caixa em nome de atributo.
+    expect(visaoGeral).toContain('encType="multipart/form-data"');
+  });
+
+  it("o bloco novo não trouxe emoji nenhum", () => {
+    const html = render(fichaComSessao({ gravacaoLiberada: true, turmaId: "t-1", matriculaId: null }), historico(), undefined, documentos(), true);
+
+    expect(glifosForaDoPermitido(html)).toEqual([]);
   });
 });

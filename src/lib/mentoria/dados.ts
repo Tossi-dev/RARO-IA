@@ -229,6 +229,15 @@ export function linhaParaSessao(r: Row): Sessao {
     linkGravacao: linkGravacaoDeLeitura(r.link_gravacao),
     transcricao: r.transcricao ?? "",
     resumo: r.resumo ?? "",
+    // Colunas de 0017. Os `??` existem porque uma linha pode ter sido lida de
+    // um banco onde a migracao ainda nao rodou -- e nesse caso o padrao
+    // seguro e o mesmo do schema: nao sincronizada, nada liberado.
+    eventoGoogleId: r.evento_google_id ?? "",
+    linkReuniao: linkGravacaoDeLeitura(r.link_reuniao),
+    gravacaoLiberada: Boolean(r.gravacao_liberada),
+    transcricaoLiberada: Boolean(r.transcricao_liberada),
+    transcritaEm: r.transcrita_em ?? null,
+    transcricaoOrigem: r.transcricao_origem ?? "",
     criadoEm: r.criado_em,
   };
 }

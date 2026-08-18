@@ -44,6 +44,19 @@ vi.mock("@/lib/mentoria/acoes", () => ({
 }));
 
 // Idem para o bloco de documentos que `visao.tsx` monta (Tarefa 12).
+// A borda passou a perguntar se há conta do Google ligada (Tarefa 18). O
+// módulo real lê `cookies()`, que não existe fora do Next — e é justamente por
+// isso que a pergunta mora AQUI e não dentro de `FichaVisao`.
+const googleConectadoMock = vi.fn(() => false);
+vi.mock("@/lib/integracoes/google-agenda", () => ({ googleConectado: googleConectadoMock }));
+
+// As três Server Actions novas que a ficha referencia como `action={...}`.
+vi.mock("@/lib/mentoria/acoes-ficha", () => ({
+  sincronizarSessaoDaFicha: vi.fn(),
+  transcreverSessaoDaFicha: vi.fn(),
+  liberarNoPortalDaFicha: vi.fn(),
+}));
+
 vi.mock("@/lib/documentos/acoes", () => ({
   anexarDocumento: vi.fn(),
   arquivarDocumento: vi.fn(),

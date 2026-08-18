@@ -57,6 +57,12 @@ function sessaoDe(parcial: Partial<Sessao>): Sessao {
     linkGravacao: "",
     transcricao: "",
     resumo: "",
+    eventoGoogleId: "",
+    linkReuniao: "",
+    gravacaoLiberada: false,
+    transcricaoLiberada: false,
+    transcritaEm: null,
+    transcricaoOrigem: "",
     criadoEm: "2026-05-01T00:00:00Z",
     ...parcial,
   };

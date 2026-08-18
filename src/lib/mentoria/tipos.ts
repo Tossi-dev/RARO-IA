@@ -246,6 +246,41 @@ export interface Sessao {
   linkGravacao: string;
   transcricao: string;
   resumo: string;
+
+  // ---- Colunas de 0017_sessao_agenda_gravacao.sql ----
+  //
+  // `eventoGoogleId` vazio significa "nunca sincronizada". Guardar o id e o
+  // que permite ATUALIZAR o evento existente em vez de criar um duplicado a
+  // cada clique em sincronizar.
+  eventoGoogleId: string;
+
+  /**
+   * O Meet/Zoom onde a conversa VAI acontecer. Separado de `linkGravacao`,
+   * que e onde ela FICOU registrada: confundir os dois publica no portal um
+   * link de sala vazia.
+   */
+  linkReuniao: string;
+
+  /**
+   * Falso por padrao, e o default vem do proprio Postgres. E o interruptor
+   * entre "o mentor colou o link" e "o mentorado ve o link". Quem respeita
+   * esta flag NAO e a tela: e a view `sessao_do_portal`, porque RLS decide se
+   * a LINHA aparece, e quando aparece, aparece inteira.
+   */
+  gravacaoLiberada: boolean;
+
+  /**
+   * Idem. Numa sessao de TURMA, ligar isto libera a fala de todos os
+   * participantes para cada um deles -- por isso a tela avisa antes.
+   */
+  transcricaoLiberada: boolean;
+
+  /** Quando a transcricao foi gerada. Nulo = nunca. */
+  transcritaEm: string | null;
+
+  /** Qual motor gerou o texto ('groq'). Vazio quando nao ha transcricao. */
+  transcricaoOrigem: string;
+
   criadoEm: string;
 }
 
