@@ -52,6 +52,17 @@ export const MOTIVO_DIAS_INVALIDO =
 export const MOTIVO_ERRO_SALVAR = "Não foi possível salvar agora. Tente novamente em instantes.";
 export const MOTIVO_MENTORADO_INVALIDO = "Não reconheci o mentorado. Recarregue a página e tente de novo.";
 
+// As rotas de verdade, criadas na tarefa 30 e decididas na 29. Elas moram em
+// constantes porque são usadas duas vezes cada (o `redirect` de erro e o
+// `revalidatePath` de sucesso) e porque já erraram uma vez: nasceram aqui na
+// tarefa 28, quando nenhuma das duas telas existia, como `/conteudo/trilhas`
+// e `/portal/trilhas`. Caminho errado quebra as duas pontas em silêncio — o
+// erro vira 404 em vez de mensagem, e o cache limpo é o de uma rota que
+// ninguém abre, então a tela certa continua servindo dado velho e o mentor
+// jura que o salvamento não funcionou.
+const CAMINHO_GESTAO = "/trilhas";
+const CAMINHO_PORTAL = "/portal/trilha";
+
 const MAX_ID = 100;
 const MAX_TEXTO_CURTO = 200;
 const MAX_DETALHE_LOG = 40;
@@ -62,6 +73,22 @@ function avisar(operacao: string, detalhe: unknown): void {
 
 function texto(formData: FormData, campo: string): string {
   return String(formData.get(campo) ?? "").trim();
+}
+
+/** Formato de uuid v1-v5 — a forma que o Postgres aceita na coluna. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * O caminho da tela de UMA trilha — ou a lista, quando o id não é um uuid.
+ *
+ * O id chega do formulário, e interpolar direto o que veio de fora dentro de
+ * uma URL de `redirect` é como se monta caminho inventado e redirecionamento
+ * aberto ("../../financeiro" vira um destino de verdade). Uuid ou nada: um id
+ * torto só pode ser erro ou tentativa, e nos dois casos a lista é o destino
+ * certo.
+ */
+function caminhoDaTrilha(trilhaId: string): string {
+  return UUID.test(trilhaId) ? `${CAMINHO_GESTAO}/${trilhaId}` : CAMINHO_GESTAO;
 }
 
 function voltarComErro(caminho: string, mensagem: string): never {
@@ -92,7 +119,7 @@ function ehControleDeFluxoDoNext(excecao: unknown): boolean {
  * aula constar como feita sem ninguém ter dito isso.
  */
 export async function marcarAula(formData: FormData): Promise<void> {
-  const caminho = "/portal/trilhas";
+  const caminho = CAMINHO_PORTAL;
   const aulaId = texto(formData, "aulaId");
   if (!aulaId || aulaId.length > MAX_ID) voltarComErro(caminho, MOTIVO_AULA_INVALIDA);
 
@@ -161,7 +188,7 @@ export async function marcarAula(formData: FormData): Promise<void> {
 // ============================================================
 
 export async function salvarTrilha(formData: FormData): Promise<void> {
-  const caminho = "/conteudo/trilhas";
+  const caminho = CAMINHO_GESTAO;
   const nome = texto(formData, "nome");
   if (!nome || nome.length > MAX_TEXTO_CURTO) voltarComErro(caminho, MOTIVO_NOME_VAZIO);
 
@@ -198,8 +225,11 @@ export async function salvarTrilha(formData: FormData): Promise<void> {
 }
 
 export async function salvarAula(formData: FormData): Promise<void> {
-  const caminho = "/conteudo/trilhas";
   const trilhaId = texto(formData, "trilhaId");
+  // O caminho de volta é o da PRÓPRIA trilha que estava aberta: mandar de
+  // volta para a lista faria a pessoa perder de vista o que estava editando
+  // justamente no momento em que precisa ler uma mensagem de erro.
+  const caminho = caminhoDaTrilha(trilhaId);
   if (!trilhaId || trilhaId.length > MAX_ID) voltarComErro(caminho, MOTIVO_TRILHA_INVALIDA);
 
   const titulo = texto(formData, "titulo");
@@ -247,7 +277,7 @@ export async function salvarAula(formData: FormData): Promise<void> {
 }
 
 export async function matricularNaTrilha(formData: FormData): Promise<void> {
-  const caminho = "/conteudo/trilhas";
+  const caminho = CAMINHO_GESTAO;
   const mentoradoId = texto(formData, "mentoradoId");
   if (!mentoradoId || mentoradoId.length > MAX_ID) voltarComErro(caminho, MOTIVO_MENTORADO_INVALIDO);
 

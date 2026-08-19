@@ -151,12 +151,32 @@ function minhaDesconectada(motivo: string): MinhaTrilha {
   return { conectado: false, motivo, ehMentorado: false, trilhas: [] };
 }
 
-function porOrdem(a: TrilhaAula, b: TrilhaAula): number {
+interface Ordenavel {
+  ordem: number;
+  titulo: string;
+}
+
+function porOrdem(a: Ordenavel, b: Ordenavel): number {
   if (a.ordem !== b.ordem) return a.ordem - b.ordem;
   // Empate de `ordem` é dado comum (o mentor cadastrou duas aulas sem
   // numerar). O desempate pelo título mantém a lista estável entre dois
   // carregamentos — sem ele, a mesma trilha apareceria em ordens diferentes.
   return a.titulo.localeCompare(b.titulo, "pt-BR");
+}
+
+/**
+ * A ordem em que uma trilha é lida — exportada porque a TELA também ordena
+ * (tarefa 30), e duas respostas para "qual é a ordem das aulas?" divergem no
+ * primeiro conserto feito só de um lado.
+ *
+ * A tela ordenar de novo não é desconfiança da leitura: é que ela recebe um
+ * array e não tem como saber de onde ele veio. Ordenar aqui custa nada e
+ * fecha a porta de um componente novo montar a lista por outro caminho.
+ *
+ * Não muta a entrada.
+ */
+export function ordenarAulas<T extends Ordenavel>(aulas: readonly T[]): T[] {
+  return [...aulas].sort(porOrdem);
 }
 
 /** Todas as trilhas do workspace, com as aulas. Para a gestão. */

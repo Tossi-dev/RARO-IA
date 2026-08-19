@@ -302,3 +302,83 @@ describe("as ações de gestão", () => {
     expect(codigo).not.toContain(".delete(");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tarefa 30 — para ONDE cada ação volta
+// ---------------------------------------------------------------------------
+//
+// Estes caminhos foram escritos na tarefa 28, quando as telas ainda não
+// existiam, e ficaram errados: a gestão apontava para `/conteudo/trilhas` e o
+// portal para `/portal/trilhas`. As rotas de verdade, decididas na 29 e
+// criadas na 30, são `/trilhas` e `/portal/trilha`.
+//
+// Não é detalhe de digitação. Um caminho errado quebra as DUAS pontas: o
+// `redirect` de erro joga a pessoa num 404 em vez de mostrar o motivo, e o
+// `revalidatePath` limpa o cache de uma rota que ninguém abre — a tela certa
+// continua servindo o dado velho, e o mentor jura que o salvamento não
+// funcionou. Nada disso aparecia porque nenhum teste perguntava o destino.
+describe("acoes-trilha — os caminhos de volta (tarefa 30)", () => {
+  function caminhoDoRedirect(): string {
+    const chamada = redirectMock.mock.calls.at(-1);
+    return String(chamada?.[0] ?? "").split("?")[0];
+  }
+
+  it("erro de gestão volta para /trilhas, não para /conteudo/trilhas", async () => {
+    duble();
+    const fd = new FormData();
+    fd.set("nome", ""); // recusado antes do banco
+
+    await expect(salvarTrilha(fd)).rejects.toThrow(/REDIRECT/);
+    expect(caminhoDoRedirect()).toBe("/trilhas");
+  });
+
+  it("erro ao salvar aula volta para a trilha que estava aberta", async () => {
+    duble();
+    const fd = new FormData();
+    fd.set("trilhaId", "3f2504e0-4f89-11d3-9a0c-0305e82c3301");
+    fd.set("titulo", ""); // recusado antes do banco
+
+    await expect(salvarAula(fd)).rejects.toThrow(/REDIRECT/);
+    expect(caminhoDoRedirect()).toBe("/trilhas/3f2504e0-4f89-11d3-9a0c-0305e82c3301");
+  });
+
+  it("id de trilha que não é uuid não entra no caminho — volta para a lista", async () => {
+    // O id vem do formulário. Interpolar direto o que veio de fora dentro de
+    // uma URL de `redirect` é como se monta redirecionamento aberto e
+    // caminho inventado; uuid ou nada.
+    duble();
+    for (const idTorto of ["../../financeiro", "abc", "3f2504e0-4f89-11d3-9a0c-0305e82c3301/../crm"]) {
+      const fd = new FormData();
+      fd.set("trilhaId", idTorto);
+      fd.set("titulo", "");
+      await expect(salvarAula(fd)).rejects.toThrow(/REDIRECT/);
+      expect(caminhoDoRedirect()).toBe("/trilhas");
+    }
+  });
+
+  it("erro do mentorado volta para /portal/trilha, não para /portal/trilhas", async () => {
+    duble();
+    const fd = new FormData();
+    fd.set("aulaId", ""); // recusado antes do banco
+
+    await expect(marcarAula(fd)).rejects.toThrow(/REDIRECT/);
+    expect(caminhoDoRedirect()).toBe("/portal/trilha");
+  });
+
+  it("o sucesso revalida a MESMA rota que a tela usa", async () => {
+    revalidatePathMock.mockClear();
+    duble();
+
+    const fd = new FormData();
+    fd.set("nome", "Trilha nova");
+    await salvarTrilha(fd);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/trilhas");
+
+    revalidatePathMock.mockClear();
+    const fdAula = new FormData();
+    fdAula.set("trilhaId", "3f2504e0-4f89-11d3-9a0c-0305e82c3301");
+    fdAula.set("titulo", "Aula 1");
+    await salvarAula(fdAula);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/trilhas/3f2504e0-4f89-11d3-9a0c-0305e82c3301");
+  });
+});

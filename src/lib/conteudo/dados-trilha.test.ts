@@ -17,7 +17,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const criarSupabaseServerMock = vi.fn();
 vi.mock("../supabase/server", () => ({ criarSupabaseServer: criarSupabaseServerMock }));
 
-const { lerTrilhas, lerMinhaTrilha } = await import("./dados-trilha");
+const { lerTrilhas, lerMinhaTrilha, ordenarAulas } = await import("./dados-trilha");
 
 type Resposta = { data: unknown; error: { code?: string; message?: string } | null };
 
@@ -336,5 +336,25 @@ describe("lerMinhaTrilha — o portal", () => {
 
     expect(r.conectado).toBe(false);
     expect(r.motivo).not.toContain("cookie");
+  });
+});
+
+// Tarefa 30 — `ordenarAulas` virou export porque a TELA também ordena.
+describe("ordenarAulas", () => {
+  const a = (ordem: number, titulo: string) => ({ ordem, titulo });
+
+  it("ordena por `ordem`, e o empate pelo título em pt-BR", () => {
+    const saida = ordenarAulas([a(2, "Zebra"), a(1, "Bacia"), a(1, "Arara"), a(1, "Árvore")]);
+    expect(saida.map((x) => x.titulo)).toEqual(["Arara", "Árvore", "Bacia", "Zebra"]);
+  });
+
+  it("NÃO muta a lista recebida", () => {
+    // A tela recebe o array que a leitura montou. Um `sort` no lugar
+    // reordenaria a lista de quem chamou, do lado de fora, sem pedir — o
+    // tipo de efeito que só aparece quando duas telas leem a mesma coisa.
+    const original = [a(2, "B"), a(1, "A")];
+    const copia = [...original];
+    ordenarAulas(original);
+    expect(original).toEqual(copia);
   });
 });
