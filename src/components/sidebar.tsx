@@ -20,6 +20,8 @@ import {
   ListChecks,
   Plug,
   Upload,
+  Route,
+  Trophy,
   UserCircle,
   Users,
   Wallet,
@@ -41,6 +43,8 @@ const ICONES: Record<NomeIconeLateral, LucideIcon> = {
   ListChecks,
   Upload,
   Plug,
+  Route,
+  Trophy,
   UserCircle,
 };
 

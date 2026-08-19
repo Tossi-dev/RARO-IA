@@ -63,3 +63,41 @@ describe("gruposNavPorPapel", () => {
     expect(gruposNavPorPapel("comercial")).toEqual(gruposNavPorPapel("comercial"));
   });
 });
+
+// Tarefa 29 — Trilhas entra na gaveta, do lado da gestão.
+describe("gruposNavPorPapel — Trilhas (tarefa 29)", () => {
+  it("dono e gestor veem Mentoria e Trilhas no grupo Gestão", () => {
+    for (const papel of ["dono", "gestor"] as const) {
+      const gestao = gruposNavPorPapel(papel).find((g) => g.titulo === "Gestão");
+      const rotulos = gestao?.itens.map((i) => i.rotulo) ?? [];
+      expect(rotulos).toContain("Mentoria");
+      expect(rotulos).toContain("Trilhas");
+    }
+  });
+
+  it("nenhum outro papel vê Trilhas — nem o rótulo, nem o href no que é serializado", () => {
+    // A gaveta é componente cliente: o que sai daqui vira JavaScript no
+    // navegador. "Não desenhar" não basta — não pode nem VIAJAR.
+    for (const papel of ["comercial", "mentorado", "afiliado", "aluno"] as const) {
+      const itens = gruposNavPorPapel(papel).flatMap((g) => g.itens);
+      expect(itens.map((i) => i.rotulo)).not.toContain("Trilhas");
+      expect(JSON.stringify(itens)).not.toContain("/trilhas");
+      expect(JSON.stringify(itens)).not.toContain("/mentoria");
+    }
+  });
+
+  it("todo item de todo grupo, para todo papel, é uma rota que aquele papel abre", () => {
+    // A regra que impede um item novo de nascer levando para /sem-acesso.
+    for (const papel of TODOS_PAPEIS) {
+      for (const grupo of gruposNavPorPapel(papel)) {
+        for (const item of grupo.itens) {
+          expect([papel, item.href, rotaPermitida(papel, item.href)]).toEqual([
+            papel,
+            item.href,
+            true,
+          ]);
+        }
+      }
+    }
+  });
+});

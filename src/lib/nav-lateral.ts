@@ -38,7 +38,9 @@ export type NomeIconeLateral =
   | "ListChecks"
   | "Upload"
   | "Plug"
-  | "UserCircle";
+  | "UserCircle"
+  | "Trophy"
+  | "Route";
 
 export interface ItemNavLateral {
   href: string;
@@ -74,6 +76,22 @@ const GRUPOS_COMPLETOS: GrupoNavLateral[] = [
   {
     titulo: "Gestão",
     itens: [
+      // Tarefa 29 — Mentoria e Trilhas abrem o grupo, nesta ordem (quem são
+      // os mentorados, depois o que eles consomem), antes de Financeiro e
+      // Central de Clientes.
+      //
+      // MENTORIA ESTAVA FALTANDO NA GAVETA. Não é parte do pedido da tarefa
+      // 29, é uma falha que ela revelou: `/mentoria` é o primeiro tile da
+      // tela inicial desde a B2.3 ("o NÚCLEO do produto MentorOS") e não
+      // tinha entrada nenhuma aqui — quem abrisse a gaveta no celular não
+      // tinha como chegar na carteira de mentorados. Entrou junto porque
+      // acrescentar Trilhas e deixar a Mentoria de fora produziria um menu
+      // que fala do conteúdo da mentoria sem falar da mentoria.
+      //
+      // `Trophy` é o mesmo ícone que o tile de Mentoria usa em apps.ts, de
+      // propósito: é a MESMA porta, vista de dois lugares diferentes.
+      { href: "/mentoria", rotulo: "Mentoria", icone: "Trophy" },
+      { href: "/trilhas", rotulo: "Trilhas", icone: "Route" },
       { href: "/financeiro", rotulo: "Financeiro", icone: "Wallet" },
       { href: "/crm", rotulo: "Central de Clientes", icone: "Users" },
     ],

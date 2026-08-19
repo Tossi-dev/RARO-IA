@@ -362,3 +362,70 @@ describe("rotaPermitida — rotas livres nunca causam laço de redirecionamento 
     expect(rotaPermitida("comercial", "/login/..%2ffinanceiro")).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tarefa 29 — Trilhas e certificado entram no mapa de rotas
+// ---------------------------------------------------------------------------
+//
+// Três decisões deste bloco, escritas como teste para não virarem folclore:
+//
+//   1. `/trilhas` (a tela de GESTÃO de trilhas) NÃO entra em ROTAS_COMERCIAL.
+//      Trilha é entrega, não venda: quem vende não monta a esteira de aula
+//      de quem já comprou. Dono e gestor abrem porque recebem "todas".
+//   2. O aluno não abre `/trilhas` — a tela DELE é `/portal/trilha`, que já
+//      cai sob o prefixo `/portal` de ROTAS_MINIMAS. Rota nova de aluno
+//      dentro de `/portal` não precisa de entrada nova aqui; rota nova de
+//      gestão precisa de decisão consciente. É o desenho de lista de
+//      permissão funcionando.
+//   3. `/certificado/[codigo]` é PÚBLICA (entra em `rotaLivre`, acesso.ts):
+//      um certificado que só o dono do sistema consegue conferir não é
+//      certificado — é print. Quem valida é um contratante, um cliente do
+//      aluno, alguém que não tem (nem vai criar) login aqui.
+describe("rotaPermitida — trilhas e certificado (tarefa 29)", () => {
+  it("/trilhas é de gestão: comercial e mentorado não abrem, dono e gestor sim", () => {
+    expect(rotaPermitida("comercial", "/trilhas")).toBe(false);
+    expect(rotaPermitida("mentorado", "/trilhas")).toBe(false);
+    expect(rotaPermitida("afiliado", "/trilhas")).toBe(false);
+    expect(rotaPermitida("aluno", "/trilhas")).toBe(false);
+    expect(rotaPermitida("dono", "/trilhas")).toBe(true);
+    expect(rotaPermitida("gestor", "/trilhas")).toBe(true);
+  });
+
+  it("uma trilha específica (/trilhas/<id>) segue a mesma regra da lista", () => {
+    expect(rotaPermitida("comercial", "/trilhas/abc-123")).toBe(false);
+    expect(rotaPermitida("mentorado", "/trilhas/abc-123")).toBe(false);
+    expect(rotaPermitida("dono", "/trilhas/abc-123")).toBe(true);
+  });
+
+  it("/portal/trilha é do aluno — já coberto pelo prefixo /portal, sem entrada nova", () => {
+    for (const papel of ["mentorado", "afiliado", "aluno", "dono", "gestor"] as const) {
+      expect(rotaPermitida(papel, "/portal/trilha")).toBe(true);
+    }
+    // O comercial continua fora do portal inteiro (B3.2) — inclusive da trilha.
+    expect(rotaPermitida("comercial", "/portal/trilha")).toBe(false);
+  });
+
+  it("/certificado/<codigo> abre para os seis papéis: é rota pública", () => {
+    for (const papel of TODOS_OS_PAPEIS) {
+      expect(rotaPermitida(papel, "/certificado/ABC23456789K")).toBe(true);
+    }
+  });
+
+  it("a guarda de travessia continua valendo para as rotas novas", () => {
+    // Sem a guarda, um proxy que normalize %2f em barra depois desta decisão
+    // transformaria "/trilhas/..%2ffinanceiro" em "/financeiro" JÁ APROVADO.
+    expect(rotaPermitida("mentorado", "/trilhas/..%2ffinanceiro")).toBe(false);
+    expect(rotaPermitida("comercial", "/trilhas/..%2ffinanceiro")).toBe(false);
+    expect(rotaPermitida("mentorado", "/portal/..%2ffinanceiro")).toBe(false);
+    // E a rota PÚBLICA não vira porta dos fundos: ser livre não suspende a
+    // guarda (mesmo tratamento que /login/..%2ffinanceiro já recebia).
+    expect(rotaPermitida("mentorado", "/certificado/..%2ffinanceiro")).toBe(false);
+    expect(rotaPermitida("comercial", "/certificado/..%2f..%2fcrm")).toBe(false);
+  });
+
+  it("prefixo por segmento: /trilhas não libera /trilhasocultas, /certificado não libera /certificados", () => {
+    expect(rotaPermitida("dono", "/trilhasocultas")).toBe(true); // dono abre tudo mesmo
+    expect(rotaPermitida("mentorado", "/certificados")).toBe(false);
+    expect(rotaPermitida("comercial", "/certificados/lista")).toBe(false);
+  });
+});
