@@ -75,6 +75,26 @@ const ROTAS_COMERCIAL = [
  *  que fazer lá dentro. */
 const ROTAS_MINIMAS = ["/", "/inicio", "/portal", "/comecar", "/tour", "/conteudo", "/agenda"] as const;
 
+// TAREFA 29 — POR QUE `/trilhas` NÃO ESTÁ EM NENHUMA DAS DUAS LISTAS ACIMA
+// ------------------------------------------------------------------------
+// `/trilhas` é a tela de GESTÃO da esteira de aulas: criar trilha, ordenar
+// aula, decidir em que dia cada uma abre. Fica fora de ROTAS_COMERCIAL
+// porque trilha é ENTREGA, não venda — quem vende não monta o conteúdo de
+// quem já comprou. E fica fora de ROTAS_MINIMAS porque a tela do aluno não
+// é essa: é `/portal/trilha`, que já cai sob o prefixo `/portal` acima.
+//
+// Ou seja: as duas listas ficaram EXATAMENTE como estavam, e é essa a
+// decisão. Dono e gestor abrem `/trilhas` pelo sinal "todas"; os outros
+// quatro papéis não abrem por OMISSÃO — que é como esta lista de permissão
+// foi desenhada para se comportar diante de rota nova (ver o comentário de
+// ROTAS_POR_PAPEL logo abaixo). O registro fica aqui, escrito, porque
+// "ninguém mexeu no arquivo" e "alguém olhou e decidiu não mexer" são
+// coisas diferentes, e só a segunda sobrevive à próxima leitura.
+//
+// A verificação pública `/certificado/<codigo>` também não aparece aqui:
+// ela é rota LIVRE (`ROTAS_LIVRES`, em src/lib/acesso.ts), conferida no
+// topo de `rotaPermitida` antes de qualquer lista de papel.
+
 /**
  * Lista de permissão por papel, não de bloqueio: dono e gestor recebem o
  * sinal `"todas"`; os demais papéis recebem um prefixo explícito. Uma rota

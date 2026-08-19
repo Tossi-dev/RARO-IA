@@ -36,7 +36,8 @@ export type NomeIcone =
   | "ListChecks"
   | "Upload"
   | "Plug"
-  | "UserCircle";
+  | "UserCircle"
+  | "Route";
 
 export interface SubApp {
   id: string;
@@ -109,6 +110,19 @@ const COR_CONTEUDO = "#0ea5e9"; // azul-céu — quarto tom de azul, mais aberto
 // seria o MESMO ícone) lado a lado na mesma grade — precisa de cor E ícone
 // distintos dos dois, não só cor.
 const COR_PORTAL = "#7c3aed"; // violeta-600 — identidade própria, sem repetir tom de nenhum app acima
+// Tarefa 29 — Trilhas. A escolha aqui é por ELIMINAÇÃO, e vale registrar o
+// caminho: um quinto azul ficaria indistinguível dos quatro de cima (os três
+// tons de --primaria + o azul-céu de Conteúdo); a família do vermelho está
+// comprometida com --negativo (#f26d6d) e leria como erro num tile que não é
+// erro; o dourado é acento de marca e já tem dono único (Central de
+// Clientes). Sobrou o verde-azulado. Ele é vizinho do verde de Financeiro
+// (#10b981) — a proximidade é real e não adianta fingir que não é —, mas os
+// dois nunca se confundem no uso: o teal é visivelmente mais escuro e mais
+// azul, os ícones são Wallet e Route (silhuetas sem nada em comum), e as
+// duas telas ficam em pontas opostas da grade. É o último tom que esta
+// paleta comporta: um décimo primeiro tile pede repensar a GRADE (pastas,
+// como Financeiro fez com seus sub-apps), não inventar a décima primeira cor.
+const COR_TRILHAS = "#0d9488"; // teal-600 — a esteira de conteúdo da mentoria
 
 /**
  * Financeiro (src/components/fin-rotas.ts é o mapa oficial das telas do
@@ -215,6 +229,26 @@ export const CATALOGO_APPS: AppCatalogo[] = [
     icone: "Trophy",
     cor: COR_MENTORIA,
     frase: "A carteira de mentorados: progresso, sessões e quem está sem contato.",
+  },
+  {
+    // Tarefa 29 — logo depois de Mentoria, e não no fim da grade: Mentoria
+    // ("quem são os mentorados") e Trilhas ("o que eles têm para consumir")
+    // são as duas metades do mesmo produto; Dashboard, Agenda e Financeiro
+    // são a operação em volta. `Route` (o traçado com paradas) é o ícone
+    // mais literal de "trilha" no lucide e não conflita com nenhum outro do
+    // catálogo — a bateria de testes garante que nem cor nem ícone se
+    // repetem no primeiro nível.
+    //
+    // Este tile NÃO aparece para mentorado/afiliado/aluno: `appsDoPapel`
+    // pergunta a `rotaPermitida` (papeis.ts), que nega `/trilhas` para os
+    // três — a tela DELES é `/portal/trilha`, dentro do Portal, e chega lá
+    // pelo próprio Portal, não por um tile na grade de quem opera.
+    id: "trilhas",
+    nome: "Trilhas",
+    href: "/trilhas",
+    icone: "Route",
+    cor: COR_TRILHAS,
+    frase: "A esteira de aulas: o que abre, quando abre e quem já concluiu.",
   },
   {
     // O Dashboard mora em "/painel" desde que a raiz do sistema virou a tela

@@ -115,3 +115,27 @@ describe("higiene de configuração", () => {
     expect(Object.keys(amb).some((k) => k.startsWith("NEXT_PUBLIC"))).toBe(false);
   });
 });
+
+// Tarefa 29 — a verificação de certificado é PÚBLICA.
+describe("rotaLivre — /certificado (tarefa 29)", () => {
+  it("a conferência de certificado passa sem login", () => {
+    // Quem confere um certificado é um contratante, um cliente do aluno,
+    // alguém que nunca vai ter conta aqui. Atrás do portão, o certificado
+    // não serve para nada: só o próprio emissor conseguiria conferir.
+    expect(rotaLivre("/certificado/ABC23456789K")).toBe(true);
+    expect(rotaLivre("/certificado")).toBe(true);
+  });
+
+  it("só o segmento exato é livre — /certificados não é /certificado", () => {
+    expect(rotaLivre("/certificados")).toBe(false);
+    expect(rotaLivre("/certificado-interno")).toBe(false);
+  });
+
+  it("nenhuma rota de dado do dono entrou na lista junto", () => {
+    // Guarda de regressão: a lista de rotas livres é a lista de coisas que
+    // o portão NÃO protege. Ela cresce por decisão, nunca por descuido.
+    for (const rota of ["/painel", "/financeiro", "/crm", "/mentoria", "/trilhas", "/portal"]) {
+      expect(rotaLivre(rota)).toBe(false);
+    }
+  });
+});

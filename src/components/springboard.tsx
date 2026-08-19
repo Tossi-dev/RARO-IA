@@ -25,6 +25,7 @@ import {
   Trophy,
   Undo2,
   Upload,
+  Route,
   UserCircle,
   Users,
   Wallet,
@@ -56,6 +57,7 @@ const ICONES: Record<NomeIcone, LucideIcon> = {
   ListChecks,
   Upload,
   Plug,
+  Route,
   UserCircle,
 };
 

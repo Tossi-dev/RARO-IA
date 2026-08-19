@@ -157,8 +157,26 @@ export async function seloConfere(
 export const VALIDADE_ACESSO_SEGUNDOS = 60 * 60 * 24 * 30;
 
 /** Rotas que o portão nunca pode bloquear, sob pena de deixar a própria tela
- *  de destravar inacessível (e o app num laço de redirecionamento). */
-export const ROTAS_LIVRES = ["/acesso", "/login", "/privacidade"];
+ *  de destravar inacessível (e o app num laço de redirecionamento).
+ *
+ *  `/certificado` (tarefa 29) entra aqui por um motivo DIFERENTE dos outros
+ *  três: não é laço de redirecionamento, é o propósito da tela. Quem confere
+ *  um certificado de conclusão é um contratante, um cliente do aluno, uma
+ *  banca — gente que não tem conta neste sistema e não vai criar uma só para
+ *  isso. Um certificado que só o emissor consegue conferir não é
+ *  certificado, é print de tela.
+ *
+ *  O QUE ESTA LINHA NÃO AUTORIZA — leia antes de escrever a tela: estar em
+ *  ROTAS_LIVRES significa que o PORTÃO não pergunta quem é. Não significa
+ *  que a página pode consultar o banco com a chave anônima e devolver o que
+ *  vier: a RLS de `certificado` (migração 0020) é escrita para gestão e
+ *  mentorado autenticados, e `anon` não tem — nem pode ganhar — política de
+ *  leitura ali. A verificação pública precisa passar por uma função
+ *  `security definer` que receba o CÓDIGO e devolva o MÍNIMO (validade, nome
+ *  de quem concluiu, trilha, data), nunca uma lista e nunca um filtro livre:
+ *  senão a rota livre vira listagem de clientes do Jefson para qualquer um
+ *  com um `curl`. */
+export const ROTAS_LIVRES = ["/acesso", "/login", "/privacidade", "/certificado"];
 
 export function rotaLivre(pathname: string): boolean {
   return ROTAS_LIVRES.some((r) => pathname === r || pathname.startsWith(`${r}/`));

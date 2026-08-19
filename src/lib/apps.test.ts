@@ -256,3 +256,71 @@ describe("ordenarApps", () => {
     expect(nomes).toEqual([...nomes].sort((a, b) => a.localeCompare(b, "pt-BR")));
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tarefa 29 — o tile de Trilhas
+// ---------------------------------------------------------------------------
+describe("CATALOGO_APPS — Trilhas (tarefa 29)", () => {
+  const trilhas = () => CATALOGO_APPS.find((a) => a.id === "trilhas");
+
+  it("existe, aponta para /trilhas e não é pasta (não tem subApps)", () => {
+    const app = trilhas();
+    expect(app).toBeDefined();
+    expect(app!.href).toBe("/trilhas");
+    expect(app!.subApps).toBeUndefined();
+  });
+
+  it("nenhuma cor de primeiro nível se repete no catálogo", () => {
+    // O critério escrito no comentário de paleta de apps.ts: os tiles
+    // precisam ficar DISTINGUÍVEIS entre si, senão o usuário erra o clique.
+    // Duas cores iguais é o caso mais fácil de detectar — e o mais fácil de
+    // introduzir sem perceber, copiando a linha do app de cima.
+    const cores = CATALOGO_APPS.map((a) => a.cor);
+    expect(new Set(cores).size).toBe(cores.length);
+  });
+
+  it("nenhum ícone de primeiro nível se repete no catálogo", () => {
+    const icones = CATALOGO_APPS.map((a) => a.icone);
+    expect(new Set(icones).size).toBe(icones.length);
+  });
+
+  it("dono e gestor recebem o tile; mais ninguém", () => {
+    for (const papel of ["dono", "gestor"] as const) {
+      expect(appsDoPapel(papel).map((a) => a.id)).toContain("trilhas");
+    }
+    for (const papel of ["comercial", "mentorado", "afiliado", "aluno"] as const) {
+      expect(appsDoPapel(papel).map((a) => a.id)).not.toContain("trilhas");
+    }
+  });
+
+  it("para quem não pode abrir, o tile não vaza nem a EXISTÊNCIA do módulo", () => {
+    // B2.7 de novo: o que `appsDoPapel` devolve vira JSON no navegador. Um
+    // tile filtrado "na hora de desenhar" já teria contado que existe uma
+    // área de trilhas — o vazamento que aquela tarefa fechou.
+    for (const papel of ["comercial", "mentorado", "afiliado", "aluno"] as const) {
+      const serializado = JSON.stringify(appsDoPapel(papel));
+      expect(serializado).not.toContain("/trilhas");
+      expect(serializado).not.toContain("Trilhas");
+    }
+  });
+
+  it("todo href de todo app devolvido é uma rota que aquele papel abre de verdade", () => {
+    // Vale para app e sub-app, nos seis papéis: nenhum tile pode levar para
+    // /sem-acesso. É a mesma pergunta do teste da gaveta, do outro lado.
+    const TODOS: readonly Papel[] = ["dono", "gestor", "comercial", "mentorado", "afiliado", "aluno"];
+    for (const papel of TODOS) {
+      for (const catalogo of [CATALOGO_APPS, CATALOGO_SISTEMA]) {
+        for (const app of appsDoPapel(papel, catalogo as AppCatalogo[])) {
+          expect([papel, app.href, rotaPermitida(papel, app.href)]).toEqual([papel, app.href, true]);
+          for (const sub of app.subApps ?? []) {
+            expect([papel, sub.href, rotaPermitida(papel, sub.href)]).toEqual([
+              papel,
+              sub.href,
+              true,
+            ]);
+          }
+        }
+      }
+    }
+  });
+});
