@@ -2660,6 +2660,19 @@ describe("0022 — feed, broadcast e mensagem direta", () => {
     });
   });
 
+  it("o mentorado lê o PRÓPRIO post_destinatario, nunca o de outro", () => {
+    // A mesma lacuna encontrada em 0023 (ver o comentário lá): sem
+    // `mentorado_id = mentorado_atual()`, um mentorado vê para QUEM cada
+    // mensagem direta foi endereçada — e quem já leu. A lista de
+    // destinatários de uma dm é, ela mesma, informação sobre outra pessoa.
+    const select = politicasDaTabela(exec0022, "post_destinatario").filter((p) => /for\s+select/i.test(p));
+    expect(select.length).toBe(1);
+    const corpo = politicasSemNome(select[0]);
+
+    expect(corpo).toContain("public.papel_atual() = 'mentorado'");
+    expect(corpo).toContain("mentorado_id = public.mentorado_atual()");
+  });
+
   describe("post_marcar_lido", () => {
     const funcao = corpoDaFuncao(exec0022, "post_marcar_lido");
 
@@ -2708,5 +2721,160 @@ describe("0022 — feed, broadcast e mensagem direta", () => {
     expect(exec0022).not.toMatch(/\bdrop\s+table\b/i);
     expect(exec0022).not.toMatch(/\bdrop\s+column\b/i);
     expect(exec0022).not.toMatch(/\bdrop\s+type\b/i);
+  });
+});
+
+// ============================================================
+// 0023 — onboarding
+// ============================================================
+//
+// O que este bloco vigia é UMA condição: `responsavel = 'mentorado'` dentro do
+// `where` de `onboarding_marcar`. Sem ela, o mentorado marca como feita a
+// etapa que é do MENTOR — "contrato enviado", "primeira sessão agendada" — e
+// a operação inteira passa a acreditar num checklist que ninguém do time
+// preencheu. Não é vazamento de dado; é pior de outro jeito: é o sistema
+// mentindo para quem confia nele.
+//
+// O resto do bloco repete as garantias que 0020 e 0022 já travaram, porque
+// elas são a forma da casa e é justamente por isso que ninguém percebe quando
+// uma migração nova esquece uma.
+
+const ARQUIVO_0023 = "0023_onboarding.sql";
+const ARQUIVO_EXEC_0023 = "_exec_0023_onboarding.sql";
+const m0023 = existeArquivoDeMigracao(ARQUIVO_0023) ? lerMigracao(ARQUIVO_0023) : "";
+const exec0023 = semComentarios(m0023);
+
+const TABELAS_0023 = ["onboarding_etapa", "onboarding_progresso"];
+
+describe("0023 — onboarding", () => {
+  it("a migração existe, e a versão _exec_ também", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0023), `esperava supabase/migrations/${ARQUIVO_0023}`).toBe(true);
+    expect(
+      readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0023),
+      `esperava supabase/migrations/${ARQUIVO_EXEC_0023}`,
+    ).toBe(true);
+  });
+
+  it.each(TABELAS_0023)("public.%s é criada, tem workspace_id e RLS ligada", (tabela) => {
+    const criacao = new RegExp(`create table if not exists public\\.${tabela}\\s*\\(([\\s\\S]*?)\\n\\);`, "i");
+    const m = criacao.exec(exec0023);
+    expect(m, `esperava create table public.${tabela} em 0023`).not.toBeNull();
+    expect(m![1]).toMatch(/workspace_id uuid not null references public\.workspace/i);
+    expect(exec0023).toContain(`alter table public.${tabela} enable row level security`);
+  });
+
+  it.each(TABELAS_0023)("toda política de public.%s começa escopada por workspace_atual()", (tabela) => {
+    const politicas = politicasDaTabela(exec0023, tabela);
+    expect(politicas.length, `esperava políticas em public.${tabela}`).toBeGreaterThan(0);
+    for (const politica of politicas) {
+      const clausulas = [...politica.matchAll(/(?:using|with check)\s*\(/gi)];
+      expect(clausulas.length).toBeGreaterThan(0);
+      for (const clausula of clausulas) {
+        const depois = politica.slice((clausula.index ?? 0) + clausula[0].length);
+        expect(
+          depois.trimStart().startsWith("workspace_id = public.workspace_atual()"),
+          `a primeira condição de ${tabela} deveria ser o escopo de workspace, e é: ${depois.trimStart().slice(0, 60)}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it.each(TABELAS_0023)("public.%s não tem política de DELETE nem `using (true)`", (tabela) => {
+    for (const politica of politicasDaTabela(exec0023, tabela)) {
+      expect(politica).not.toMatch(/for\s+delete/i);
+      expect(politica.replace(/\s+/g, " ")).not.toMatch(/(?:using|with check)\s*\(\s*true\s*\)/i);
+    }
+  });
+
+  // A ASSERÇÃO QUE TERIA PEGO O BURACO ORIGINAL DE 0007.
+  it("o mentorado lê o PRÓPRIO progresso, nunca o de outro", () => {
+    // Um mutante que tirava `mentorado_id = mentorado_atual()` da política
+    // sobreviveu à suíte inteira. Não era teste fraco por descuido: a
+    // asserção genérica que cobre essa forma (mais acima neste arquivo) roda
+    // sobre uma LISTA FIXA de tabelas, e tabela nova não entra nela sozinha.
+    // Sem a condição, todo mentorado do workspace lê o checklist de
+    // onboarding de todos os outros — quem já assinou contrato, quem está
+    // atrasado no quê.
+    const select = politicasDaTabela(exec0023, "onboarding_progresso").filter((p) => /for\s+select/i.test(p));
+    expect(select.length).toBe(1);
+    const corpo = politicasSemNome(select[0]);
+
+    expect(corpo).toContain("public.papel_atual() = 'mentorado'");
+    expect(corpo).toContain("mentorado_id = public.mentorado_atual()");
+  });
+
+  // A ASSERÇÃO QUE TERIA PEGO O ATAQUE DE 0012.
+  it("onboarding_progresso NÃO tem política de UPDATE para mentorado", () => {
+    const deUpdate = politicasDaTabela(exec0023, "onboarding_progresso").filter((p) => /for\s+update/i.test(p));
+    expect(deUpdate.length, "esperava a política de update da gestão").toBeGreaterThan(0);
+    for (const politica of deUpdate) {
+      expect(politicasSemNome(politica)).not.toContain("'mentorado'");
+    }
+  });
+
+  describe("onboarding_marcar", () => {
+    const funcao = corpoDaFuncao(exec0023, "onboarding_marcar");
+
+    it("A CONDIÇÃO: o `where` exige que a etapa seja do mentorado", () => {
+      // Asserção de FORMA, não de presença: a palavra `'mentorado'` aparece
+      // várias vezes no corpo (o papel, a comparação). O que precisa existir é
+      // a comparação da COLUNA `responsavel` com ela, dentro do `where`.
+      const compacta = funcao.replace(/\s+/g, " ");
+      expect(compacta).toContain("and e.responsavel = 'mentorado'");
+
+      // E ela vem DEPOIS do `where`, não numa lista de select ou num comentário
+      // que já foi removido.
+      const ondeWhere = compacta.indexOf(" where ");
+      const ondeCondicao = compacta.indexOf("and e.responsavel = 'mentorado'");
+      expect(ondeWhere).toBeGreaterThan(-1);
+      expect(ondeCondicao).toBeGreaterThan(ondeWhere);
+    });
+
+    it("as outras quatro condições do `where` continuam lá", () => {
+      const compacta = funcao.replace(/\s+/g, " ");
+      expect(compacta).toContain("e.id = p_etapa_id");
+      expect(compacta).toContain("and e.ativa");
+      expect(compacta).toContain("and e.workspace_id = public.workspace_atual()");
+      expect(compacta).toContain("and public.papel_atual() = 'mentorado'");
+    });
+
+    it("não aceita data nem mentorado por parâmetro, e `now()` roda no servidor", () => {
+      expect(funcao).toMatch(/onboarding_marcar\(p_etapa_id uuid, p_concluida boolean\)/i);
+      expect(funcao).not.toMatch(/p_concluida_em|p_mentorado_id|p_workspace/i);
+      expect(funcao).toContain("public.mentorado_atual()");
+      expect(funcao).toMatch(/case when p_concluida then now\(\) else null end/i);
+    });
+
+    it("é security definer com search_path fixo e fora do alcance da anon key", () => {
+      expect(funcao).toMatch(/security definer/i);
+      expect(funcao).toMatch(/set search_path = public/i);
+      expect(exec0023).toContain("revoke all on function public.onboarding_marcar(uuid, boolean) from anon");
+      expect(exec0023).toContain("revoke all on function public.onboarding_marcar(uuid, boolean) from public");
+      expect(exec0023).toContain(
+        "grant execute on function public.onboarding_marcar(uuid, boolean) to authenticated",
+      );
+    });
+
+    it("zero linhas levanta exceção, e a mensagem não conta nada", () => {
+      // Separar "etapa não existe" de "essa etapa é do mentor" diria a quem
+      // perguntou que a etapa existe em algum lugar, e de quem ela é.
+      expect(funcao).toMatch(/if linhas_afetadas = 0 then\s*raise exception/i);
+      const mensagem = /raise exception '([^']*)'/.exec(funcao)?.[1] ?? "";
+      expect(mensagem).not.toMatch(/onboarding_|etapa_id|mentorado_id|workspace|responsavel/i);
+    });
+
+    it("o segundo clique ATUALIZA, e o unique é quem sustenta isso", () => {
+      expect(funcao).toMatch(/on conflict \(mentorado_id, etapa_id\) do update/i);
+      expect(exec0023).toMatch(/unique\s*\(mentorado_id, etapa_id\)/i);
+    });
+  });
+
+  it("o enum novo é idempotente, e nada é apagado", () => {
+    expect(exec0023).toMatch(/create type public\.responsavel_etapa as enum \('mentor', 'mentorado'\)/i);
+    expect(exec0023).toMatch(/if not exists \(select 1 from pg_type where typname = 'responsavel_etapa'\)/i);
+    expect(exec0023).not.toMatch(/\bdelete\s+from\b/i);
+    expect(exec0023).not.toMatch(/\bdrop\s+table\b/i);
+    expect(exec0023).not.toMatch(/\bdrop\s+column\b/i);
+    expect(exec0023).not.toMatch(/\bdrop\s+type\b/i);
   });
 });
