@@ -101,3 +101,21 @@ describe("gruposNavPorPapel — Trilhas (tarefa 29)", () => {
     }
   });
 });
+
+// Tarefa 36 — Avisos entra na gaveta, do lado de Mentoria e Trilhas.
+describe("gruposNavPorPapel — Avisos (tarefa 36)", () => {
+  it("dono e gestor veem Avisos no grupo Gestão", () => {
+    for (const papel of ["dono", "gestor"] as const) {
+      const gestao = gruposNavPorPapel(papel).find((g) => g.titulo === "Gestão");
+      expect(gestao?.itens.map((i) => i.rotulo) ?? []).toContain("Avisos");
+    }
+  });
+
+  it("mais ninguém vê Avisos — nem o rótulo, nem o href no que é serializado", () => {
+    for (const papel of ["comercial", "mentorado", "afiliado", "aluno"] as const) {
+      const itens = gruposNavPorPapel(papel).flatMap((g) => g.itens);
+      expect(itens.map((i) => i.rotulo)).not.toContain("Avisos");
+      expect(JSON.stringify(itens)).not.toContain("/feed");
+    }
+  });
+});

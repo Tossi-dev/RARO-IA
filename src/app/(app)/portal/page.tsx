@@ -25,6 +25,7 @@
 //      pessoa tem, não lista o que existe do outro lado.
 //   3) o portal de verdade.
 
+import { lerMeuFeed } from "@/lib/feed/dados";
 import { lerPortal } from "@/lib/mentoria/portal";
 import { PortalVisao } from "./visao";
 
@@ -34,7 +35,12 @@ export default async function Portal({ searchParams }: { searchParams: { erro?: 
   // borda: "agora" nasce aqui, uma vez, e desce como string para tudo que
   // precisar dele — leitura, próxima sessão, dias até ela, tom de prazo.
   const agoraIso = new Date().toISOString();
-  const portal = await lerPortal(agoraIso);
 
-  return <PortalVisao portal={portal} agoraIso={agoraIso} erro={searchParams.erro} />;
+  // Em paralelo, e tolerando falha separada: `lerMeuFeed` devolve
+  // `conectado: false` em vez de lançar, e o card some sozinho nesse caso
+  // (ver `./avisos.tsx`). Uma falha nos avisos não pode derrubar o portal
+  // inteiro — a jornada da pessoa não depende de ter recado novo.
+  const [portal, feed] = await Promise.all([lerPortal(agoraIso), lerMeuFeed(agoraIso)]);
+
+  return <PortalVisao portal={portal} agoraIso={agoraIso} erro={searchParams.erro} feed={feed} />;
 }

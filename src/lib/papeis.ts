@@ -94,6 +94,19 @@ const ROTAS_MINIMAS = ["/", "/inicio", "/portal", "/comecar", "/tour", "/conteud
 // A verificação pública `/certificado/<codigo>` também não aparece aqui:
 // ela é rota LIVRE (`ROTAS_LIVRES`, em src/lib/acesso.ts), conferida no
 // topo de `rotaPermitida` antes de qualquer lista de papel.
+//
+// TAREFA 36 — `/feed` SEGUE A MESMA REGRA, PELO MESMO MOTIVO
+// ----------------------------------------------------------
+// `/feed` é a tela de GESTÃO dos avisos: escrever no mural, mandar mensagem
+// direta, arquivar. Fora de ROTAS_COMERCIAL (feed é entrega, não venda — e
+// carrega conversa com quem JÁ comprou, inclusive mensagem direta) e fora de
+// ROTAS_MINIMAS (o mentorado vê os avisos num card dentro de `/portal`, que
+// já está liberado). De novo: as duas listas ficam como estão, e essa é a
+// decisão.
+//
+// A RLS de 0022 é quem faz valer isso de verdade — lá o `comercial` não tem
+// ramo nenhum na política de select de `post`, então ele lê zero linhas mesmo
+// que um dia alguém abra a rota por engano.
 
 /**
  * Lista de permissão por papel, não de bloqueio: dono e gestor recebem o

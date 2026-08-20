@@ -429,3 +429,29 @@ describe("rotaPermitida — trilhas e certificado (tarefa 29)", () => {
     expect(rotaPermitida("comercial", "/certificados/lista")).toBe(false);
   });
 });
+
+// Tarefa 36 — o feed é de gestão, como as trilhas.
+describe("rotaPermitida — /feed (tarefa 36)", () => {
+  it("comercial e mentorado não abrem; dono e gestor sim", () => {
+    expect(rotaPermitida("comercial", "/feed")).toBe(false);
+    expect(rotaPermitida("mentorado", "/feed")).toBe(false);
+    expect(rotaPermitida("afiliado", "/feed")).toBe(false);
+    expect(rotaPermitida("aluno", "/feed")).toBe(false);
+    expect(rotaPermitida("dono", "/feed")).toBe(true);
+    expect(rotaPermitida("gestor", "/feed")).toBe(true);
+  });
+
+  it("o mentorado continua abrindo /portal, que é onde os avisos aparecem para ele", () => {
+    expect(rotaPermitida("mentorado", "/portal")).toBe(true);
+  });
+
+  it("a guarda de travessia vale aqui também", () => {
+    expect(rotaPermitida("mentorado", "/feed/..%2ffinanceiro")).toBe(false);
+    expect(rotaPermitida("comercial", "/feed/..%2fcrm")).toBe(false);
+  });
+
+  it("prefixo por segmento: /feed não libera /feedback", () => {
+    expect(rotaPermitida("mentorado", "/feedback")).toBe(false);
+    expect(rotaPermitida("comercial", "/feedback")).toBe(false);
+  });
+});

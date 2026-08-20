@@ -16,7 +16,9 @@ import Link from "next/link";
 import { Badge, Botao, Card, PageHeader, ProgressBar, Vazio, cx, type Tom } from "@/components/ui";
 import { sair } from "@/lib/actions";
 import { concluirTarefa, reabrirTarefa } from "@/lib/mentoria/acoes-portal";
+import type { MeuFeed } from "@/lib/feed/dados";
 import type { Portal } from "@/lib/mentoria/portal";
+import { AvisosDoPortal } from "./avisos";
 import type { StatusMatricula, StatusSessao } from "@/lib/mentoria/tipos";
 import { linkGravacaoValido } from "@/lib/mentoria/validacao";
 import { dataBr, dataHoraBr, variacaoScore } from "../mentoria/textos";
@@ -220,10 +222,16 @@ export function PortalVisao({
   portal,
   agoraIso,
   erro,
+  feed,
 }: {
   portal: Portal;
   agoraIso: string;
   erro?: string;
+  /** Os avisos (tarefa 36). OPCIONAL de propósito: a prévia visual e os
+   *  testes antigos montam esta tela só com `portal`, e um card a mais não
+   *  pode obrigar todos eles a inventar um feed. Ausente, o card não
+   *  aparece — que é o mesmo comportamento de "não sou mentorado". */
+  feed?: MeuFeed;
 }) {
   // Estado 1: sem Supabase configurado, ou a leitura falhou — um Card curto
   // com o `motivo` que `lerPortal` já preparou, sem número nenhum.
@@ -276,6 +284,11 @@ export function PortalVisao({
       ) : null}
 
       <div className="space-y-4">
+        {/* 1) Os avisos, primeiro: é o que MUDOU desde a última visita, e a
+            razão mais comum de a pessoa abrir o portal num dia qualquer. O
+            card decide sozinho se aparece — ver `./avisos.tsx`. */}
+        {feed ? <AvisosDoPortal feed={feed} /> : null}
+
         {/* 2) O progresso — um bloco por matrícula. */}
         <Card titulo="Progresso">
           {portal.matriculas.length ? (
