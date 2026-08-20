@@ -3226,3 +3226,104 @@ describe("0025 — propostas e leitura pública por token", () => {
     expect(exec0025).not.toMatch(/alter type[\s\S]*?add value/i);
   });
 });
+
+// ============================================================
+// 0026 — fecha para `anon` as quatro funções que ficaram de 0001
+// ============================================================
+//
+// Achado de 20/08, conferindo o banco DE VERDADE depois de 0025: quatro
+// funções do schema `public` ainda carregavam o `execute` que o Postgres dá a
+// `PUBLIC` por padrão — `handle_new_user`, `mentorado_atual`, `papel_atual` e
+// `workspace_atual`. Todas nasceram em 0001, antes de o projeto escrever a
+// convenção que segue desde 0022: função nova revoga de `anon` com todas as
+// letras.
+//
+// O TAMANHO HONESTO DO PROBLEMA: nenhuma delas vazava dado. As três
+// auxiliares leem `auth.uid()`, que é nulo sem sessão, e devolvem nulo;
+// `handle_new_user` é função de gatilho, e o Postgres recusa chamá-la direto.
+// O que se conserta aqui é a distância entre o que o projeto diz e o que o
+// banco tem — e essa distância é o que faz uma auditoria futura confiar na
+// regra errada.
+//
+// O QUE ESTE BLOCO IMPEDE, e é o motivo de ele existir: o conserto que
+// derruba o app. Revogar de `authenticated` junto com `anon` tiraria as três
+// auxiliares de dentro das 261 políticas de RLS que as chamam, e TODO usuário
+// logado passaria a receber "permission denied for function" em vez de dado.
+// Os testes de baixo travam as duas pontas: fecha para `anon`, mantém para
+// `authenticated`.
+
+const ARQUIVO_0026 = "0026_fechar_funcoes_para_anon.sql";
+const ARQUIVO_EXEC_0026 = "_exec_0026_fechar_funcoes_para_anon.sql";
+const m0026 = existeArquivoDeMigracao(ARQUIVO_0026) ? lerMigracao(ARQUIVO_0026) : "";
+const exec0026 = semComentarios(m0026);
+
+/** As três que a RLS chama. `handle_new_user` é outra história — ver abaixo. */
+const AUXILIARES_0026 = ["mentorado_atual", "papel_atual", "workspace_atual"];
+
+describe("0026 — fecha para anon as funções que ficaram de 0001", () => {
+  it("a migração existe, e a versão _exec_ também", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0026), `esperava supabase/migrations/${ARQUIVO_0026}`).toBe(true);
+    expect(
+      readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0026),
+      `esperava supabase/migrations/${ARQUIVO_EXEC_0026}`,
+    ).toBe(true);
+  });
+
+  it.each([...AUXILIARES_0026, "handle_new_user"])(
+    "public.%s() é revogada de public E de anon — as duas, porque são grants diferentes",
+    (fn) => {
+      // `revoke ... from public` não apaga um grant nominal para `anon`, e o
+      // ACL das quatro tinha os dois. Revogar só um deixa a porta aberta.
+      expect(exec0026).toContain(`revoke execute on function public.${fn}() from public`);
+      expect(exec0026).toContain(`revoke execute on function public.${fn}() from anon`);
+    },
+  );
+
+  it.each(AUXILIARES_0026)("public.%s() CONTINUA ao alcance de authenticated", (fn) => {
+    // Sem isto, toda política de RLS que chama a função passa a estourar
+    // "permission denied" para quem está logado — ou seja, o app inteiro.
+    const revoke = exec0026.indexOf(`revoke execute on function public.${fn}() from public`);
+    const grant = exec0026.indexOf(`grant execute on function public.${fn}() to authenticated`);
+    expect(grant, `esperava o grant de ${fn} para authenticated`).toBeGreaterThan(-1);
+    // E a ordem importa: conceder antes de revogar apagaria a concessão.
+    expect(revoke).toBeLessThan(grant);
+  });
+
+  it("handle_new_user NÃO ganha grant para ninguém que venha da internet", () => {
+    // Ela existe para o gatilho `on_auth_user_created`, e gatilho não precisa
+    // de grant em tempo de execução: o Postgres confere a permissão quando o
+    // gatilho é CRIADO. Quem não chama, não precisa poder chamar.
+    expect(exec0026).not.toMatch(/grant execute on function public\.handle_new_user\(\) to (anon|authenticated)/i);
+    expect(exec0026).toContain("revoke execute on function public.handle_new_user() from authenticated");
+  });
+
+  it("a rede de segurança do gatilho é NOMINAL e guardada pela existência do papel", () => {
+    // `supabase_auth_admin` é quem insere em auth.users. O grant é cinto e
+    // suspensório; o `if exists` evita quebrar a migração num Postgres que
+    // não seja o do Supabase.
+    expect(exec0026).toMatch(/if exists \(select 1 from pg_roles where rolname = 'supabase_auth_admin'\)/i);
+    expect(exec0026).toMatch(/grant execute on function public\.handle_new_user\(\) to supabase_auth_admin/i);
+  });
+
+  it("nenhuma função ganha anon nesta migração — o projeto continua com duas portas", () => {
+    expect(exec0026).not.toMatch(/grant execute on function [^;]*to[^;]*anon/i);
+  });
+
+  it("é uma migração de PERMISSÃO: não cria, não altera e não apaga nada", () => {
+    // Uma migração de conserto que também mexe em tabela é uma migração que
+    // ninguém consegue reverter com segurança.
+    for (const proibido of [
+      /\bcreate\s+table\b/i,
+      /\bcreate\s+policy\b/i,
+      /\bdrop\s+policy\b/i,
+      /\balter\s+table\b/i,
+      /\bcreate\s+or\s+replace\s+function\b/i,
+      /\bdrop\s+function\b/i,
+      /\bdelete\s+from\b/i,
+      /\bdrop\s+table\b/i,
+      /\bupdate\s+public\./i,
+    ]) {
+      expect(exec0026, `esperava nenhum ${proibido}`).not.toMatch(proibido);
+    }
+  });
+});
