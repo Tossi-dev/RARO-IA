@@ -2878,3 +2878,132 @@ describe("0023 — onboarding", () => {
     expect(exec0023).not.toMatch(/\bdrop\s+type\b/i);
   });
 });
+
+// ============================================================
+// 0024 — funil comercial
+// ============================================================
+//
+// O que este bloco vigia é uma AUSÊNCIA: a palavra `'mentorado'` não pode
+// aparecer em política nenhuma de `oportunidade`. Diferente dos blocos 5, 6 e
+// 7, onde o mentorado sempre tinha um ramo próprio, aqui ele não tem — e o
+// motivo é o conteúdo da tabela: valor negociado, probabilidade de
+// fechamento, motivo de perda. É a conversa interna sobre quanto se espera
+// arrancar de alguém, e a pessoa de quem se fala é exatamente quem não pode
+// ler.
+//
+// As duas tabelas NÃO entram em `TABELAS_CRM` (a lista lá em cima): aquela
+// lista existe para o bloco de 0001, e uma tabela de 0024 dentro dela faria
+// os testes daquele arquivo procurarem políticas que não estão nele. As
+// mesmas garantias estão repetidas aqui, sobre o arquivo certo.
+
+const ARQUIVO_0024 = "0024_comercial_funil.sql";
+const ARQUIVO_EXEC_0024 = "_exec_0024_comercial_funil.sql";
+const m0024 = existeArquivoDeMigracao(ARQUIVO_0024) ? lerMigracao(ARQUIVO_0024) : "";
+const exec0024 = semComentarios(m0024);
+
+const TABELAS_0024 = ["funil_etapa", "oportunidade"];
+
+describe("0024 — funil comercial", () => {
+  it("a migração existe, e a versão _exec_ também", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0024), `esperava supabase/migrations/${ARQUIVO_0024}`).toBe(true);
+    expect(
+      readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0024),
+      `esperava supabase/migrations/${ARQUIVO_EXEC_0024}`,
+    ).toBe(true);
+  });
+
+  it.each(TABELAS_0024)("public.%s é criada, tem workspace_id e RLS ligada", (tabela) => {
+    const criacao = new RegExp(`create table if not exists public\\.${tabela}\\s*\\(([\\s\\S]*?)\\n\\);`, "i");
+    const m = criacao.exec(exec0024);
+    expect(m, `esperava create table public.${tabela} em 0024`).not.toBeNull();
+    expect(m![1]).toMatch(/workspace_id uuid not null references public\.workspace/i);
+    expect(exec0024).toContain(`alter table public.${tabela} enable row level security`);
+  });
+
+  it.each(TABELAS_0024)("toda política de public.%s começa escopada por workspace_atual()", (tabela) => {
+    const politicas = politicasDaTabela(exec0024, tabela);
+    expect(politicas.length, `esperava políticas em public.${tabela}`).toBeGreaterThan(0);
+    for (const politica of politicas) {
+      const clausulas = [...politica.matchAll(/(?:using|with check)\s*\(/gi)];
+      expect(clausulas.length).toBeGreaterThan(0);
+      for (const clausula of clausulas) {
+        const depois = politica.slice((clausula.index ?? 0) + clausula[0].length);
+        expect(
+          depois.trimStart().startsWith("workspace_id = public.workspace_atual()"),
+          `a primeira condição de ${tabela} deveria ser o escopo de workspace, e é: ${depois.trimStart().slice(0, 60)}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it.each(TABELAS_0024)("public.%s não tem política de DELETE nem `using (true)`", (tabela) => {
+    for (const politica of politicasDaTabela(exec0024, tabela)) {
+      expect(politica).not.toMatch(/for\s+delete/i);
+      expect(politica.replace(/\s+/g, " ")).not.toMatch(/(?:using|with check)\s*\(\s*true\s*\)/i);
+    }
+  });
+
+  // A ASSERÇÃO QUE DÁ NOME AO BLOCO.
+  it("NENHUMA política de oportunidade cita 'mentorado'", () => {
+    const politicas = politicasDaTabela(exec0024, "oportunidade");
+    expect(politicas.length).toBe(3);
+    for (const politica of politicas) {
+      // Sem o nome da política no meio — foi assim que a asserção de 0007
+      // passou por anos olhando para o lugar errado.
+      expect(politicasSemNome(politica)).not.toContain("'mentorado'");
+    }
+  });
+
+  it("ter a coluna `mentorado_id` não dá direito de leitura a ninguém", () => {
+    // A coluna existe (é a ponte para quando a venda vira cliente), e é
+    // justamente por isso que a asserção acima precisa existir: a presença da
+    // coluna convida a escrever a política "óbvia".
+    expect(exec0024).toMatch(/mentorado_id uuid references public\.mentorado \(id\) on delete set null/i);
+  });
+
+  it("as três políticas de cada tabela são do time comercial", () => {
+    for (const tabela of TABELAS_0024) {
+      const politicas = politicasDaTabela(exec0024, tabela);
+      expect(politicas.length, `esperava três políticas em ${tabela}`).toBe(3);
+      for (const politica of politicas) {
+        expect(politicasSemNome(politica)).toContain("public.papel_atual() in ('dono', 'gestor', 'comercial')");
+      }
+    }
+  });
+
+  it("os `check` que a tela não pode contornar", () => {
+    // `probabilidade` fora de 0..100 seria um número que a tela mostra e
+    // ninguém sabe de onde veio.
+    expect(exec0024).toMatch(/probabilidade int not null default 0 check \(probabilidade between 0 and 100\)/i);
+    // `ordem` negativa quebraria a leitura do funil.
+    expect(exec0024).toMatch(/ordem int not null default 0 check \(ordem >= 0\)/i);
+    // Perda sem motivo: a régua fica no banco, não num `if` de tela.
+    expect(exec0024).toMatch(
+      /constraint perda_tem_motivo check \(status <> 'perdida' or btrim\(motivo_perda\) <> ''\)/i,
+    );
+  });
+
+  it("a chave da etapa é única POR WORKSPACE, não global", () => {
+    // Global impediria dois inquilinos de terem a etapa "qualificacao".
+    expect(exec0024).toMatch(/unique \(workspace_id, chave\)/i);
+  });
+
+  it("apagar uma etapa não apaga oportunidade — o padrão recusa, e é o certo", () => {
+    // `on delete cascade` aqui levaria junto o histórico de tudo que passou
+    // pela etapa. Como nada é apagado neste projeto (etapa sai por
+    // `ativa = false`), recusar transforma um erro silencioso em erro visível.
+    expect(exec0024).toMatch(/etapa_id uuid not null references public\.funil_etapa \(id\)(?!\s+on delete cascade)/i);
+    expect(exec0024).not.toMatch(/references public\.funil_etapa \(id\) on delete cascade/i);
+  });
+
+  it("os dois enums são criados de forma idempotente, e nada é apagado", () => {
+    expect(exec0024).toMatch(/create type public\.tipo_etapa_funil as enum \('sdr', 'closer'\)/i);
+    expect(exec0024).toMatch(/create type public\.status_oportunidade as enum \('aberta', 'ganha', 'perdida'\)/i);
+    expect(exec0024).toMatch(/if not exists \(select 1 from pg_type where typname = 'tipo_etapa_funil'\)/i);
+    expect(exec0024).toMatch(/if not exists \(select 1 from pg_type where typname = 'status_oportunidade'\)/i);
+    expect(exec0024).not.toMatch(/\bdelete\s+from\b/i);
+    expect(exec0024).not.toMatch(/\bdrop\s+table\b/i);
+    expect(exec0024).not.toMatch(/\bdrop\s+column\b/i);
+    expect(exec0024).not.toMatch(/\bdrop\s+type\b/i);
+  });
+});
