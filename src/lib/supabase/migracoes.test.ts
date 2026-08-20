@@ -3007,3 +3007,222 @@ describe("0024 — funil comercial", () => {
     expect(exec0024).not.toMatch(/\bdrop\s+type\b/i);
   });
 });
+
+// ============================================================
+// 0025 — scripts de etapa, propostas e a leitura pública por token
+// ============================================================
+//
+// Esta migração abre a SEGUNDA porta para `anon` da história do projeto, e
+// por isso é a mais perigosa do bloco. A primeira (0021, verificação de
+// certificado) devolve nome, trilha e data. Esta devolve uma PROPOSTA
+// COMERCIAL — título, corpo, valor —, e está pendurada num token que viaja
+// por WhatsApp, e-mail e captura de tela.
+//
+// A pergunta que os testes fazem é sempre a mesma: a porta continua estreita?
+//
+//   1) `proposta` NÃO ganha política de select para `anon`, e nenhuma
+//      política nasce com `using (true)`. Se um dia alguém "resolver" a
+//      leitura pública com uma linha de RLS em vez da função, o pipeline
+//      inteiro — valor, cliente, etapa — vaza pela anon key, que é pública
+//      por definição. Esta é a asserção mais importante do arquivo;
+//   2) a função devolve CINCO colunas e nenhuma a mais. Nada de
+//      `oportunidade_id`, `aluno_id`, e-mail ou telefone;
+//   3) o token tem forma conferida no banco, e é `unique`;
+//   4) `proposta_visita` guarda HASH, nunca o valor cru. O teste procura a
+//      ausência das colunas `ip` e `user_agent` e a presença do `check` de
+//      64 hexadecimais — rastrear abertura não é motivo para guardar o IP
+//      de ninguém;
+//   5) ninguém escreve visita à mão: a tabela não tem política de insert.
+//      Visita é fato, não opinião — quem registra é a função.
+
+const ARQUIVO_0025 = "0025_comercial_proposta.sql";
+const ARQUIVO_EXEC_0025 = "_exec_0025_comercial_proposta.sql";
+const m0025 = existeArquivoDeMigracao(ARQUIVO_0025) ? lerMigracao(ARQUIVO_0025) : "";
+const exec0025 = semComentarios(m0025);
+const corpo0025 = corpoDaFuncao(exec0025, "proposta_publica");
+
+const TABELAS_0025 = ["script_etapa", "proposta", "proposta_visita"];
+
+describe("0025 — propostas e leitura pública por token", () => {
+  it("a migração existe, e a versão _exec_ também", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0025), `esperava supabase/migrations/${ARQUIVO_0025}`).toBe(true);
+    expect(
+      readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0025),
+      `esperava supabase/migrations/${ARQUIVO_EXEC_0025}`,
+    ).toBe(true);
+  });
+
+  it.each(TABELAS_0025)("public.%s é criada, tem workspace_id e RLS ligada", (tabela) => {
+    const criacao = new RegExp(`create table if not exists public\\.${tabela}\\s*\\(([\\s\\S]*?)\\n\\);`, "i");
+    const m = criacao.exec(exec0025);
+    expect(m, `esperava create table public.${tabela} em 0025`).not.toBeNull();
+    expect(m![1]).toMatch(/workspace_id uuid not null references public\.workspace/i);
+    expect(exec0025).toContain(`alter table public.${tabela} enable row level security`);
+  });
+
+  it.each(TABELAS_0025)("toda política de public.%s começa escopada por workspace_atual()", (tabela) => {
+    const politicas = politicasDaTabela(exec0025, tabela);
+    expect(politicas.length, `esperava políticas em public.${tabela}`).toBeGreaterThan(0);
+    for (const politica of politicas) {
+      const clausulas = [...politica.matchAll(/(?:using|with check)\s*\(/gi)];
+      expect(clausulas.length).toBeGreaterThan(0);
+      for (const clausula of clausulas) {
+        const depois = politica.slice((clausula.index ?? 0) + clausula[0].length);
+        expect(
+          depois.trimStart().startsWith("workspace_id = public.workspace_atual()"),
+          `a primeira condição de ${tabela} deveria ser o escopo de workspace, e é: ${depois.trimStart().slice(0, 60)}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("NENHUMA política é para anon, e nenhuma nasce aberta", () => {
+    // A asserção que impede o vazamento inteiro do pipeline por uma linha
+    // de RLS. A leitura sem login existe — e passa pela função, que devolve
+    // cinco colunas, nunca pela política, que devolveria a linha inteira.
+    const politicas = TABELAS_0025.flatMap((t) => politicasDaTabela(exec0025, t));
+    expect(politicas.length).toBeGreaterThan(0);
+    for (const politica of politicas) {
+      expect(politica, "política para anon em 0025").not.toMatch(/\bto\s+anon\b/i);
+      expect(politica, "política aberta em 0025").not.toMatch(/using\s*\(\s*true\s*\)/i);
+      expect(politica, "política de delete em 0025").not.toMatch(/for\s+delete\b/i);
+    }
+  });
+
+  it("o mentorado não aparece em política nenhuma — proposta é conversa do time", () => {
+    // Mesma decisão de 0024: valor negociado não se lê do lado de dentro.
+    for (const politica of TABELAS_0025.flatMap((t) => politicasDaTabela(exec0025, t))) {
+      expect(politica).not.toMatch(/'mentorado'/);
+    }
+  });
+
+  it("ninguém escreve visita à mão: proposta_visita não tem política de insert", () => {
+    // Visita é fato registrado pela função, não linha que alguém digita.
+    for (const politica of politicasDaTabela(exec0025, "proposta_visita")) {
+      expect(politica, "política de escrita em proposta_visita").not.toMatch(/for\s+(insert|update)\b/i);
+    }
+  });
+
+  it("o token é único e tem forma conferida no BANCO", () => {
+    // Link de proposta adivinhável é o pipeline inteiro na mão de quem
+    // chutar. 22 caracteres base62 é o piso que a tarefa 44 gera.
+    expect(exec0025).toMatch(/token text not null unique/i);
+    expect(exec0025).toMatch(/check \(token ~ '\^\[0-9A-Za-z\]\{22,128\}\$'\)/);
+  });
+
+  it("proposta_visita guarda HASH — não existe coluna de IP nem de agente cru", () => {
+    const criacao = /create table if not exists public\.proposta_visita\s*\(([\s\S]*?)\n\);/i.exec(exec0025);
+    expect(criacao).not.toBeNull();
+    const colunas = criacao![1];
+    expect(colunas).toMatch(/ip_hash text/i);
+    expect(colunas).toMatch(/agente_hash text/i);
+    // As colunas cruas não existem, e o teste falha se alguém as criar.
+    expect(colunas).not.toMatch(/^\s*ip\s/im);
+    expect(colunas).not.toMatch(/user_agent/i);
+    expect(colunas).not.toMatch(/\bendereco_ip\b/i);
+    // E a forma é conferida: 64 hexadecimais ou vazio. Um IP cru mandado
+    // por engano NÃO passa por aqui.
+    expect(colunas).toMatch(/check \(ip_hash ~ '\^\(\[0-9a-f\]\{64\}\)\?\$'\)/);
+    expect(colunas).toMatch(/check \(agente_hash ~ '\^\(\[0-9a-f\]\{64\}\)\?\$'\)/);
+  });
+
+  describe("proposta_publica — a segunda porta para anon", () => {
+    it("é security definer, com search_path fixo, e NÃO é stable", () => {
+      // `stable` seria mentira: a função escreve a visita. Marcada assim, o
+      // planejador teria licença para não executar o insert.
+      expect(exec0025).toMatch(
+        /create or replace function public\.proposta_publica\(\s*p_token text,\s*p_ip_hash text default '',\s*p_agente_hash text default ''\s*\)/i,
+      );
+      expect(corpo0025).toMatch(/security definer/i);
+      expect(corpo0025).toMatch(/set search_path = public/i);
+      expect(corpo0025).not.toMatch(/^\s*stable\s*$/im);
+      expect(corpo0025).not.toMatch(/\bimmutable\b/i);
+    });
+
+    it("devolve CINCO colunas, e nenhuma a mais", () => {
+      expect(exec0025).toMatch(
+        /returns table \(titulo text, corpo text, valor numeric, validade date, status public\.status_proposta\)/i,
+      );
+      const retorno = /return query\s*([\s\S]*?);/i.exec(corpo0025);
+      expect(retorno, "esperava o return query da função").not.toBeNull();
+      expect(retorno![1]).toMatch(/select p\.titulo, p\.corpo, p\.valor, p\.validade, p\.status/i);
+      // O que a linha devolvida não pode carregar de jeito nenhum.
+      expect(retorno![1]).not.toMatch(/workspace/i);
+      expect(retorno![1]).not.toMatch(/token/i);
+      expect(retorno![1]).not.toMatch(/select\s+\*/i);
+    });
+
+    it("não atravessa para o resto do pipeline", () => {
+      // Nem por join, nem por coluna: quem abre o link não é do time.
+      expect(corpo0025).not.toMatch(/oportunidade_id/i);
+      expect(corpo0025).not.toMatch(/\baluno_id\b/i);
+      expect(corpo0025).not.toMatch(/\bemail\b/i);
+      expect(corpo0025).not.toMatch(/\btelefone\b/i);
+      expect(corpo0025).not.toMatch(/select\s+\*/i);
+    });
+
+    it("o token é comparado por IGUALDADE, e a forma é conferida antes da consulta", () => {
+      expect(corpo0025).toMatch(/p\.token = p_token/);
+      expect(corpo0025).toMatch(/\^\[0-9A-Za-z\]\{22,128\}\$/);
+      expect(corpo0025).not.toMatch(/\blike\b/i);
+      expect(corpo0025).not.toMatch(/\bilike\b/i);
+      expect(corpo0025).not.toMatch(/position\s*\(|strpos\s*\(|starts_with\s*\(/i);
+    });
+
+    it("só proposta ENVIADA e dentro da validade é devolvida", () => {
+      // Rascunho é rascunho; recusada e expirada não voltam à vida por um
+      // link antigo que alguém reencaminhou.
+      expect(corpo0025).toMatch(/p\.status = 'enviada'/);
+      expect(corpo0025).toMatch(/p\.validade is null or p\.validade >= current_date/i);
+    });
+
+    it("o que não tem forma de hash é DESCARTADO, não guardado", () => {
+      // O app hasheia antes de chamar. Se um dia mandar o valor cru por
+      // engano, ele não entra: vira vazio aqui, e o `check` da tabela
+      // recusaria de qualquer jeito.
+      expect(corpo0025).toMatch(
+        /case when coalesce\(p_ip_hash, ''\) ~ '\^\[0-9a-f\]\{64\}\$' then p_ip_hash else '' end/i,
+      );
+      expect(corpo0025).toMatch(
+        /case when coalesce\(p_agente_hash, ''\) ~ '\^\[0-9a-f\]\{64\}\$' then p_agente_hash else '' end/i,
+      );
+    });
+
+    it("a liberação para anon é NOMINAL, e o revoke de public vem antes", () => {
+      const revoke = exec0025.indexOf(
+        "revoke all on function public.proposta_publica(text, text, text) from public",
+      );
+      const grant = exec0025.indexOf(
+        "grant execute on function public.proposta_publica(text, text, text) to anon, authenticated",
+      );
+      expect(revoke, "esperava o revoke de public").toBeGreaterThan(-1);
+      expect(grant, "esperava o grant nominal para anon e authenticated").toBeGreaterThan(-1);
+      expect(revoke).toBeLessThan(grant);
+    });
+  });
+
+  it("o projeto INTEIRO tem duas funções abertas para anon, e são estas duas", () => {
+    // A conta é sobre todas as migrações, não só sobre este arquivo: é o
+    // lugar certo para descobrir a terceira porta no dia em que ela nascer.
+    const grants = todasAsMigracoes().match(/grant execute on function [^;]*to[^;]*anon/gi) ?? [];
+    const nomes = grants
+      .map((g) => /function public\.(\w+)/i.exec(g)?.[1] ?? "?")
+      .sort();
+    expect(nomes, `funções abertas para anon hoje: ${nomes.join(", ")}`).toEqual([
+      "proposta_publica",
+      "verificar_certificado",
+    ]);
+  });
+
+  it("o enum de status é criado de forma idempotente, e nada é apagado", () => {
+    expect(exec0025).toMatch(
+      /create type public\.status_proposta as enum \('rascunho', 'enviada', 'aceita', 'recusada', 'expirada'\)/i,
+    );
+    expect(exec0025).toMatch(/if not exists \(select 1 from pg_type where typname = 'status_proposta'\)/i);
+    expect(exec0025).not.toMatch(/\bdelete\s+from\b/i);
+    expect(exec0025).not.toMatch(/\bdrop\s+table\b/i);
+    expect(exec0025).not.toMatch(/\bdrop\s+column\b/i);
+    expect(exec0025).not.toMatch(/\bdrop\s+type\b/i);
+    expect(exec0025).not.toMatch(/alter type[\s\S]*?add value/i);
+  });
+});
