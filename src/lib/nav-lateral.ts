@@ -40,7 +40,8 @@ export type NomeIconeLateral =
   | "Plug"
   | "UserCircle"
   | "Trophy"
-  | "Route";
+  | "Route"
+  | "Megaphone";
 
 export interface ItemNavLateral {
   href: string;
@@ -92,6 +93,16 @@ const GRUPOS_COMPLETOS: GrupoNavLateral[] = [
       // propósito: é a MESMA porta, vista de dois lugares diferentes.
       { href: "/mentoria", rotulo: "Mentoria", icone: "Trophy" },
       { href: "/trilhas", rotulo: "Trilhas", icone: "Route" },
+      // Tarefa 36 — avisos e mensagem direta. Fica em Gestão junto com
+      // Mentoria e Trilhas: é o terceiro lado da mesma coisa (quem são os
+      // mentorados, o que eles consomem, o que se fala com eles).
+      //
+      // NÃO ganhou tile na tela inicial, e isso foi decisão: a grade tem dez
+      // ícones e o comentário de paleta de `apps.ts` já registrou que o
+      // décimo primeiro pede repensar a GRADE (agrupar em pastas, como
+      // Financeiro fez), não inventar a décima primeira cor. A gaveta não tem
+      // esse limite — ela é lista, não mosaico.
+      { href: "/feed", rotulo: "Avisos", icone: "Megaphone" },
       { href: "/financeiro", rotulo: "Financeiro", icone: "Wallet" },
       { href: "/crm", rotulo: "Central de Clientes", icone: "Users" },
     ],

@@ -265,6 +265,11 @@ export function programaAtual(
 // typo, seja um ataque deliberado — nunca ecoa; cai numa frase genérica.
 const MENSAGENS_ERRO: Record<string, string> = {
   tarefa: "Não foi possível atualizar esta tarefa agora. Tente novamente em instantes.",
+  // Tarefa 36 — os dois códigos do card de avisos. O portal traduz CÓDIGO,
+  // nunca frase: `?erro=` com texto livre foi o MÉDIO 5 da auditoria (a URL
+  // virava um banner oficial do produto escrito por quem mandou o link).
+  comentario: "Não foi possível enviar seu comentário agora. Tente novamente em instantes.",
+  aviso: "Não foi possível registrar a leitura deste aviso agora. Tente novamente em instantes.",
 };
 
 const MENSAGEM_ERRO_GENERICA = "Não foi possível concluir a ação agora. Tente novamente em instantes.";

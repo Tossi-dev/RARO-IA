@@ -64,8 +64,22 @@ export const MOTIVO_ERRO_SALVAR = "Não foi possível salvar agora. Tente novame
 export const MOTIVO_ERRO_MARCAR =
   "Não foi possível registrar a leitura agora. Tente novamente em instantes.";
 
+// As rotas de verdade. `/portal` e NÃO `/portal/feed`: o mentorado vê os
+// avisos num CARD dentro do próprio portal (tarefa 36), não numa tela
+// separada — a casa dele é uma página só. Constante, e não literal espalhado,
+// porque cada caminho é usado duas vezes (o `redirect` de erro e o
+// `revalidatePath` de sucesso) e porque isso já errou antes: em `acoes-trilha.ts`
+// os dois nasceram apontando para rotas que nunca existiram, e o estrago era
+// silencioso — erro virando 404 em vez de mensagem, e cache limpo de uma rota
+// que ninguém abre.
+/** Os códigos que o portal sabe traduzir (`MENSAGENS_ERRO`, em
+ *  portal/textos.ts). Curtos e sem espaço de propósito: eles atravessam a URL
+ *  e a tela nunca os desenha crus. */
+export const CODIGO_COMENTARIO = "comentario";
+export const CODIGO_AVISO = "aviso";
+
 const CAMINHO_GESTAO = "/feed";
-const CAMINHO_PORTAL = "/portal/feed";
+const CAMINHO_PORTAL = "/portal";
 const MAX_ID = 100;
 const MAX_TITULO = 200;
 const MAX_CORPO = 20000;
@@ -80,8 +94,26 @@ function texto(formData: FormData, campo: string): string {
   return String(formData.get(campo) ?? "").trim();
 }
 
+/**
+ * Volta para a tela com o motivo.
+ *
+ * DUAS GRAMÁTICAS, e a diferença não é estética. A tela da GESTÃO renderiza
+ * `?erro=` como frase, porque quem a lê é o time e a mensagem precisa dizer
+ * exatamente o que recusou. O PORTAL não: lá `?erro=` carrega um CÓDIGO
+ * curto, que `mensagemDeErro` (portal/textos.ts) traduz. A razão está escrita
+ * na auditoria — o MÉDIO 5: enquanto o portal renderizava o texto da URL,
+ * qualquer link `?erro=<texto de ataque>` virava um "aviso do sistema" dentro
+ * do banner oficial do produto, para quem clicasse.
+ *
+ * Por isso as ações do portal chamam `voltarComCodigo`, e nunca esta.
+ */
 function voltarComErro(caminho: string, mensagem: string): never {
   redirect(`${caminho}?erro=${encodeURIComponent(mensagem)}`);
+}
+
+/** O caminho do portal, com o CÓDIGO que a tela sabe traduzir. */
+function voltarComCodigo(codigo: string): never {
+  redirect(`${CAMINHO_PORTAL}?erro=${encodeURIComponent(codigo)}`);
 }
 
 /** `redirect` do Next sinaliza por exceção — engoli-la mataria o próprio
@@ -246,16 +278,16 @@ export async function comentar(formData: FormData): Promise<void> {
   const caminho = CAMINHO_PORTAL;
 
   const postId = texto(formData, "postId");
-  if (!postId || postId.length > MAX_ID) voltarComErro(caminho, MOTIVO_POST_INVALIDO);
+  if (!postId || postId.length > MAX_ID) voltarComCodigo(CODIGO_COMENTARIO);
 
   const corpo = String(formData.get("corpo") ?? "").trim();
-  if (corpo === "" || corpo.length > MAX_CORPO) voltarComErro(caminho, MOTIVO_CORPO_VAZIO);
+  if (corpo === "" || corpo.length > MAX_CORPO) voltarComCodigo(CODIGO_COMENTARIO);
 
   try {
     const s = criarSupabaseServer();
 
     const autor = await idDeQuemEscreve(s);
-    if (!autor) voltarComErro(caminho, MOTIVO_SEM_SESSAO);
+    if (!autor) voltarComCodigo(CODIGO_COMENTARIO);
 
     const { error } = await s.from("comentario").insert({
       post_id: postId,
@@ -265,12 +297,12 @@ export async function comentar(formData: FormData): Promise<void> {
 
     if (error) {
       avisar("comentar", (error as { code?: string }).code ?? "sem-codigo");
-      voltarComErro(caminho, MOTIVO_ERRO_SALVAR);
+      voltarComCodigo(CODIGO_COMENTARIO);
     }
   } catch (excecao) {
     if (ehControleDeFluxoDoNext(excecao)) throw excecao;
     avisar("comentar", excecao instanceof Error ? excecao.name : "excecao");
-    voltarComErro(caminho, MOTIVO_ERRO_SALVAR);
+    voltarComCodigo(CODIGO_COMENTARIO);
   }
 
   revalidatePath(caminho);
@@ -349,7 +381,7 @@ export async function marcarPostLido(formData: FormData): Promise<void> {
   const caminho = CAMINHO_PORTAL;
 
   const postId = texto(formData, "postId");
-  if (!postId || postId.length > MAX_ID) voltarComErro(caminho, MOTIVO_POST_INVALIDO);
+  if (!postId || postId.length > MAX_ID) voltarComCodigo(CODIGO_AVISO);
 
   try {
     const s = criarSupabaseServer();
@@ -357,12 +389,12 @@ export async function marcarPostLido(formData: FormData): Promise<void> {
 
     if (error) {
       avisar("marcarPostLido", (error as { code?: string }).code ?? "sem-codigo");
-      voltarComErro(caminho, MOTIVO_ERRO_MARCAR);
+      voltarComCodigo(CODIGO_AVISO);
     }
   } catch (excecao) {
     if (ehControleDeFluxoDoNext(excecao)) throw excecao;
     avisar("marcarPostLido", excecao instanceof Error ? excecao.name : "excecao");
-    voltarComErro(caminho, MOTIVO_ERRO_MARCAR);
+    voltarComCodigo(CODIGO_AVISO);
   }
 
   revalidatePath(caminho);

@@ -40,6 +40,8 @@ const {
   MOTIVO_DM_SEM_DESTINATARIO,
   MOTIVO_BROADCAST_COM_DESTINATARIO,
   MOTIVO_POST_INVALIDO,
+  CODIGO_COMENTARIO,
+  CODIGO_AVISO,
 } = await import("./acoes");
 
 const PERFIL = "perfil-de-quem-esta-logado";
@@ -302,11 +304,15 @@ describe("publicarPost — o que ele grava", () => {
 });
 
 describe("comentar", () => {
-  it("corpo vazio é recusado antes do banco", async () => {
+  it("corpo vazio é recusado antes do banco, e volta com CÓDIGO", async () => {
+    // O portal traduz código, nunca frase — ver `voltarComCodigo` e o MÉDIO 5
+    // da auditoria. Mandar a frase pela URL aqui produziria o mesmo banner
+    // que aquela correção existiu para fechar.
     const { registros } = duble();
     const erro = await erroDe(comentar(form({ postId: POST, corpo: "  " })));
 
-    expect(erro).toBe(MOTIVO_CORPO_VAZIO);
+    expect(erro).toBe(CODIGO_COMENTARIO);
+    expect(erro).not.toContain(" ");
     expect(registros).toEqual([]);
   });
 
@@ -314,7 +320,7 @@ describe("comentar", () => {
     const { registros } = duble();
     const erro = await erroDe(comentar(form({ postId: "", corpo: "Oi" })));
 
-    expect(erro).toBe(MOTIVO_POST_INVALIDO);
+    expect(erro).toBe(CODIGO_COMENTARIO);
     expect(registros).toEqual([]);
   });
 
@@ -407,15 +413,16 @@ describe("marcarPostLido", () => {
     expect(Object.keys(argumentos)).toEqual(["p_post_id"]);
   });
 
-  it("post inválido é recusado antes do banco", async () => {
+  it("post inválido é recusado antes do banco, e volta com CÓDIGO", async () => {
     const { rpcMock } = duble();
     const erro = await erroDe(marcarPostLido(form({ postId: "" })));
 
-    expect(erro).toBe(MOTIVO_POST_INVALIDO);
+    expect(erro).toBe(CODIGO_AVISO);
+    expect(erro).not.toContain(" ");
     expect(rpcMock).not.toHaveBeenCalled();
   });
 
-  it("erro do banco vira mensagem humana, sem código nem nome de tabela", async () => {
+  it("erro do banco não carrega código do Postgres nem nome de tabela na URL", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const erro = await erroDe(
       (() => {
@@ -424,9 +431,64 @@ describe("marcarPostLido", () => {
       })(),
     );
 
-    expect(erro).not.toBe("");
+    expect(erro).toBe(CODIGO_AVISO);
     for (const proibido of ["42501", "post_destinatario", "rpc"]) {
       expect(erro.toLowerCase()).not.toContain(proibido);
     }
+  });
+
+  it("os dois códigos do portal são exatamente os que a tela sabe traduzir", async () => {
+    // Se um deles mudar aqui e não lá, o mentorado passa a receber a
+    // mensagem genérica em vez da específica — sem erro, sem aviso, sem nada
+    // que qualquer outro teste pegasse.
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const textos = readFileSync(join(process.cwd(), "src/app/(app)/portal/textos.ts"), "utf8");
+
+    for (const codigo of [CODIGO_COMENTARIO, CODIGO_AVISO]) {
+      expect(textos, `esperava o código ${codigo} em MENSAGENS_ERRO`).toContain(`  ${codigo}: "`);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tarefa 36 — para ONDE cada ação volta
+// ---------------------------------------------------------------------------
+//
+// Mesma armadilha que mordeu em `acoes-trilha.ts`: caminho escrito antes da
+// tela existir aponta para uma rota que nunca nasceu, e o estrago é
+// silencioso — o `redirect` de erro joga num 404 em vez de mostrar o motivo, e
+// o `revalidatePath` limpa o cache de uma rota que ninguém abre, então a tela
+// certa segue servindo dado velho.
+describe("acoes do feed — os caminhos de volta (tarefa 36)", () => {
+  function caminhoDoRedirect(): string {
+    return String(redirectMock.mock.calls.at(-1)?.[0] ?? "").split("?")[0];
+  }
+
+  it("erro da gestão volta para /feed", async () => {
+    duble();
+    await expect(publicarPost(form({ escopo: "feed", corpo: "" }))).rejects.toThrow(/REDIRECT/);
+    expect(caminhoDoRedirect()).toBe("/feed");
+  });
+
+  it("erro do mentorado volta para /portal — os avisos são um card de lá, não uma tela à parte", async () => {
+    duble();
+    await expect(marcarPostLido(form({ postId: "" }))).rejects.toThrow(/REDIRECT/);
+    expect(caminhoDoRedirect()).toBe("/portal");
+
+    await expect(comentar(form({ postId: POST, corpo: "" }))).rejects.toThrow(/REDIRECT/);
+    expect(caminhoDoRedirect()).toBe("/portal");
+  });
+
+  it("publicar revalida as DUAS pontas: quem escreveu e quem lê", async () => {
+    // Um aviso novo muda a tela da gestão e a do mentorado ao mesmo tempo.
+    // Revalidar só uma deixaria a outra mostrando a lista de antes.
+    revalidatePathMock.mockClear();
+    duble({ mentorados: [] });
+
+    await publicarPost(form({ escopo: "feed", corpo: "Aviso" }));
+
+    expect(revalidatePathMock).toHaveBeenCalledWith("/feed");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/portal");
   });
 });
