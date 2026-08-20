@@ -270,6 +270,11 @@ const MENSAGENS_ERRO: Record<string, string> = {
   // virava um banner oficial do produto escrito por quem mandou o link).
   comentario: "Não foi possível enviar seu comentário agora. Tente novamente em instantes.",
   aviso: "Não foi possível registrar a leitura deste aviso agora. Tente novamente em instantes.",
+  // Tarefa 39 — o roteiro de entrada. A mesma frase serve para os dois casos
+  // ("não deu para salvar" e "essa etapa não é sua") de propósito: separar os
+  // dois contaria a quem tentou de quem é a etapa que ele não conseguiu
+  // marcar, e essa informação é do time.
+  etapa: "Não foi possível marcar esta etapa agora. Tente novamente em instantes.",
 };
 
 const MENSAGEM_ERRO_GENERICA = "Não foi possível concluir a ação agora. Tente novamente em instantes.";
