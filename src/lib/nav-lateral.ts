@@ -41,6 +41,7 @@ export type NomeIconeLateral =
   | "UserCircle"
   | "Trophy"
   | "Route"
+  | "Handshake"
   | "Megaphone";
 
 export interface ItemNavLateral {
@@ -109,6 +110,10 @@ const GRUPOS_COMPLETOS: GrupoNavLateral[] = [
       { href: "/onboarding", rotulo: "Onboarding", icone: "ListChecks" },
       { href: "/financeiro", rotulo: "Financeiro", icone: "Wallet" },
       { href: "/crm", rotulo: "Central de Clientes", icone: "Users" },
+      // Tarefa 47 — logo depois da Central de Clientes, pelo mesmo motivo que
+      // fez `/comercial` virar sub-app dela em apps.ts: são duas perguntas
+      // sobre as mesmas pessoas (quem são; o que está sendo negociado).
+      { href: "/comercial", rotulo: "Negociações", icone: "Handshake" },
     ],
   },
   {

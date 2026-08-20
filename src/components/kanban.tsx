@@ -1,6 +1,22 @@
-// Kanban do CRM por estágio (padrão frappe/crm, sem drag-and-drop:
-// mover = menu no cartão → server action, funciona sem JS pesado).
+// Kanban: a CASCA (colunas que rolam e param inteiras na tela) e o quadro do
+// CRM por estágio. Padrão frappe/crm, sem drag-and-drop: mover = menu no
+// cartão → server action, funciona sem JS pesado.
+//
+// TAREFA 47 — A CASCA VIROU PEÇA PRÓPRIA, E O CARTÃO NÃO
+// ------------------------------------------------------
+// O funil comercial (`/comercial`) precisava de um quadro, e o plano da Fase
+// 2 pedia para "reaproveitar o kanban". Reaproveitar o `KanbanCrm` INTEIRO
+// seria errado: o cartão dele carrega telefone, botão de WhatsApp, LTV e
+// "dias sem contato", e o menu de mover chama `moverAlunoEstagio` — coisas de
+// aluno, não de negociação. Uma peça que servisse aos dois viraria um monte
+// de `if` sobre o que mostrar.
+//
+// O que os dois quadros REALMENTE têm em comum é a casca: a tira horizontal
+// de colunas com `snap`, o cabeçalho com contagem e o "Vazio" quando a coluna
+// não tem nada. Isso é `KanbanColunas`, e cada tela desenha o próprio cartão
+// dentro.
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { moverAlunoEstagio } from "@/lib/actions";
 import { fmtBRL } from "@/lib/format";
@@ -17,6 +33,41 @@ export interface CartaoKanban {
   diasSemContato: number | null;
 }
 
+export interface ColunaKanban {
+  id: string;
+  titulo: string;
+  /** O que o leitor de tela anuncia — "Estágio X" no CRM, "Etapa X" no funil. */
+  rotuloAria: string;
+  /** O canto direito do cabeçalho: contagem, valor somado, o que a tela quiser. */
+  etiqueta?: ReactNode;
+  conteudo: ReactNode;
+}
+
+/**
+ * A tira de colunas. Não sabe o que é um cartão — só empilha o que recebe.
+ */
+export function KanbanColunas({ colunas }: { colunas: ColunaKanban[] }) {
+  return (
+    // snap-x: cada coluna do funil pára inteira na tela — sem isso, um swipe
+    // no celular parava no meio de uma coluna e parecia o layout quebrado.
+    <div className="flex snap-x snap-proximity gap-3 overflow-x-auto pb-3">
+      {colunas.map((coluna) => (
+        <section
+          key={coluna.id}
+          className="w-[250px] shrink-0 snap-start rounded-xl border border-borda bg-painel"
+          aria-label={coluna.rotuloAria}
+        >
+          <header className="flex items-center justify-between border-b border-borda px-3 py-2">
+            <span className="text-sm font-medium">{coluna.titulo}</span>
+            {coluna.etiqueta}
+          </header>
+          <div className="max-h-[520px] space-y-2 overflow-y-auto p-2">{coluna.conteudo}</div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 export function KanbanCrm({
   estagios,
   colunas,
@@ -25,22 +76,16 @@ export function KanbanCrm({
   colunas: Record<string, CartaoKanban[]>; // estagioId → cartões
 }) {
   return (
-    // snap-x: cada coluna do funil pára inteira na tela — sem isso, um swipe
-    // no celular parava no meio de uma coluna e parecia o layout quebrado.
-    <div className="flex snap-x snap-proximity gap-3 overflow-x-auto pb-3">
-      {estagios.map((e) => {
+    <KanbanColunas
+      colunas={estagios.map((e) => {
         const cartoes = colunas[e.id] ?? [];
-        return (
-          <section
-            key={e.id}
-            className="w-[250px] shrink-0 snap-start rounded-xl border border-borda bg-painel"
-            aria-label={`Estágio ${e.nome}`}
-          >
-            <header className="flex items-center justify-between border-b border-borda px-3 py-2">
-              <span className="text-sm font-medium">{e.nome}</span>
-              <Badge tom={(e.cor as Tom) ?? "cinza"}>{cartoes.length}</Badge>
-            </header>
-            <div className="max-h-[520px] space-y-2 overflow-y-auto p-2">
+        return {
+          id: e.id,
+          titulo: e.nome,
+          rotuloAria: `Estágio ${e.nome}`,
+          etiqueta: <Badge tom={(e.cor as Tom) ?? "cinza"}>{cartoes.length}</Badge>,
+          conteudo: (
+            <>
               {cartoes.map((c) => (
                 <article key={c.id} className="rounded-lg border border-borda bg-painel-2 p-2.5">
                   <div className="flex items-start justify-between gap-1">
@@ -104,13 +149,11 @@ export function KanbanCrm({
                   </p>
                 </article>
               ))}
-              {!cartoes.length && (
-                <p className="px-2 py-6 text-center text-xs text-texto-2">Vazio</p>
-              )}
-            </div>
-          </section>
-        );
+              {!cartoes.length && <p className="px-2 py-6 text-center text-xs text-texto-2">Vazio</p>}
+            </>
+          ),
+        };
       })}
-    </div>
+    />
   );
 }

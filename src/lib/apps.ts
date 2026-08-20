@@ -37,7 +37,8 @@ export type NomeIcone =
   | "Upload"
   | "Plug"
   | "UserCircle"
-  | "Route";
+  | "Route"
+  | "Handshake";
 
 export interface SubApp {
   id: string;
@@ -174,6 +175,39 @@ const SUBAPPS_FINANCEIRO: SubApp[] = [
   },
 ];
 
+/**
+ * Central de Clientes — as duas telas do lado comercial.
+ *
+ * TAREFA 47 — `/comercial` entrou como SUB-APP, e não como o décimo primeiro
+ * tile da grade. O motivo está escrito no comentário de paleta acima: em 29,
+ * o teal de Trilhas foi registrado como o último tom que esta paleta tolera
+ * no primeiro nível, e um tile novo exigiria cor nova. Contrariar aquela
+ * decisão três blocos depois, por conveniência, seria transformar um critério
+ * em enfeite.
+ *
+ * E o lugar é o certo, não só o disponível: `/crm` é "quem são os clientes e
+ * os leads" e `/comercial` é "o que está sendo negociado com eles". Duas
+ * perguntas sobre as mesmas pessoas — o dourado do cliente vale para as duas.
+ */
+const SUBAPPS_CRM: SubApp[] = [
+  {
+    id: "crm-clientes",
+    nome: "Clientes e leads",
+    href: "/crm",
+    icone: "Users",
+    cor: COR_CRM,
+    frase: "Quem são, em que estágio estão e o histórico de cada um.",
+  },
+  {
+    id: "crm-negociacoes",
+    nome: "Negociações",
+    href: "/comercial",
+    icone: "Handshake",
+    cor: COR_CRM,
+    frase: "O funil aberto: em que etapa está cada negócio, e quanto vale.",
+  },
+];
+
 /** Conteúdo & Redes — as três telas reais (src/app/(app)/conteudo/*), com a
  *  frase copiada do PageHeader de cada uma. */
 const SUBAPPS_CONTEUDO: SubApp[] = [
@@ -286,6 +320,7 @@ export const CATALOGO_APPS: AppCatalogo[] = [
     icone: "Users",
     cor: COR_CRM,
     frase: "Alunos, estágio do funil e o histórico de cada um.",
+    subApps: SUBAPPS_CRM,
   },
   {
     id: "conteudo",

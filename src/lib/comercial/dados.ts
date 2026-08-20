@@ -138,6 +138,12 @@ export interface PropostaComLink {
   ultimaVisita: string | null;
 }
 
+/** O mínimo para o cartão do kanban dizer de QUEM é a negociação. */
+export interface AlunoDoFunil {
+  id: string;
+  nome: string;
+}
+
 export interface PipelineDoTime {
   conectado: boolean;
   motivo: string;
@@ -145,6 +151,7 @@ export interface PipelineDoTime {
   parcial: boolean;
   etapas: EtapaLida[];
   oportunidades: OportunidadeLida[];
+  alunos: AlunoDoFunil[];
   propostas: PropostaResumo[];
   /** `null` quando `parcial` — ver o cabeçalho. */
   conversao: ConversaoDoFunil | null;
@@ -230,6 +237,7 @@ function pipelineDesconectado(motivo: string): PipelineDoTime {
     parcial: false,
     etapas: [],
     oportunidades: [],
+    alunos: [],
     propostas: [],
     conversao: null,
     cicloMedioDias: null,
@@ -250,10 +258,13 @@ export async function lerPipeline(agoraIso: string): Promise<PipelineDoTime> {
   try {
     const s = criarSupabaseServer();
 
-    const [etapasRes, oportunidadesRes, propostasRes] = await Promise.all([
+    const [etapasRes, oportunidadesRes, propostasRes, alunosRes] = await Promise.all([
       s.from("funil_etapa").select("*").order("ordem", { ascending: true }),
       s.from("oportunidade").select("*").order("criado_em", { ascending: false }),
       s.from("proposta").select(COLUNAS_RESUMO_PROPOSTA).order("criado_em", { ascending: false }),
+      // Só id e nome. O cartão precisa dizer de quem é a negociação, e mais
+      // nada daqui: telefone, e-mail e histórico são da ficha, não do funil.
+      s.from("alunos").select("id, nome"),
     ]);
 
     // A espinha: sem etapa ou sem oportunidade não há funil para desenhar.
@@ -266,8 +277,9 @@ export async function lerPipeline(agoraIso: string): Promise<PipelineDoTime> {
     const etapas = ((etapasRes.data ?? []) as Row[]).map(linhaParaEtapa);
     const oportunidades = ((oportunidadesRes.data ?? []) as Row[]).map(linhaParaOportunidade);
 
-    const parcial = Boolean(propostasRes.error);
+    const parcial = Boolean(propostasRes.error) || Boolean(alunosRes.error);
     if (propostasRes.error) avisar("lerPipeline/proposta", propostasRes.error);
+    if (alunosRes.error) avisar("lerPipeline/aluno", alunosRes.error);
 
     const propostas = parcial
       ? []
@@ -279,6 +291,9 @@ export async function lerPipeline(agoraIso: string): Promise<PipelineDoTime> {
       parcial,
       etapas,
       oportunidades,
+      alunos: alunosRes.error
+        ? []
+        : ((alunosRes.data ?? []) as Row[]).map((r) => ({ id: r.id, nome: r.nome ?? "" })),
       propostas,
       // Ver o cabeçalho: conta pela metade não é conta.
       conversao: parcial ? null : conversaoPorEtapa(oportunidades, etapas),

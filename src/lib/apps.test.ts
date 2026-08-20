@@ -23,9 +23,36 @@ describe("CATALOGO_APPS — não inventa rota", () => {
     }
   });
 
-  it("Financeiro e Conteúdo têm sub-apps; os demais não", () => {
+  it("Financeiro, Conteúdo e Central de Clientes têm sub-apps; os demais não", () => {
+    // O CRM entrou na lista na tarefa 47: `/comercial` virou sub-app dele em
+    // vez de um décimo primeiro tile, porque a paleta do primeiro nível foi
+    // declarada saturada na tarefa 29 e um tile novo exigiria cor nova.
     const comPasta = CATALOGO_APPS.filter((a) => (a.subApps?.length ?? 0) > 0).map((a) => a.id);
-    expect(comPasta.sort()).toEqual(["conteudo", "financeiro"].sort());
+    expect(comPasta.sort()).toEqual(["conteudo", "crm", "financeiro"].sort());
+  });
+
+  it("Central de Clientes tem as duas telas do lado comercial", () => {
+    const crm = CATALOGO_APPS.find((a) => a.id === "crm")!;
+    expect(crm.subApps?.map((s) => s.href)).toEqual(["/crm", "/comercial"]);
+    // O dourado do cliente vale para as duas: são perguntas diferentes sobre
+    // as mesmas pessoas.
+    expect(new Set(crm.subApps?.map((s) => s.cor))).toEqual(new Set([crm.cor]));
+  });
+
+  it("mentorado não recebe o sub-app de negociações", () => {
+    // `oportunidade` carrega valor negociado, probabilidade e motivo de
+    // perda — e a pessoa de quem se fala é exatamente quem não pode ler.
+    const crm = appsDoPapel("mentorado").find((a) => a.id === "crm");
+    expect(crm).toBeUndefined();
+    for (const papel of ["afiliado", "aluno"] as const) {
+      const apps = appsDoPapel(papel);
+      expect(apps.flatMap((a) => a.subApps ?? []).map((s) => s.href)).not.toContain("/comercial");
+    }
+  });
+
+  it("comercial recebe as duas telas da Central de Clientes", () => {
+    const crm = appsDoPapel("comercial").find((a) => a.id === "crm")!;
+    expect(crm.subApps?.map((s) => s.href)).toEqual(["/crm", "/comercial"]);
   });
 
   it("Financeiro tem exatamente as cinco telas de fin-rotas.ts, na mesma ordem", () => {

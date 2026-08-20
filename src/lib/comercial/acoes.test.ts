@@ -11,6 +11,8 @@
 // 4) nenhuma ação apaga nada, e nenhuma lê `workspace_id` do formulário;
 // 5) erro do banco vira frase humana; o log leva só o código.
 
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 const criarSupabaseServerMock = vi.fn();
@@ -110,6 +112,36 @@ async function destino(acao: () => Promise<void>): Promise<string> {
     return m[1];
   }
 }
+
+describe("para onde as ações voltam", () => {
+  it("o caminho de volta é uma rota que EXISTE no app", async () => {
+    // Em 30, as ações de trilha voltavam para `/conteudo/trilhas`, que nunca
+    // existiu: o erro só aparecia como 404 depois de a pessoa errar o
+    // formulário. A asserção sai do redirecionamento de verdade e vai olhar a
+    // pasta de rotas.
+    duble();
+    const ida = await destino(() => moverOportunidade(form({ id: "torto", etapaId: ETAPA })));
+    const rota = ida.split("?")[0];
+    const pagina = join(process.cwd(), "src", "app", "(app)", rota.slice(1), "page.tsx");
+
+    expect(rota.startsWith("/")).toBe(true);
+    expect(existsSync(pagina), `${rota} não existe como rota`).toBe(true);
+  });
+
+  it("toda ação recusada devolve para dentro de /comercial", async () => {
+    for (const acao of [
+      () => moverOportunidade(form({ id: "torto", etapaId: ETAPA })),
+      () => ganharOportunidade(form({ id: "torto" })),
+      () => perderOportunidade(form({ id: "torto" })),
+      () => criarOportunidade(form({ alunoId: "torto" })),
+      () => criarProposta(form({ oportunidadeId: "torto" })),
+    ]) {
+      duble();
+      const ida = await destino(acao);
+      expect(ida.startsWith("/comercial")).toBe(true);
+    }
+  });
+});
 
 describe("perder — o motivo é obrigatório antes do banco", () => {
   it("sem motivo, nem chega a escrever", async () => {

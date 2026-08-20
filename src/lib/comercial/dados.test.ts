@@ -292,6 +292,38 @@ describe("lerPipeline", () => {
     expect(r.propostas.find((p) => p.id === "numero")!.vencida).toBe(false);
   });
 
+  it("traz nome de aluno, e só id e nome", async () => {
+    const { consultas } = cliente({
+      funil_etapa: OK([linhaEtapa()]),
+      oportunidade: OK([linhaOportunidade()]),
+      proposta: OK([]),
+      alunos: OK([{ id: "al-1", nome: "Joana", telefone: "11999", email: "j@x.com" }]),
+    });
+
+    const r = await lerPipeline(AGORA);
+
+    expect(r.alunos).toEqual([{ id: "al-1", nome: "Joana" }]);
+    expect(consultas.find((c) => c.tabela === "alunos")!.colunas).toBe("id, nome");
+    expect(JSON.stringify(r.alunos)).not.toContain("11999");
+  });
+
+  it("falha na lista de alunos também é parcial", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    cliente({
+      funil_etapa: OK([linhaEtapa()]),
+      oportunidade: OK([linhaOportunidade({ status: "ganha", fechado_em: "2026-08-12T10:00:00Z" })]),
+      proposta: OK([]),
+      alunos: FALHOU,
+    });
+
+    const r = await lerPipeline(AGORA);
+
+    expect(r.parcial).toBe(true);
+    expect(r.conversao).toBeNull();
+    expect(r.cicloMedioDias).toBeNull();
+    expect(r.alunos).toEqual([]);
+  });
+
   it("recebe UM parâmetro, e é o relógio", async () => {
     expect(lerPipeline.length).toBe(1);
   });
