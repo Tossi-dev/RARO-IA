@@ -2472,3 +2472,241 @@ describe("0021 — verificar_certificado", () => {
     expect(grants[0]).toContain("verificar_certificado");
   });
 });
+
+// ============================================================
+// 0022 — feed, broadcast e mensagem direta
+// ============================================================
+//
+// O que este bloco vigia: a mensagem DIRETA. `feed` e `broadcast` alcançam
+// todo mentorado do workspace e errar neles custa constrangimento; `dm`
+// alcança UMA pessoa, e errar nele significa o recado que o mentor mandou
+// para um cliente aparecendo para os outros.
+//
+// A regra de visibilidade mora em `public.post_visivel(uuid)` e não dentro
+// da política — o porquê está no cabeçalho da migração (duas cópias da mesma
+// regra divergem no primeiro conserto feito só de um lado). Por isso os
+// testes abaixo perguntam DUAS coisas em vez de uma: que a função carrega a
+// regra inteira, e que as duas políticas de leitura passam por ela em vez de
+// reimplementar qualquer pedaço.
+
+const ARQUIVO_0022 = "0022_feed.sql";
+const ARQUIVO_EXEC_0022 = "_exec_0022_feed.sql";
+const m0022 = existeArquivoDeMigracao(ARQUIVO_0022) ? lerMigracao(ARQUIVO_0022) : "";
+const exec0022 = semComentarios(m0022);
+
+const TABELAS_0022 = ["post", "post_destinatario", "comentario"];
+
+/**
+ * Os blocos de `create policy` de UMA tabela.
+ *
+ * Duas armadilhas que esta função existe para evitar, e as duas morderam ao
+ * escrever o bloco de 0022:
+ *
+ *   1. `includes("on public.post")` casa com `on public.post_destinatario` —
+ *      o nome de uma tabela é prefixo do da outra. Daí o `\\b` seguido de
+ *      espaço: o nome tem que TERMINAR ali.
+ *   2. `split` deixa o último bloco esticado até o fim do arquivo, então ele
+ *      arrasta funções, comentários e grants que vêm depois. Daí o corte na
+ *      primeira linha em branco, que é onde cada statement termina.
+ */
+function politicasDaTabela(sql: string, tabela: string): string[] {
+  const alvo = new RegExp(`on public\\.${tabela}\\s`, "i");
+  return sql
+    .split(/create policy /i)
+    .slice(1)
+    .map((bloco) => bloco.split(/\n\s*\n/)[0])
+    .filter((bloco) => alvo.test(bloco));
+}
+
+describe("0022 — feed, broadcast e mensagem direta", () => {
+  it("a migração existe, e a versão _exec_ também", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0022), `esperava supabase/migrations/${ARQUIVO_0022}`).toBe(true);
+    expect(
+      readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0022),
+      `esperava supabase/migrations/${ARQUIVO_EXEC_0022}`,
+    ).toBe(true);
+  });
+
+  it.each(TABELAS_0022)("public.%s é criada, tem workspace_id e RLS ligada", (tabela) => {
+    const criacao = new RegExp(`create table if not exists public\\.${tabela}\\s*\\(([\\s\\S]*?)\\n\\);`, "i");
+    const m = criacao.exec(exec0022);
+    expect(m, `esperava create table public.${tabela} em 0022`).not.toBeNull();
+    expect(m![1]).toMatch(/workspace_id uuid not null references public\.workspace/i);
+    expect(exec0022).toContain(`alter table public.${tabela} enable row level security`);
+  });
+
+  it.each(TABELAS_0022)("toda política de public.%s começa escopada por workspace_atual()", (tabela) => {
+    const politicas = politicasDaTabela(exec0022, tabela);
+    expect(politicas.length, `esperava políticas em public.${tabela}`).toBeGreaterThan(0);
+    for (const politica of politicas) {
+      const clausulas = [...politica.matchAll(/(?:using|with check)\s*\(/gi)];
+      expect(clausulas.length).toBeGreaterThan(0);
+      for (const clausula of clausulas) {
+        const depois = politica.slice((clausula.index ?? 0) + clausula[0].length);
+        expect(
+          depois.trimStart().startsWith("workspace_id = public.workspace_atual()"),
+          `a primeira condição de ${tabela} deveria ser o escopo de workspace, e é: ${depois.trimStart().slice(0, 60)}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it.each(TABELAS_0022)("public.%s não tem política de DELETE para ninguém", (tabela) => {
+    for (const politica of politicasDaTabela(exec0022, tabela)) {
+      expect(politica).not.toMatch(/for\s+delete/i);
+    }
+  });
+
+  it("nenhuma política de 0022 libera com `using (true)`", () => {
+    for (const tabela of TABELAS_0022) {
+      for (const politica of politicasDaTabela(exec0022, tabela)) {
+        expect(politica.replace(/\s+/g, " ")).not.toMatch(/(?:using|with check)\s*\(\s*true\s*\)/i);
+      }
+    }
+  });
+
+  describe("post_visivel — onde a regra mora", () => {
+    const funcao = corpoDaFuncao(exec0022, "post_visivel");
+
+    it("é security definer com search_path fixo, e não fica ao alcance da anon key", () => {
+      // `security definer` aqui não é atalho: é o que impede a política de
+      // `post` recursar ao chamar uma função que consulta `post`.
+      expect(funcao).toMatch(/security definer/i);
+      expect(funcao).toMatch(/set search_path = public/i);
+      expect(exec0022).toContain("revoke all on function public.post_visivel(uuid) from anon");
+      expect(exec0022).toContain("revoke all on function public.post_visivel(uuid) from public");
+      expect(exec0022).toContain("grant execute on function public.post_visivel(uuid) to authenticated");
+    });
+
+    it("`dm` só passa acompanhado de um exists sobre post_destinatario com mentorado_atual()", () => {
+      // A asserção que dá nome ao bloco. Como a função roda com RLS
+      // desligada por dentro, um `dm` solto aqui libera a mensagem direta
+      // para todo mentorado do workspace — e nada mais no sistema pegaria.
+      //
+      // A PRIMEIRA VERSÃO DESTE TESTE NÃO PEGAVA ISSO, e o mutante provou:
+      // ela achava o primeiro `'dm'` e conferia se as palavras `exists`,
+      // `post_destinatario` e `mentorado_atual` apareciam DEPOIS, em qualquer
+      // lugar. Trocar a condição por `escopo in ('feed','broadcast','dm')` e
+      // deixar o `exists` pendurado num ramo morto passava com folga — as
+      // três palavras continuavam lá. É a família de defeito que este
+      // projeto já catalogou: asserção por presença de string em texto longo
+      // é quase sempre asserção vazia. Agora a asserção é de FORMA.
+      const compacta = funcao.replace(/\s+/g, " ");
+
+      // Uma ocorrência só: `dm` não pode aparecer também dentro de uma lista
+      // aberta como `in ('feed', 'broadcast', 'dm')`.
+      expect(compacta.match(/'dm'/g) ?? []).toHaveLength(1);
+
+      // E ela é a comparação que abre o ramo do exists, nesta ordem exata.
+      expect(compacta).toContain(
+        "p.escopo = 'dm' and exists ( select 1 from public.post_destinatario pd " +
+          "where pd.post_id = p.id and pd.mentorado_id = public.mentorado_atual()",
+      );
+
+      // A lista aberta é só do que alcança todo mundo.
+      expect(compacta).toContain("p.escopo in ('feed', 'broadcast')");
+    });
+
+    it("a função carrega o escopo INTEIRO, porque a RLS não a protege por dentro", () => {
+      expect(funcao).toContain("public.workspace_atual()");
+      expect(funcao).toContain("public.papel_atual()");
+      // Rascunho e agendado ficam invisíveis: sem data publicada, ninguém vê.
+      expect(funcao).toMatch(/publicado_em is not null/i);
+      expect(funcao).toMatch(/publicado_em <= now\(\)/i);
+      expect(funcao).toMatch(/arquivado = false/i);
+    });
+
+    it("o comercial não lê post nenhum", () => {
+      // Diferente de `trilha` (0019), que libera para comercial. Feed carrega
+      // conversa com cliente, inclusive mensagem direta.
+      expect(funcao).not.toContain("'comercial'");
+    });
+  });
+
+  describe("as duas leituras passam pela mesma regra", () => {
+    it("a política de select de post chama post_visivel e não reimplementa nada", () => {
+      const select = politicasDaTabela(exec0022, "post").filter((p) => /for\s+select/i.test(p));
+      expect(select.length).toBe(1);
+      const corpo = politicasSemNome(select[0]);
+      expect(corpo).toContain("public.post_visivel(id)");
+      // Se a política tivesse a regra por dentro, teria a palavra — e seriam
+      // duas cópias para divergir.
+      expect(corpo).not.toContain("'dm'");
+      expect(corpo).not.toContain("post_destinatario");
+    });
+
+    it("comentario NÃO tem leitura que não passe pelo post", () => {
+      const select = politicasDaTabela(exec0022, "comentario").filter((p) => /for\s+select/i.test(p));
+      expect(select.length).toBe(1);
+      expect(politicasSemNome(select[0])).toContain("public.post_visivel(post_id)");
+    });
+
+    it("escrever comentário exige enxergar o post E assinar o próprio nome", () => {
+      const insert = politicasDaTabela(exec0022, "comentario").filter((p) => /for\s+insert/i.test(p));
+      expect(insert.length).toBe(1);
+      const corpo = politicasSemNome(insert[0]);
+      expect(corpo).toContain("public.post_visivel(post_id)");
+      // Sem esta linha, dá para assinar um comentário no nome de outra
+      // pessoa: o autor viraria um campo de formulário.
+      expect(corpo).toContain("autor_perfil_id = auth.uid()");
+    });
+
+    it("escrever post é só da gestão", () => {
+      for (const politica of politicasDaTabela(exec0022, "post").filter((p) => /for\s+(insert|update)/i.test(p))) {
+        const corpo = politicasSemNome(politica);
+        expect(corpo).toContain("public.papel_atual() in ('dono', 'gestor')");
+        expect(corpo).not.toContain("'mentorado'");
+      }
+    });
+  });
+
+  describe("post_marcar_lido", () => {
+    const funcao = corpoDaFuncao(exec0022, "post_marcar_lido");
+
+    // A ASSERÇÃO QUE TERIA PEGO O ATAQUE DE 0012.
+    it("post_destinatario NÃO tem política de UPDATE para mentorado", () => {
+      const deUpdate = politicasDaTabela(exec0022, "post_destinatario").filter((p) => /for\s+update/i.test(p));
+      expect(deUpdate.length, "esperava a política de update da gestão").toBeGreaterThan(0);
+      for (const politica of deUpdate) {
+        expect(politicasSemNome(politica)).not.toContain("'mentorado'");
+      }
+    });
+
+    it("não aceita data nem mentorado por parâmetro", () => {
+      // Aceitar `p_lido_em` devolveria ao cliente a liberdade de forjar
+      // quando leu; `p_mentorado_id`, a de marcar na conta de outra pessoa.
+      expect(funcao).toMatch(/post_marcar_lido\(p_post_id uuid\)/i);
+      expect(funcao).not.toMatch(/p_lido_em|p_mentorado_id|p_workspace/i);
+      expect(funcao).toContain("public.mentorado_atual()");
+      expect(funcao).toContain("public.workspace_atual()");
+      expect(funcao).toMatch(/public\.papel_atual\(\) = 'mentorado'/);
+      expect(funcao).toMatch(/set lido_em = now\(\)/i);
+    });
+
+    it("é security definer com search_path fixo e fora do alcance da anon key", () => {
+      expect(funcao).toMatch(/security definer/i);
+      expect(funcao).toMatch(/set search_path = public/i);
+      expect(exec0022).toContain("revoke all on function public.post_marcar_lido(uuid) from anon");
+      expect(exec0022).toContain("revoke all on function public.post_marcar_lido(uuid) from public");
+      expect(exec0022).toContain("grant execute on function public.post_marcar_lido(uuid) to authenticated");
+    });
+  });
+
+  it("um destinatário por post — o unique que `post_marcar_lido` precisa", () => {
+    // Sem ele, `post_marcar_lido` atualizaria uma linha entre várias iguais e
+    // a leitura contaria o mesmo recado duas vezes por pessoa.
+    expect(exec0022).toMatch(/unique\s*\(post_id, mentorado_id\)/i);
+  });
+
+  it("o enum novo é criado de forma idempotente, e nada é apagado", () => {
+    // `create type` não aceita `if not exists`; rodar a migração duas vezes
+    // não pode estourar, senão conferir o estado do banco vira operação
+    // arriscada.
+    expect(exec0022).toMatch(/create type public\.escopo_post as enum \('feed', 'broadcast', 'dm'\)/i);
+    expect(exec0022).toMatch(/if not exists \(select 1 from pg_type where typname = 'escopo_post'\)/i);
+    expect(exec0022).not.toMatch(/\bdelete\s+from\b/i);
+    expect(exec0022).not.toMatch(/\bdrop\s+table\b/i);
+    expect(exec0022).not.toMatch(/\bdrop\s+column\b/i);
+    expect(exec0022).not.toMatch(/\bdrop\s+type\b/i);
+  });
+});
