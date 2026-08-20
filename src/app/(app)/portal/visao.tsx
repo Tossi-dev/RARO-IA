@@ -17,8 +17,10 @@ import { Badge, Botao, Card, PageHeader, ProgressBar, Vazio, cx, type Tom } from
 import { sair } from "@/lib/actions";
 import { concluirTarefa, reabrirTarefa } from "@/lib/mentoria/acoes-portal";
 import type { MeuFeed } from "@/lib/feed/dados";
+import type { MeuOnboarding } from "@/lib/onboarding/dados";
 import type { Portal } from "@/lib/mentoria/portal";
 import { AvisosDoPortal } from "./avisos";
+import { PrimeirosPassos } from "./primeiros-passos";
 import type { StatusMatricula, StatusSessao } from "@/lib/mentoria/tipos";
 import { linkGravacaoValido } from "@/lib/mentoria/validacao";
 import { dataBr, dataHoraBr, variacaoScore } from "../mentoria/textos";
@@ -223,6 +225,7 @@ export function PortalVisao({
   agoraIso,
   erro,
   feed,
+  onboarding,
 }: {
   portal: Portal;
   agoraIso: string;
@@ -232,6 +235,9 @@ export function PortalVisao({
    *  pode obrigar todos eles a inventar um feed. Ausente, o card não
    *  aparece — que é o mesmo comportamento de "não sou mentorado". */
   feed?: MeuFeed;
+  /** O roteiro de entrada (tarefa 40). Opcional pelo mesmo motivo de `feed`:
+   *  a prévia visual e os testes antigos montam esta tela só com `portal`. */
+  onboarding?: MeuOnboarding;
 }) {
   // Estado 1: sem Supabase configurado, ou a leitura falhou — um Card curto
   // com o `motivo` que `lerPortal` já preparou, sem número nenhum.
@@ -288,6 +294,11 @@ export function PortalVisao({
             razão mais comum de a pessoa abrir o portal num dia qualquer. O
             card decide sozinho se aparece — ver `./avisos.tsx`. */}
         {feed ? <AvisosDoPortal feed={feed} /> : null}
+
+        {/* Logo depois dos avisos, e antes do progresso: para quem acabou de
+            entrar, o roteiro de entrada é a tela inteira. O card some sozinho
+            quando não há etapa ativa — ver `./primeiros-passos.tsx`. */}
+        {onboarding ? <PrimeirosPassos onboarding={onboarding} /> : null}
 
         {/* 2) O progresso — um bloco por matrícula. */}
         <Card titulo="Progresso">

@@ -26,6 +26,7 @@
 //   3) o portal de verdade.
 
 import { lerMeuFeed } from "@/lib/feed/dados";
+import { lerMeuOnboarding } from "@/lib/onboarding/dados";
 import { lerPortal } from "@/lib/mentoria/portal";
 import { PortalVisao } from "./visao";
 
@@ -40,7 +41,19 @@ export default async function Portal({ searchParams }: { searchParams: { erro?: 
   // `conectado: false` em vez de lançar, e o card some sozinho nesse caso
   // (ver `./avisos.tsx`). Uma falha nos avisos não pode derrubar o portal
   // inteiro — a jornada da pessoa não depende de ter recado novo.
-  const [portal, feed] = await Promise.all([lerPortal(agoraIso), lerMeuFeed(agoraIso)]);
+  const [portal, feed, onboarding] = await Promise.all([
+    lerPortal(agoraIso),
+    lerMeuFeed(agoraIso),
+    lerMeuOnboarding(),
+  ]);
 
-  return <PortalVisao portal={portal} agoraIso={agoraIso} erro={searchParams.erro} feed={feed} />;
+  return (
+    <PortalVisao
+      portal={portal}
+      agoraIso={agoraIso}
+      erro={searchParams.erro}
+      feed={feed}
+      onboarding={onboarding}
+    />
+  );
 }

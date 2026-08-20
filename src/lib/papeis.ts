@@ -107,6 +107,15 @@ const ROTAS_MINIMAS = ["/", "/inicio", "/portal", "/comecar", "/tour", "/conteud
 // A RLS de 0022 é quem faz valer isso de verdade — lá o `comercial` não tem
 // ramo nenhum na política de select de `post`, então ele lê zero linhas mesmo
 // que um dia alguém abra a rota por engano.
+//
+// TAREFA 40 — `/onboarding` FECHA A TRINCA
+// -----------------------------------------
+// Terceira rota de gestão seguidas (`/trilhas`, `/feed`, `/onboarding`) que
+// entra pela mesma porta: nenhuma das duas listas muda. `/onboarding` é o
+// MODELO do roteiro de entrada — criar etapa, reordenar, arquivar. O
+// mentorado vê o roteiro DELE num card dentro de `/portal`, que já está
+// liberado; abrir `/onboarding` para ele seria dar acesso à régua de todo
+// mundo, não à própria linha.
 
 /**
  * Lista de permissão por papel, não de bloqueio: dono e gestor recebem o

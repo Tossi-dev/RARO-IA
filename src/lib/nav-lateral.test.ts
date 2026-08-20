@@ -119,3 +119,21 @@ describe("gruposNavPorPapel — Avisos (tarefa 36)", () => {
     }
   });
 });
+
+// Tarefa 40 — Onboarding entra na gaveta, junto das outras rotas de gestão.
+describe("gruposNavPorPapel — Onboarding (tarefa 40)", () => {
+  it("dono e gestor veem Onboarding no grupo Gestão", () => {
+    for (const papel of ["dono", "gestor"] as const) {
+      const gestao = gruposNavPorPapel(papel).find((g) => g.titulo === "Gestão");
+      expect(gestao?.itens.map((i) => i.rotulo) ?? []).toContain("Onboarding");
+    }
+  });
+
+  it("mais ninguém vê — nem o rótulo, nem o href no que é serializado", () => {
+    for (const papel of ["comercial", "mentorado", "afiliado", "aluno"] as const) {
+      const itens = gruposNavPorPapel(papel).flatMap((g) => g.itens);
+      expect(itens.map((i) => i.rotulo)).not.toContain("Onboarding");
+      expect(JSON.stringify(itens)).not.toContain("/onboarding");
+    }
+  });
+});

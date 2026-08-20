@@ -103,6 +103,10 @@ const GRUPOS_COMPLETOS: GrupoNavLateral[] = [
       // Financeiro fez), não inventar a décima primeira cor. A gaveta não tem
       // esse limite — ela é lista, não mosaico.
       { href: "/feed", rotulo: "Avisos", icone: "Megaphone" },
+      // Tarefa 40 — o roteiro de entrada. `ListChecks` é o mesmo ícone de
+      // "Começar" (grupo Sistema): os dois são checklist de configuração, um
+      // do negócio e outro de cada cliente novo, e nunca aparecem lado a lado.
+      { href: "/onboarding", rotulo: "Onboarding", icone: "ListChecks" },
       { href: "/financeiro", rotulo: "Financeiro", icone: "Wallet" },
       { href: "/crm", rotulo: "Central de Clientes", icone: "Users" },
     ],

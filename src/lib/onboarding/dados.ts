@@ -155,6 +155,42 @@ export async function lerOnboarding(mentoradoId: string): Promise<OnboardingDoMe
 }
 
 /**
+ * O MODELO do roteiro — as etapas do workspace, sem pessoa nenhuma.
+ *
+ * É o que a tela de gestão (`/onboarding`) precisa: ela configura a régua, não
+ * mede ninguém. Nenhum nome de cliente e nenhum progresso atravessam daqui —
+ * `estado` volta vazio porque não há de quem calcular, e isso é honesto: o
+ * progresso de UMA pessoa é `lerOnboarding(id)`, e ele aparece na ficha dela.
+ *
+ * Traz as etapas INATIVAS junto, como `lerOnboarding`: quem opera precisa ver
+ * o que tirou do roteiro.
+ */
+export async function lerModeloDeOnboarding(): Promise<OnboardingDoMentorado> {
+  if (!supabaseConfigurado()) return desconectado(MOTIVO_SEM_CONEXAO);
+
+  try {
+    const s = criarSupabaseServer();
+    const { data, error } = await s.from("onboarding_etapa").select("*").order("ordem", { ascending: true });
+
+    if (error) {
+      avisar("lerModeloDeOnboarding", error);
+      return desconectado(MOTIVO_ERRO_LEITURA);
+    }
+
+    return {
+      conectado: true,
+      motivo: "",
+      etapas: ((data ?? []) as Row[]).map(linhaParaEtapa),
+      progresso: [],
+      estado: ESTADO_VAZIO,
+    };
+  } catch (excecao) {
+    avisar("lerModeloDeOnboarding", { code: excecao instanceof Error ? excecao.name : "excecao" });
+    return desconectado(MOTIVO_ERRO_LEITURA);
+  }
+}
+
+/**
  * O roteiro de quem está logado — ver o cabeçalho sobre a aridade zero.
  *
  * A RLS de 0023 já devolve só as etapas ATIVAS para o mentorado e só o

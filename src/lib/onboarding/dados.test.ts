@@ -19,7 +19,7 @@ const supabaseConfiguradoMock = vi.fn(() => true);
 vi.mock("../supabase/server", () => ({ criarSupabaseServer: criarSupabaseServerMock }));
 vi.mock("../data", () => ({ supabaseConfigurado: supabaseConfiguradoMock }));
 
-const { lerOnboarding, lerMeuOnboarding } = await import("./dados");
+const { lerOnboarding, lerMeuOnboarding, lerModeloDeOnboarding } = await import("./dados");
 
 const EU = "ment-eu";
 const OUTRO = "ment-outro";
@@ -220,5 +220,50 @@ describe("as duas leituras — sem banco e com erro", () => {
     const onb = await lerOnboarding(OUTRO);
     expect(onb.conectado).toBe(false);
     expect(onb.motivo).not.toContain("segredo");
+  });
+});
+
+// Tarefa 40 — a leitura da tela de gestão: a régua, sem ninguém medido.
+describe("lerModeloDeOnboarding", () => {
+  it("traz as etapas e NÃO consulta progresso de pessoa nenhuma", () => {
+    const { consultas } = cliente({ onboarding_etapa: { data: [linhaEtapa()], error: null } });
+    return lerModeloDeOnboarding().then((modelo) => {
+      expect(modelo.etapas.map((e) => e.id)).toEqual(["e1"]);
+      expect(consultas.map((c) => c.tabela)).toEqual(["onboarding_etapa"]);
+    });
+  });
+
+  it("progresso vazio e estado VAZIO — sem inventar um número de ninguém", async () => {
+    // O erro tentador é calcular `estadoDoOnboarding(etapas, [])`, que devolve
+    // 0% quando há obrigatória. A tela de gestão mostraria "0% concluído" de
+    // um progresso que não é de pessoa alguma.
+    cliente({ onboarding_etapa: { data: [linhaEtapa(), linhaEtapa({ id: "e2", ordem: 2 })], error: null } });
+
+    const modelo = await lerModeloDeOnboarding();
+
+    expect(modelo.progresso).toEqual([]);
+    expect(modelo.estado.pct).toBeNull();
+    expect(modelo.estado.concluido).toBe(false);
+    expect(modelo.estado.pendentesDoMentorado).toEqual([]);
+  });
+
+  it("sem Supabase configurado, zero consultas", async () => {
+    supabaseConfiguradoMock.mockReturnValue(false);
+    cliente({});
+
+    const modelo = await lerModeloDeOnboarding();
+
+    expect(modelo.conectado).toBe(false);
+    expect(criarSupabaseServerMock).not.toHaveBeenCalled();
+  });
+
+  it("erro vira conectado falso, sem nome de tabela no motivo", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    cliente({ onboarding_etapa: { data: null, error: { code: "42501" } } });
+
+    const modelo = await lerModeloDeOnboarding();
+
+    expect(modelo.conectado).toBe(false);
+    expect(modelo.motivo.toLowerCase()).not.toContain("onboarding");
   });
 });

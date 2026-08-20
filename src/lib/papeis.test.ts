@@ -455,3 +455,29 @@ describe("rotaPermitida — /feed (tarefa 36)", () => {
     expect(rotaPermitida("comercial", "/feedback")).toBe(false);
   });
 });
+
+// Tarefa 40 — o roteiro de entrada é de gestão, como o feed e as trilhas.
+describe("rotaPermitida — /onboarding (tarefa 40)", () => {
+  it("comercial e mentorado não abrem; dono e gestor sim", () => {
+    for (const papel of ["comercial", "mentorado", "afiliado", "aluno"] as const) {
+      expect([papel, rotaPermitida(papel, "/onboarding")]).toEqual([papel, false]);
+    }
+    expect(rotaPermitida("dono", "/onboarding")).toBe(true);
+    expect(rotaPermitida("gestor", "/onboarding")).toBe(true);
+  });
+
+  it("a guarda de travessia e o prefixo por segmento valem aqui também", () => {
+    expect(rotaPermitida("mentorado", "/onboarding/..%2ffinanceiro")).toBe(false);
+    expect(rotaPermitida("mentorado", "/onboardings")).toBe(false);
+  });
+
+  it("as três rotas de gestão do Bloco 5 ao 7 seguem a MESMA regra", () => {
+    // Escrito junto de propósito: se um dia uma delas destoar, é porque
+    // alguém decidiu — não porque passou despercebido.
+    for (const rota of ["/trilhas", "/feed", "/onboarding"]) {
+      expect([rota, rotaPermitida("mentorado", rota)]).toEqual([rota, false]);
+      expect([rota, rotaPermitida("comercial", rota)]).toEqual([rota, false]);
+      expect([rota, rotaPermitida("dono", rota)]).toEqual([rota, true]);
+    }
+  });
+});
