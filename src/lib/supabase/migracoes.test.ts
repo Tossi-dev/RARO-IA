@@ -2359,3 +2359,116 @@ describe("0020 — progresso de trilha e certificado", () => {
     expect(exec0020).not.toMatch(/\bdrop\s+column\b/i);
   });
 });
+
+// ============================================================
+// 0021 — verificação PÚBLICA de certificado
+// ============================================================
+//
+// Este bloco vigia a exceção mais perigosa do projeto: a ÚNICA função com
+// `grant execute` para `anon`, o papel de antes de qualquer login, ao alcance
+// de quem tem só a chave pública. Todas as outras funções deste banco revogam
+// de `anon` com todas as letras; esta libera de propósito, porque certificado
+// que só o emissor confere não é certificado.
+//
+// A pergunta que os testes fazem não é "a função existe?", é "ela continua
+// estreita?". Uma linha a mais no `select` — o e-mail, o id, o workspace — e
+// a função vira uma porta aberta para dado de cliente. Um `like` no lugar do
+// `=` e ela vira um buscador da carteira inteira.
+
+const ARQUIVO_0021 = "0021_verificar_certificado.sql";
+const ARQUIVO_EXEC_0021 = "_exec_0021_verificar_certificado.sql";
+const m0021 = existeArquivoDeMigracao(ARQUIVO_0021) ? lerMigracao(ARQUIVO_0021) : "";
+const exec0021 = semComentarios(m0021);
+// O CORPO da função, sem o `comment on` em volta. A distinção é necessária:
+// o texto do `comment on` explica em português que a comparação não usa
+// `like`, e uma busca pela palavra no arquivo inteiro encontraria justamente
+// a frase que promete o contrário. Asserção tem que olhar o código, não a
+// promessa sobre o código.
+const corpo0021 = corpoDaFuncao(exec0021, "verificar_certificado");
+
+describe("0021 — verificar_certificado", () => {
+  it("a migração existe, e a versão _exec_ também", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0021), `esperava supabase/migrations/${ARQUIVO_0021}`).toBe(true);
+    expect(
+      readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0021),
+      `esperava supabase/migrations/${ARQUIVO_EXEC_0021}`,
+    ).toBe(true);
+  });
+
+  it("é security definer com search_path fixo", () => {
+    // Sem `set search_path`, uma função security definer executa com o
+    // caminho de quem chamou — e quem chama aqui é o mundo.
+    expect(exec0021).toMatch(/create or replace function public\.verificar_certificado\(p_codigo text\)/i);
+    expect(exec0021).toMatch(/security definer/i);
+    expect(exec0021).toMatch(/set search_path = public/i);
+  });
+
+  it("a liberação para anon é NOMINAL, e o revoke de public vem antes", () => {
+    const revoke = exec0021.indexOf("revoke all on function public.verificar_certificado(text) from public");
+    const grant = exec0021.indexOf("grant execute on function public.verificar_certificado(text) to anon, authenticated");
+    expect(revoke, "esperava o revoke de public").toBeGreaterThan(-1);
+    expect(grant, "esperava o grant nominal para anon e authenticated").toBeGreaterThan(-1);
+    // Ordem importa: conceder e depois revogar de `public` apagaria a
+    // concessão em alguns caminhos. Revoga primeiro, concede depois.
+    expect(revoke).toBeLessThan(grant);
+  });
+
+  it("o código é comparado por IGUALDADE — nunca like, ilike ou prefixo", () => {
+    // Casamento parcial numa função aberta ao mundo é um buscador da
+    // carteira de clientes.
+    expect(corpo0021).toContain("c.codigo = e.codigo");
+    expect(corpo0021).not.toMatch(/\blike\b/i);
+    expect(corpo0021).not.toMatch(/\bilike\b/i);
+    expect(corpo0021).not.toMatch(/\bsimilar to\b/i);
+    expect(corpo0021).not.toMatch(/position\s*\(|strpos\s*\(|starts_with\s*\(/i);
+  });
+
+  it("o formato do código é conferido dentro da própria consulta", () => {
+    expect(exec0021).toMatch(/\^\[23456789ABCDEFGHJKLMNPQRSTUVWXYZ\]\{12\}\$/);
+  });
+
+  it("devolve UMA linha, e só as três colunas combinadas", () => {
+    expect(exec0021).toMatch(/returns table \(aluno text, trilha text, emitido_em timestamptz\)/i);
+    expect(exec0021).toMatch(/limit 1/i);
+  });
+
+  it("não devolve e-mail, telefone, id nem workspace", () => {
+    // A lista de colunas do `select` é o contrato inteiro com o mundo: o
+    // que não está nela não existe para quem está do lado de fora.
+    const select = /select\s+m\.nome,\s*t\.nome,\s*c\.emitido_em/i.exec(corpo0021);
+    expect(select, "esperava o select fechado em nome, trilha e data").not.toBeNull();
+    // `m.id` e `c.mentorado_id` aparecem no JOIN, e precisam aparecer: é
+    // assim que se liga certificado a pessoa. O que não pode é qualquer um
+    // deles atravessar para a lista de colunas devolvidas — por isso a
+    // asserção de cima fixa o `select` inteiro, e as de baixo proíbem os
+    // campos que não têm desculpa nenhuma para estar no arquivo.
+    expect(corpo0021).not.toMatch(/\bemail\b/i);
+    expect(corpo0021).not.toMatch(/\btelefone\b/i);
+    expect(corpo0021).not.toMatch(/workspace_id/i);
+    expect(corpo0021).not.toMatch(/select\s+\*/i);
+  });
+
+  it("não escreve nada, não cria tabela e não mexe nas políticas de 0020", () => {
+    // Ela é um caminho NOVO e separado. Mexer nas políticas aqui seria
+    // afrouxar, pelo lado de dentro, o que este arquivo abre pelo lado de fora.
+    for (const proibido of [
+      /\binsert\s+into\b/i,
+      /\bupdate\s+public\./i,
+      /\bdelete\s+from\b/i,
+      /\bcreate\s+table\b/i,
+      /\bcreate\s+policy\b/i,
+      /\bdrop\s+policy\b/i,
+      /\balter\s+table\b/i,
+    ]) {
+      expect(exec0021, `esperava nenhum ${proibido}`).not.toMatch(proibido);
+    }
+  });
+
+  it("nenhuma OUTRA função do projeto ganhou grant para anon junto", () => {
+    // A exceção é uma só. Se um dia forem duas, que seja por decisão escrita
+    // em outro lugar — não de carona nesta migração.
+    const grants = exec0021.match(/grant execute on function [^;]*to[^;]*anon/gi) ?? [];
+    expect(grants.length).toBe(1);
+    expect(grants[0]).toContain("verificar_certificado");
+  });
+});

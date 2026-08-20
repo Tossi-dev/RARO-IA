@@ -82,3 +82,26 @@ export function codigoValido(texto: string): boolean {
   if (typeof texto !== "string") return false;
   return REGEX_CODIGO.test(texto);
 }
+
+/**
+ * O código como a pessoa digitou, arrumado: maiúscula e sem espaço nas
+ * pontas — os dois desvios que vêm de copiar de um papel impresso ou de uma
+ * mensagem, e que não são tentativa de nada.
+ *
+ * Qualquer OUTRO desvio continua sendo recusado por `codigoValido`. Esta
+ * função não conserta código torto; ela normaliza o que é ruído de digitação
+ * para que a mesma regra de forma valha na tela, na leitura e no banco (a
+ * função `verificar_certificado`, da migração 0021, faz `upper(btrim(...))`
+ * pelo mesmo motivo e com o mesmo limite).
+ */
+export function normalizarCodigo(valor: unknown): string {
+  if (typeof valor !== "string") return "";
+  return valor.trim().toUpperCase();
+}
+
+// A formatação da data do certificado NÃO mora aqui, e isso é uma decisão:
+// este módulo tem um teste que proíbe `new Date` no fonte inteiro (o código
+// não pode ser derivado de relógio nenhum, senão vira adivinhável). Formatar
+// uma data recebida por parâmetro é outra pergunta, e ela mora com a tela —
+// `src/app/certificado/[codigo]/textos.ts`, no mesmo molde de
+// `mentoria/textos.ts` e `portal/textos.ts`.
