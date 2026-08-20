@@ -72,7 +72,12 @@ export const MOTIVO_VALIDADE_INVALIDA = "A validade precisa ser uma data no form
 export const MOTIVO_RESPOSTA_INVALIDA = "A resposta do cliente só pode ser aceita ou recusada.";
 export const MOTIVO_ERRO_SALVAR = "Não foi possível salvar agora. Tente novamente em instantes.";
 
-const CAMINHO_GESTAO = "/pipeline";
+// A rota REAL da tela (src/app/(app)/comercial/). Já custou caro neste
+// projeto escrever aqui um caminho que não existe: em 30, as ações de trilha
+// voltavam para `/conteudo/trilhas`, e o erro só aparecia como um 404 depois
+// de o usuário errar o formulário. Há teste que confere esta constante contra
+// a pasta de rotas.
+const CAMINHO_GESTAO = "/comercial";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_TITULO = 200;

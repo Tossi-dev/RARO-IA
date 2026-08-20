@@ -22,6 +22,7 @@ import {
   Upload,
   Megaphone,
   Route,
+  Handshake,
   Trophy,
   UserCircle,
   Users,
@@ -46,6 +47,7 @@ const ICONES: Record<NomeIconeLateral, LucideIcon> = {
   Plug,
   Megaphone,
   Route,
+  Handshake,
   Trophy,
   UserCircle,
 };

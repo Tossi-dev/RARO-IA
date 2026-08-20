@@ -61,6 +61,17 @@ const ROTAS_COMERCIAL = [
   "/comecar",
   "/tour",
   "/crm",
+  // TAREFA 47 — `/comercial` é o funil de negociação: cartão por etapa,
+  // valor, probabilidade e proposta. É a tela de TRABALHO do closer, então
+  // ela entra aqui e não é um favor: sem ela, o papel `comercial` teria
+  // permissão para ver a lista de clientes e nenhuma para tocar no próprio
+  // pipeline.
+  //
+  // E ela fica FORA de `ROTAS_MINIMAS` por omissão, como `/trilhas`: o
+  // mentorado não lê nada de `oportunidade` (as seis políticas de 0024 não
+  // mencionam o papel dele), e a tela mostraria justamente o valor negociado
+  // e o motivo da perda dele.
+  "/comercial",
   "/agenda",
   "/conteudo",
 ] as const;

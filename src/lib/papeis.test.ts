@@ -46,6 +46,25 @@ describe("rotaPermitida — dono e gestor", () => {
   });
 });
 
+describe("/comercial — a tela de trabalho do closer (tarefa 47)", () => {
+  it("comercial, dono e gestor abrem; os três papéis de cliente não", () => {
+    expect(rotaPermitida("comercial", "/comercial")).toBe(true);
+    expect(rotaPermitida("dono", "/comercial")).toBe(true);
+    expect(rotaPermitida("gestor", "/comercial")).toBe(true);
+
+    // A RLS de 0024 é quem impede de verdade: nenhuma das seis políticas
+    // menciona o papel do mentorado. Isto aqui é a porta.
+    expect(rotaPermitida("mentorado", "/comercial")).toBe(false);
+    expect(rotaPermitida("afiliado", "/comercial")).toBe(false);
+    expect(rotaPermitida("aluno", "/comercial")).toBe(false);
+  });
+
+  it("a tela de UMA negociação segue a mesma regra da lista", () => {
+    expect(rotaPermitida("comercial", "/comercial/0f8c1c2e-4f1a-4a11-9e33-0a1b2c3d4e5f")).toBe(true);
+    expect(rotaPermitida("mentorado", "/comercial/0f8c1c2e-4f1a-4a11-9e33-0a1b2c3d4e5f")).toBe(false);
+  });
+});
+
 describe("rotaPermitida — comercial", () => {
   it("permite as rotas comerciais e a raiz", () => {
     const permitidas = ["/", "/inicio", "/painel", "/comecar", "/tour", "/crm", "/agenda", "/conteudo"];

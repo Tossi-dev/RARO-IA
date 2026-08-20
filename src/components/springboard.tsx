@@ -26,6 +26,7 @@ import {
   Undo2,
   Upload,
   Route,
+  Handshake,
   UserCircle,
   Users,
   Wallet,
@@ -58,6 +59,7 @@ const ICONES: Record<NomeIcone, LucideIcon> = {
   Upload,
   Plug,
   Route,
+  Handshake,
   UserCircle,
 };
 
