@@ -17,7 +17,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ALFABETO_CODIGO, TAMANHO_CODIGO, codigoValido, gerarCodigo } from "./certificado";
+import {
+  ALFABETO_CODIGO,
+  TAMANHO_CODIGO,
+  codigoValido,
+  gerarCodigo,
+  normalizarCodigo,
+} from "./certificado";
 
 /** Uma fonte determinística, para o teste poder afirmar a saída exata. */
 function fonteFixa(valores: readonly number[]): () => number {
@@ -172,5 +178,28 @@ describe("o módulo não sorteia sozinho", () => {
 
     const estadoMutavelDeModulo = linhasDeCodigo.filter((l) => /^(let|var)\s/.test(l));
     expect(estadoMutavelDeModulo).toEqual([]);
+  });
+});
+
+// Tarefa 31 — o que a página pública precisa para imprimir.
+describe("normalizarCodigo", () => {
+  it("arruma caixa e espaço, os dois desvios de quem copia de um papel", () => {
+    expect(normalizarCodigo("  abc23456789k  ")).toBe("ABC23456789K");
+    expect(normalizarCodigo("ABC23456789K")).toBe("ABC23456789K");
+  });
+
+  it("não conserta código torto — só normaliza ruído", () => {
+    // Continua inválido depois de normalizado: quem decide é `codigoValido`.
+    expect(codigoValido(normalizarCodigo("abc-234-567"))).toBe(false);
+    expect(codigoValido(normalizarCodigo("0011223344ii"))).toBe(false);
+    // E o que era válido continua válido.
+    expect(codigoValido(normalizarCodigo("  abc23456789k "))).toBe(true);
+  });
+
+  it("qualquer coisa que não seja string vira vazio, sem lançar", () => {
+    expect(normalizarCodigo(null)).toBe("");
+    expect(normalizarCodigo(undefined)).toBe("");
+    expect(normalizarCodigo(42)).toBe("");
+    expect(normalizarCodigo(["ABC23456789K"])).toBe("");
   });
 });
