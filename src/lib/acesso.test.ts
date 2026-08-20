@@ -116,6 +116,37 @@ describe("higiene de configuração", () => {
   });
 });
 
+// Tarefa 48 — a proposta é lida pelo prospect, sem login.
+describe("rotaLivre — /proposta (tarefa 48)", () => {
+  it("o link da proposta passa sem login", () => {
+    expect(rotaLivre("/proposta/aB3dEfGhIjKlMnOpQrStUv")).toBe(true);
+    expect(rotaLivre("/proposta")).toBe(true);
+  });
+
+  it("só o segmento exato é livre", () => {
+    expect(rotaLivre("/propostas")).toBe(false);
+    expect(rotaLivre("/proposta-interna")).toBe(false);
+    // E a pegadinha do prefixo textual sem barra, que é como a lista
+    // costuma vazar: `/propostaXYZ` não é `/proposta`.
+    expect(rotaLivre("/propostaXYZ")).toBe(false);
+  });
+
+  it("travessia no lugar do token não abre porta nenhuma", () => {
+    // `/proposta/..%2ffinanceiro` continua sendo UMA rota livre — o portão
+    // não pergunta quem é —, e é isso mesmo: o que ela alcança é a página de
+    // proposta com um token impossível, que responde "não está disponível"
+    // sem tocar no banco (ver a suíte de `/proposta/[token]`).
+    //
+    // O que NÃO pode acontecer é a travessia liberar o DESTINO. E não
+    // libera: a comparação é por prefixo de segmento, então `/financeiro`
+    // continua fechado — decodificado ou não.
+    expect(rotaLivre("/proposta/..%2ffinanceiro")).toBe(true);
+    expect(rotaLivre("/proposta/../financeiro")).toBe(true);
+    expect(rotaLivre("/financeiro")).toBe(false);
+    expect(rotaLivre("/..%2ffinanceiro")).toBe(false);
+  });
+});
+
 // Tarefa 29 — a verificação de certificado é PÚBLICA.
 describe("rotaLivre — /certificado (tarefa 29)", () => {
   it("a conferência de certificado passa sem login", () => {
@@ -134,7 +165,7 @@ describe("rotaLivre — /certificado (tarefa 29)", () => {
   it("nenhuma rota de dado do dono entrou na lista junto", () => {
     // Guarda de regressão: a lista de rotas livres é a lista de coisas que
     // o portão NÃO protege. Ela cresce por decisão, nunca por descuido.
-    for (const rota of ["/painel", "/financeiro", "/crm", "/mentoria", "/trilhas", "/portal"]) {
+    for (const rota of ["/painel", "/financeiro", "/crm", "/comercial", "/mentoria", "/trilhas", "/portal"]) {
       expect(rotaLivre(rota)).toBe(false);
     }
   });

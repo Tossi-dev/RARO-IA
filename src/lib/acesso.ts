@@ -176,7 +176,20 @@ export const VALIDADE_ACESSO_SEGUNDOS = 60 * 60 * 24 * 30;
  *  de quem concluiu, trilha, data), nunca uma lista e nunca um filtro livre:
  *  senão a rota livre vira listagem de clientes do Jefson para qualquer um
  *  com um `curl`. */
-export const ROTAS_LIVRES = ["/acesso", "/login", "/privacidade", "/certificado"];
+/* TAREFA 48 — `/proposta` entra pelo MESMO raciocínio, e com o mesmo limite.
+ * O prospect que recebe uma proposta não tem login, e não vai criar um para
+ * ler um documento comercial. O que a liberação NÃO autoriza continua igual:
+ * a página não consulta `proposta` com a chave anônima (não há política de
+ * select para `anon`, e não pode haver — a tabela guarda valor negociado de
+ * todo mundo). Quem faz a ponte é `proposta_publica` (migração 0025),
+ * `security definer`, retorno fechado em cinco colunas, igualdade exata no
+ * token e só status `enviada` dentro da validade.
+ *
+ * A fechadura, aqui, é o TOKEN — 22 caracteres base62 sorteados na borda
+ * (proposta-token.ts). Por isso a página é `noindex` e por isso todos os
+ * "não" respondem a mesma coisa: um link de proposta indexado ou um oráculo
+ * de enumeração valem o pipeline inteiro. */
+export const ROTAS_LIVRES = ["/acesso", "/login", "/privacidade", "/certificado", "/proposta"];
 
 export function rotaLivre(pathname: string): boolean {
   return ROTAS_LIVRES.some((r) => pathname === r || pathname.startsWith(`${r}/`));
