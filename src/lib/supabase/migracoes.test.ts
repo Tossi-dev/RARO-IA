@@ -3327,3 +3327,205 @@ describe("0026 — fecha para anon as funções que ficaram de 0001", () => {
     }
   });
 });
+
+// ============================================================
+// 0027 — cobrança (abre o Bloco 9, financeiro)
+// ============================================================
+//
+// NUMERADA 0027, e não 0023 como o plano pedia: 0023, 0024, 0025 e 0026 já
+// foram gastas. Sétima vez que este projeto tropeça no número do plano.
+//
+// O QUE ESTE BLOCO VIGIA
+// ----------------------
+// 1. `cobranca` é FINANCEIRO: só dono e gestor. Nenhuma política cita
+//    `'comercial'` nem `'mentorado'`. O mentorado não lê a própria cobrança
+//    nesta fase — e o dia em que ler, será por VIEW com `security_invoker`
+//    (mesmo desenho de 0016), nunca afrouxando esta política;
+//
+// 2. a mesma parcela não pode nascer duas vezes. `unique (matricula_id,
+//    competencia)` cobre a cobrança de matrícula; o índice parcial cobre a
+//    AVULSA, que a primeira restrição deixaria passar em silêncio — em
+//    Postgres, `null` nunca é igual a `null`, então duas parcelas sem
+//    matrícula com a mesma competência não colidem;
+//
+// 3. `paga` exige baixa. Mesma escola do `perda_tem_motivo` de 0024: a régua
+//    fica no banco, porque a tela protege só quem passa por ela.
+//
+// A tabela NÃO entra em `TABELAS_FINANCEIRAS_SENSIVEIS` (a lista lá em cima):
+// aquela lista serve à limpeza feita em 0007 e cada item dela exige um
+// `drop policy` naquele arquivo. Uma tabela que nasce em 0027 não tem o que
+// derrubar em 0007 — as garantias equivalentes estão repetidas aqui.
+
+const ARQUIVO_0027 = "0027_cobranca.sql";
+const ARQUIVO_EXEC_0027 = "_exec_0027_cobranca.sql";
+const m0027 = existeArquivoDeMigracao(ARQUIVO_0027) ? lerMigracao(ARQUIVO_0027) : "";
+const exec0027 = semComentarios(m0027);
+
+describe("0027 — cobrança", () => {
+  it("a migração existe, e a versão _exec_ também", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0027), `esperava supabase/migrations/${ARQUIVO_0027}`).toBe(true);
+    expect(
+      readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0027),
+      `esperava supabase/migrations/${ARQUIVO_EXEC_0027}`,
+    ).toBe(true);
+  });
+
+  it("public.cobranca é criada, tem workspace_id e RLS ligada", () => {
+    const corpo = blocoCreateTable(exec0027, "cobranca");
+    expect(corpo, "esperava create table public.cobranca").not.toBe("");
+    expect(corpo).toMatch(/workspace_id uuid not null references public\.workspace/i);
+    expect(exec0027).toContain("alter table public.cobranca enable row level security");
+  });
+
+  it("os dois enums nascem dentro de bloco idempotente", () => {
+    for (const enumerado of ["status_cobranca", "forma_cobranca"]) {
+      expect(exec0027).toMatch(new RegExp(`create type public\\.${enumerado} as enum`, "i"));
+      expect(exec0027).toMatch(new RegExp(`typname = '${enumerado}'`, "i"));
+    }
+    // Os cinco status e as quatro formas, escritos.
+    for (const valor of ["prevista", "aberta", "paga", "atrasada", "cancelada"]) {
+      expect(exec0027).toContain(`'${valor}'`);
+    }
+    for (const valor of ["pix", "transferencia", "dinheiro", "outro"]) {
+      expect(exec0027).toContain(`'${valor}'`);
+    }
+  });
+
+  it("as colunas do combinado estão lá, com os tipos certos", () => {
+    const corpo = blocoCreateTable(exec0027, "cobranca");
+
+    expect(corpo).toMatch(/mentorado_id uuid not null references public\.mentorado \(id\) on delete cascade/i);
+    // Sem cascade: apagar a matrícula não pode apagar o histórico de cobrança.
+    expect(corpo).toMatch(/matricula_id uuid references public\.matricula \(id\) on delete set null/i);
+    expect(corpo).toMatch(/competencia date not null/i);
+    expect(corpo).toMatch(/vencimento date not null/i);
+    expect(corpo).toMatch(/valor numeric\(14, 2\) not null/i);
+    expect(corpo).toMatch(/status public\.status_cobranca not null default 'prevista'/i);
+    expect(corpo).toMatch(/pago_em date/i);
+    expect(corpo).toMatch(/forma public\.forma_cobranca/i);
+    expect(corpo).toMatch(/movimento_id uuid references public\.movimentos_caixa \(id\) on delete set null/i);
+    expect(corpo).toMatch(/observacao text not null default ''/i);
+  });
+
+  it("valor negativo é recusado pelo banco", () => {
+    expect(blocoCreateTable(exec0027, "cobranca")).toMatch(/check \(valor >= 0\)/i);
+  });
+
+  it("PAGA exige data e forma — a régua fica no banco", () => {
+    // Mesma escola do `perda_tem_motivo` de 0024: cobrança marcada como paga
+    // sem dizer quando e como é uma baixa que ninguém consegue conferir
+    // depois, e o extrato do mês não fecha.
+    const corpo = blocoCreateTable(exec0027, "cobranca");
+    const check = /constraint paga_tem_baixa check \(status <> 'paga' or \(pago_em is not null and forma is not null\)\)/i;
+    expect(corpo).toMatch(check);
+  });
+
+  it("a mesma parcela não nasce duas vezes — nem a avulsa", () => {
+    const corpo = blocoCreateTable(exec0027, "cobranca");
+    expect(corpo).toMatch(/unique \(matricula_id, competencia\)/i);
+
+    // O índice parcial é o que fecha o buraco do `null`: sem ele, duas
+    // cobranças avulsas do mesmo mentorado na mesma competência passariam,
+    // porque em Postgres `null` nunca é igual a `null`.
+    expect(exec0027).toMatch(
+      /create unique index if not exists \w+\s+on public\.cobranca \(mentorado_id, competencia\)\s*where matricula_id is null/i,
+    );
+  });
+
+  it("toda política começa escopada por workspace_atual()", () => {
+    const politicas = politicasDaTabela(exec0027, "cobranca");
+    expect(politicas.length, "esperava políticas em public.cobranca").toBeGreaterThan(0);
+    for (const politica of politicas) {
+      const clausulas = [...politica.matchAll(/(?:using|with check)\s*\(/gi)];
+      expect(clausulas.length).toBeGreaterThan(0);
+      for (const clausula of clausulas) {
+        const depois = politica.slice((clausula.index ?? 0) + clausula[0].length);
+        expect(
+          depois.trimStart().startsWith("workspace_id = public.workspace_atual()"),
+          `a primeira condição deveria ser o escopo de workspace, e é: ${depois.trimStart().slice(0, 60)}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("só dono e gestor — nem comercial, nem mentorado", () => {
+    // A tabela diz quanto cada cliente deve, quando venceu e o que já pagou.
+    // Comercial vende; cobrança é do dono. E o mentorado não lê a própria
+    // linha nesta fase: se um dia ler, será por view com security_invoker
+    // (desenho de 0016), nunca afrouxando isto aqui.
+    const politicas = politicasDaTabela(exec0027, "cobranca");
+    expect(politicas.length).toBe(3);
+    for (const politica of politicas) {
+      expect(politica).toMatch(/public\.papel_atual\(\) in \('dono', 'gestor'\)/i);
+      expect(politica).not.toContain("'comercial'");
+      expect(politica).not.toContain("'mentorado'");
+      expect(politica).not.toContain("mentorado_atual");
+    }
+  });
+
+  it("não tem política de DELETE nem `using (true)`", () => {
+    for (const politica of politicasDaTabela(exec0027, "cobranca")) {
+      expect(politica).not.toMatch(/for\s+delete/i);
+      expect(politica.replace(/\s+/g, " ")).not.toMatch(/(?:using|with check)\s*\(\s*true\s*\)/i);
+    }
+  });
+
+  it("as três operações estão cobertas, e só elas", () => {
+    const politicas = politicasDaTabela(exec0027, "cobranca");
+    const operacoes = politicas.map((p) => /for\s+(select|insert|update|delete)/i.exec(p)?.[1]?.toLowerCase());
+    expect(operacoes.sort()).toEqual(["insert", "select", "update"]);
+  });
+
+  it("nenhuma função nova ganhou grant para anon", () => {
+    // Só duas funções do projeto respondem a quem não fez login, e nenhuma
+    // delas é daqui.
+    expect(exec0027).not.toMatch(/to\s+anon/i);
+    expect(exec0027).not.toMatch(/security definer/i);
+  });
+});
+
+// ============================================================
+// O par _exec_ é a MESMA migração — conferido, não prometido
+// ============================================================
+//
+// Toda migração deste projeto tem duas cópias: `NNNN_nome.sql`, com os
+// comentários que explicam as decisões, e `_exec_NNNN_nome.sql`, sem eles,
+// que é a que de fato vai colada no SQL Editor do Supabase.
+//
+// Até aqui, os testes conferiam SEMPRE a primeira e só checavam que a segunda
+// EXISTE. Ou seja: o arquivo que roda em produção não era conferido por
+// asserção nenhuma. Uma edição de última hora no `_exec_` — um `and` que vira
+// `or`, uma política que fica para trás — passaria com a suíte verde, porque
+// o que a suíte lê é o outro arquivo.
+//
+// Este teste fecha isso: fora os comentários e o espaço em branco, os dois
+// arquivos têm que ser o mesmo texto. Descoberto na tarefa 50, quando um giro
+// inteiro de mutação (17 mutantes no `_exec_`) sobreviveu sem que uma única
+// asserção piscasse.
+
+describe("cada _exec_ é a própria migração, sem os comentários", () => {
+  // `arquivosDeMigracao()` filtra por `^\d{4}_`, então não enxerga os
+  // `_exec_`. A lista aqui vem do diretório direto.
+  const pares = readdirSync(MIGRATIONS_DIR)
+    .filter((nome) => /^_exec_\d{4}_.*\.sql$/.test(nome))
+    .sort()
+    .map((execNome) => ({ execNome, fonteNome: execNome.replace("_exec_", "") }));
+
+  it("existe par para conferir", () => {
+    expect(pares.length).toBeGreaterThan(20);
+  });
+
+  it.each(pares.map((p) => p.execNome))("%s tem uma fonte comentada correspondente", (execNome) => {
+    expect(existeArquivoDeMigracao(execNome.replace("_exec_", ""))).toBe(true);
+  });
+
+  it.each(pares.map((p) => p.execNome))("%s é igual à fonte, comando por comando", (execNome) => {
+    const fonteNome = execNome.replace("_exec_", "");
+    const normalizar = (sql: string) => semComentarios(sql).replace(/\s+/g, " ").trim();
+
+    expect(
+      normalizar(lerMigracao(execNome)),
+      `${execNome} divergiu de ${fonteNome} — o arquivo que roda em produção é o _exec_`,
+    ).toBe(normalizar(lerMigracao(fonteNome)));
+  });
+});
