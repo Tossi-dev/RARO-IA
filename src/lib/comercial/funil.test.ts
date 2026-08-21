@@ -17,6 +17,7 @@ import { describe, expect, it } from "vitest";
 import {
   cicloMedio,
   conversaoPorEtapa,
+  motivosDePerda,
   statusDaOportunidade,
   type EtapaDoFunil,
   type OportunidadeDoFunil,
@@ -377,5 +378,81 @@ describe("cicloMedio — o número que pode não existir", () => {
       oportunidade({ id: "c", status: "ganha", criadoEm: "2026-08-01T00:00:00Z", fechadoEm: "2026-08-07T00:00:00Z" }),
     ]);
     expect(media).toBe(6);
+  });
+});
+
+describe("motivosDePerda — o balde 'Outros' que não existe", () => {
+  const perda = (over: Partial<Parameters<typeof motivosDePerda>[0][number]> = {}) => ({
+    id: "p1",
+    status: "perdida",
+    valor: 1000,
+    motivoPerda: "Preço",
+    ...over,
+  });
+
+  it("perda sem motivo é CONTAGEM, nunca categoria", () => {
+    // Numa base nova quase ninguém preenche: um balde "Outros" chegaria a
+    // 100% e a tela diria, com gráfico e tudo, que o time perde por "Outros".
+    const r = motivosDePerda([perda({ id: "a", motivoPerda: "" }), perda({ id: "b", motivoPerda: "   " })]);
+
+    expect(r.grupos).toEqual([]);
+    expect(r.semMotivo).toBe(2);
+    expect(r.total).toBe(2);
+    expect(JSON.stringify(r)).not.toContain("Outros");
+  });
+
+  it("junta a mesma coisa escrita diferente, e mostra a primeira grafia", () => {
+    const r = motivosDePerda([
+      perda({ id: "a", motivoPerda: "Preço" }),
+      perda({ id: "b", motivoPerda: "  preço " }),
+      perda({ id: "c", motivoPerda: "PREÇO" }),
+    ]);
+
+    expect(r.grupos).toHaveLength(1);
+    expect(r.grupos[0].motivo).toBe("Preço");
+    expect(r.grupos[0].quantidade).toBe(3);
+  });
+
+  it("não tenta interpretar — 'achou caro' não vira 'preço'", () => {
+    const r = motivosDePerda([perda({ id: "a", motivoPerda: "Preço" }), perda({ id: "b", motivoPerda: "Achou caro" })]);
+    expect(r.grupos).toHaveLength(2);
+  });
+
+  it("ordena pela quantidade, com a grafia como desempate estável", () => {
+    const r = motivosDePerda([
+      perda({ id: "a", motivoPerda: "Sumiu" }),
+      perda({ id: "b", motivoPerda: "Preço" }),
+      perda({ id: "c", motivoPerda: "Preço" }),
+      perda({ id: "d", motivoPerda: "Concorrente" }),
+    ]);
+
+    expect(r.grupos.map((g) => g.motivo)).toEqual(["Preço", "Concorrente", "Sumiu"]);
+  });
+
+  it("soma o valor, e valor negativo não entra na soma", () => {
+    const r = motivosDePerda([
+      perda({ id: "a", valor: 1000 }),
+      perda({ id: "b", valor: -500 }),
+      perda({ id: "c", valor: Number.NaN }),
+    ]);
+
+    expect(r.grupos[0].quantidade).toBe(3);
+    expect(r.grupos[0].valor).toBe(1000);
+  });
+
+  it("só olha as perdidas", () => {
+    const r = motivosDePerda([
+      perda({ id: "a" }),
+      perda({ id: "b", status: "ganha", motivoPerda: "isso não devia contar" }),
+      perda({ id: "c", status: "aberta", motivoPerda: "nem isso" }),
+      perda({ id: "d", status: "vendida", motivoPerda: "nem isso" }),
+    ]);
+
+    expect(r.total).toBe(1);
+    expect(r.grupos).toHaveLength(1);
+  });
+
+  it("sem perda nenhuma, tudo zero e nada de null", () => {
+    expect(motivosDePerda([])).toEqual({ grupos: [], semMotivo: 0, total: 0 });
   });
 });
