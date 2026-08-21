@@ -284,3 +284,86 @@ export function cicloMedio(oportunidades: OportunidadeDoFunil[]): number | null 
   const media = dias.reduce((soma, d) => soma + d, 0) / dias.length;
   return Math.round(media * 10) / 10;
 }
+
+// ============================================================
+// POR QUE A PERDA SEM MOTIVO NÃO VIRA UMA CATEGORIA
+// ============================================================
+//
+// O caminho fácil seria jogar as perdas de motivo vazio num balde "Outros".
+// Numa base nova, onde quase ninguém preencheu, esse balde chega a 100% — e
+// aí a tela mostra um gráfico bonito dizendo que o time perde por "Outros",
+// que é pior do que não mostrar nada: parece resposta e não é.
+//
+// Então elas não entram no agrupamento. Saem à parte, como uma contagem
+// (`semMotivo`), para a tela poder dizer a única coisa verdadeira que se sabe
+// sobre elas: que ninguém escreveu por que perdeu.
+//
+// O agrupamento junta o que é a mesma coisa escrita diferente ("Preço",
+// "preço ", "PREÇO"), e guarda a PRIMEIRA grafia vista para mostrar. Não
+// tenta ser mais esperto que isso: "achou caro" e "preço" continuam
+// separados, porque juntar os dois seria o módulo inventando interpretação.
+
+/** O mínimo para agrupar uma perda. `OportunidadeLida` (dados.ts) cabe aqui. */
+export interface PerdaParaAgrupar {
+  id: string;
+  status: string;
+  valor: number;
+  motivoPerda: string;
+}
+
+export interface GrupoDePerda {
+  /** A primeira grafia vista — é o que a tela mostra. */
+  motivo: string;
+  quantidade: number;
+  /** Soma dos valores; negativo e ilegível não entram (mesma regra de cima). */
+  valor: number;
+}
+
+export interface ResumoDePerdas {
+  grupos: GrupoDePerda[];
+  /** Perdidas sem motivo escrito. Contagem, nunca categoria. */
+  semMotivo: number;
+  /** Total de perdidas — a soma de `semMotivo` com as quantidades dos grupos. */
+  total: number;
+}
+
+/** Junta o que é a mesma coisa escrita diferente, e nada além disso. */
+function chaveDoMotivo(motivo: string): string {
+  return motivo.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/**
+ * Agrupa os motivos de perda. Ver o cabeçalho acima sobre o balde "Outros".
+ *
+ * Ordena pela quantidade, e o desempate é pela grafia — duas causas com o
+ * mesmo número não podem trocar de lugar a cada carregamento.
+ */
+export function motivosDePerda(oportunidades: PerdaParaAgrupar[]): ResumoDePerdas {
+  const porChave = new Map<string, GrupoDePerda>();
+  let semMotivo = 0;
+  let total = 0;
+
+  for (const o of oportunidades) {
+    if (statusDaOportunidade(o.status) !== "perdida") continue;
+    total += 1;
+
+    const motivo = typeof o.motivoPerda === "string" ? o.motivoPerda.trim().replace(/\s+/g, " ") : "";
+    if (motivo === "") {
+      semMotivo += 1;
+      continue;
+    }
+
+    const somavel = typeof o.valor === "number" && Number.isFinite(o.valor) && o.valor >= 0;
+    const chave = chaveDoMotivo(motivo);
+    const grupo = porChave.get(chave) ?? { motivo, quantidade: 0, valor: 0 };
+    grupo.quantidade += 1;
+    if (somavel) grupo.valor += o.valor;
+    porChave.set(chave, grupo);
+  }
+
+  const grupos = [...porChave.values()].sort(
+    (a, b) => b.quantidade - a.quantidade || a.motivo.localeCompare(b.motivo),
+  );
+
+  return { grupos, semMotivo, total };
+}
