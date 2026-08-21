@@ -3529,3 +3529,131 @@ describe("cada _exec_ é a própria migração, sem os comentários", () => {
     ).toBe(normalizar(lerMigracao(fonteNome)));
   });
 });
+
+// ============================================================
+// 0028 — a sessão do portal vira função, e a `sessao` fecha
+// ============================================================
+//
+// Esta migração conserta um furo achado em 21/08, e o teste existe para ele
+// não voltar: até 0028, `sessao` tinha política de select liberando a LINHA
+// para o mentorado, e a censura de `link_gravacao`/`transcricao` morava numa
+// VIEW. View censura quem passa por ela — um GET direto em `/rest/v1/sessao`
+// com o token do próprio mentorado devolvia a transcrição inteira com a flag
+// desligada. RLS decide LINHA, nunca COLUNA: a lição de 0012/0013, repetida.
+//
+// O que este bloco trava:
+//   1. a política de select de `sessao` NÃO menciona mentorado (nem o papel,
+//      nem `mentorado_atual()`);
+//   2. a função é `security definer`, tem `search_path` fixo e NÃO é
+//      alcançável por `anon`;
+//   3. a censura está DENTRO da função, nas duas colunas;
+//   4. a função filtra por `workspace_atual()` e por `mentorado_atual()` —
+//      sem o segundo, ela viraria um vazamento maior que o que consertou.
+
+const ARQUIVO_0028 = "0028_sessao_do_portal_por_funcao.sql";
+const ARQUIVO_EXEC_0028 = "_exec_0028_sessao_do_portal_por_funcao.sql";
+const m0028 = existeArquivoDeMigracao(ARQUIVO_0028) ? lerMigracao(ARQUIVO_0028) : "";
+const exec0028 = semComentarios(m0028);
+
+describe("0028 — a sessão do portal por função", () => {
+  it("a migração existe, e a versão _exec_ também", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0028), `esperava supabase/migrations/${ARQUIVO_0028}`).toBe(true);
+    expect(readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0028)).toBe(true);
+  });
+
+  it("a política de select de `sessao` NÃO alcança mais o mentorado", () => {
+    // O coração da correção. Enquanto a linha aparecesse para ele, nenhuma
+    // view no mundo esconderia uma coluna.
+    const politicas = politicasDaTabela(exec0028, "sessao");
+    expect(politicas.length, "esperava a política de select recriada").toBeGreaterThan(0);
+    for (const politica of politicas) {
+      expect(politica).toMatch(/public\.papel_atual\(\) in \('dono', 'gestor'\)/i);
+      expect(politica).not.toContain("'mentorado'");
+      expect(politica).not.toContain("mentorado_atual");
+      expect(politica.replace(/\s+/g, " ")).not.toMatch(/using\s*\(\s*true\s*\)/i);
+    }
+    // E a política antiga é derrubada pelo nome exato que 0007/0008 usaram.
+    expect(exec0028).toContain(
+      'drop policy if exists "leitura: dono, gestor e o proprio mentorado" on public.sessao',
+    );
+  });
+
+  it("a função é security definer, com search_path fixo, e fora do alcance de anon", () => {
+    expect(exec0028).toMatch(/create or replace function public\.sessoes_do_portal\(\)/i);
+    expect(exec0028).toMatch(/security definer/i);
+    expect(exec0028).toMatch(/set search_path = public/i);
+    expect(exec0028).toContain("revoke all on function public.sessoes_do_portal() from public");
+    expect(exec0028).toContain("revoke all on function public.sessoes_do_portal() from anon");
+    expect(exec0028).toContain("grant execute on function public.sessoes_do_portal() to authenticated");
+    // A liberação é NOMINAL e não inclui anon: só duas funções do projeto
+    // respondem a quem não fez login, e nenhuma é esta.
+    expect(exec0028).not.toMatch(/grant execute on function public\.sessoes_do_portal\(\)[^;]*anon/i);
+  });
+
+  it("a censura das duas colunas está DENTRO da função", () => {
+    const corpo = /as \$\$([\s\S]*?)\$\$;/.exec(exec0028)?.[1] ?? "";
+    expect(corpo, "esperava o corpo da função").not.toBe("");
+    expect(corpo).toMatch(/case when s\.gravacao_liberada then s\.link_gravacao else '' end/i);
+    expect(corpo).toMatch(/case when s\.transcricao_liberada then s\.transcricao else '' end/i);
+  });
+
+  it("a função recorta por workspace E por mentorado", () => {
+    // Sem o recorte de mentorado, uma função `security definer` que lê
+    // `sessao` devolveria a sessão de todo mundo — um furo maior que o
+    // consertado.
+    const corpo = /as \$\$([\s\S]*?)\$\$;/.exec(exec0028)?.[1] ?? "";
+    expect(corpo).toContain("s.workspace_id = public.workspace_atual()");
+    expect(contarOcorrencias(corpo, "mt.mentorado_id = public.mentorado_atual()")).toBe(2);
+    expect(corpo).toMatch(/mt\.id = s\.matricula_id/i);
+    expect(corpo).toMatch(/mt\.turma_id = s\.turma_id/i);
+  });
+
+  it("a view continua existindo, com o mesmo nome, e só lê a função", () => {
+    // O app pede colunas nominais de `sessao_do_portal` desde 0017. Trocar o
+    // nome obrigaria a mexer no TypeScript sem necessidade.
+    expect(exec0028).toMatch(
+      /create view public\.sessao_do_portal\s*with\s*\(\s*security_invoker\s*=\s*true\s*\)\s*as select \* from public\.sessoes_do_portal\(\)/i,
+    );
+    expect(exec0028).toContain("grant select on public.sessao_do_portal to authenticated");
+  });
+
+  it("a view não lê mais a tabela direto", () => {
+    // Se ela voltasse a selecionar de `public.sessao`, a censura viraria
+    // enfeite de novo: com a política fechada ela devolveria zero linhas
+    // para o mentorado, e o portal ficaria vazio sem ninguém entender.
+    const criacao = /create view public\.sessao_do_portal[\s\S]*?;/.exec(exec0028)?.[0] ?? "";
+    expect(criacao).not.toMatch(/from public\.sessao\b/i);
+  });
+
+  it("nenhuma coluna nova aparece na função sem passar pelo teste", () => {
+    // A lista de colunas é a mesma de 0017 — o app pede por nome.
+    const assinatura = /returns table \(([\s\S]*?)\)\s*language sql/i.exec(exec0028)?.[1] ?? "";
+    const colunas = assinatura
+      .split(",")
+      .map((l) => l.trim().split(/\s+/)[0])
+      .filter(Boolean);
+
+    expect(colunas).toEqual([
+      "id",
+      "workspace_id",
+      "matricula_id",
+      "turma_id",
+      "numero",
+      "quando",
+      "duracao_min",
+      "status",
+      "resumo",
+      "link_reuniao",
+      "gravacao_liberada",
+      "transcricao_liberada",
+      "transcrita_em",
+      "link_gravacao",
+      "transcricao",
+      "criado_em",
+    ]);
+    // `transcricao_origem` e `evento_google_id` existem na tabela e NÃO
+    // atravessam: são dado de operação, não do cliente.
+    expect(colunas).not.toContain("transcricao_origem");
+    expect(colunas).not.toContain("evento_google_id");
+  });
+});
