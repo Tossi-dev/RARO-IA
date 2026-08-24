@@ -3657,3 +3657,93 @@ describe("0028 — a sessão do portal por função", () => {
     expect(colunas).not.toContain("evento_google_id");
   });
 });
+
+// ============================================================
+// 0029 — contrato: a tabela fecha, o portal recebe só seu recorte
+// ============================================================
+//
+// Quebra que estes testes impedem: reabrir `contrato` para mentorado e tentar
+// esconder `valor_total` em view. RLS decide linha, não coluna; por isso a
+// única porta do portal é a função com retorno nominal abaixo.
+
+const ARQUIVO_0029 = "0029_contrato.sql";
+const ARQUIVO_EXEC_0029 = "_exec_0029_contrato.sql";
+const m0029 = existeArquivoDeMigracao(ARQUIVO_0029) ? lerMigracao(ARQUIVO_0029) : "";
+const exec0029 = semComentarios(m0029);
+
+describe("0029 — contrato sem leitura direta pelo portal", () => {
+  it("a migração existe, e a versão _exec_ também", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0029), `esperava supabase/migrations/${ARQUIVO_0029}`).toBe(true);
+    expect(readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0029)).toBe(true);
+  });
+
+  it("cria contrato como fatos e mantém o arquivo em documento", () => {
+    const corpo = blocoCreateTable(exec0029, "contrato");
+
+    expect(corpo).toMatch(/workspace_id uuid not null references public\.workspace \(id\)/i);
+    expect(corpo).toMatch(/mentorado_id uuid not null references public\.mentorado \(id\)/i);
+    expect(corpo).toMatch(/matricula_id uuid references public\.matricula \(id\)/i);
+    expect(corpo).toMatch(/documento_id uuid references public\.documento \(id\)/i);
+    expect(corpo).toMatch(/assinado_em date/i);
+    expect(corpo).toMatch(/vigencia_inicio date/i);
+    expect(corpo).toMatch(/vigencia_fim date/i);
+    expect(corpo).toMatch(/valor_total numeric\(14, 2\) not null/i);
+    expect(corpo).toMatch(/status public\.status_contrato not null/i);
+    expect(corpo).toMatch(/criado_em timestamptz not null default now\(\)/i);
+  });
+
+  it("fecha a tabela a dono e gestor, sem delete nem política permissiva", () => {
+    const politicas = politicasDaTabela(exec0029, "contrato");
+    expect(politicas.length, "esperava as políticas de contrato").toBe(3);
+
+    for (const politica of politicas) {
+      expect(politica).toMatch(/public\.papel_atual\(\) in \('dono', 'gestor'\)/i);
+      expect(politica).not.toContain("'mentorado'");
+      expect(politica).not.toContain("'comercial'");
+      expect(politica).not.toContain("mentorado_atual");
+      expect(politica).not.toMatch(/for\s+delete/i);
+      expect(politica.replace(/\s+/g, " ")).not.toMatch(/(?:using|with check)\s*\(\s*true\s*\)/i);
+    }
+
+    const operacoes = politicas
+      .map((p) => /for\s+(select|insert|update|delete)/i.exec(p)?.[1]?.toLowerCase())
+      .sort();
+    expect(operacoes).toEqual(["insert", "select", "update"]);
+  });
+
+  it("a função do portal é a única leitura do mentorado e não retorna valor_total", () => {
+    expect(exec0029).toMatch(/create or replace function public\.contrato_do_portal\(\)/i);
+    expect(exec0029).toMatch(/security definer/i);
+    expect(exec0029).toMatch(/set search_path = public/i);
+    expect(exec0029).toContain("revoke all on function public.contrato_do_portal() from public");
+    expect(exec0029).toContain("revoke all on function public.contrato_do_portal() from anon");
+    expect(exec0029).toContain("grant execute on function public.contrato_do_portal() to authenticated");
+    expect(exec0029).not.toMatch(/grant execute on function public\.contrato_do_portal\(\)[^;]*anon/i);
+
+    const assinatura = /returns table \(([\s\S]*?)\)\s*language sql/i.exec(exec0029)?.[1] ?? "";
+    const colunas = assinatura
+      .split(",")
+      .map((linha) => linha.trim().split(/\s+/)[0])
+      .filter(Boolean);
+    expect(colunas).not.toContain("valor_total");
+    expect(colunas).toEqual([
+      "id",
+      "mentorado_id",
+      "matricula_id",
+      "documento_id",
+      "assinado_em",
+      "vigencia_inicio",
+      "vigencia_fim",
+      "status",
+      "criado_em",
+    ]);
+  });
+
+  it("recorta a função pelo workspace e pelo mentorado autenticado", () => {
+    const corpo = /as \$\$([\s\S]*?)\$\$;/.exec(exec0029)?.[1] ?? "";
+    expect(corpo).toContain("c.workspace_id = public.workspace_atual()");
+    expect(corpo).toContain("c.mentorado_id = public.mentorado_atual()");
+    expect(corpo).toContain("public.papel_atual() = 'mentorado'");
+    expect(corpo).not.toContain("c.valor_total");
+  });
+});
