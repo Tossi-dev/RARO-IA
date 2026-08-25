@@ -3842,3 +3842,82 @@ describe("0031 — baixa de cobrança é atômica e isolada", () => {
     );
   });
 });
+
+// ============================================================
+// 0032 — campos honestos para finanças pessoais
+// ============================================================
+
+const ARQUIVO_0032 = "0032_financas_pessoais_modelo.sql";
+const ARQUIVO_EXEC_0032 = "_exec_0032_financas_pessoais_modelo.sql";
+const m0032 = existeArquivoDeMigracao(ARQUIVO_0032) ? lerMigracao(ARQUIVO_0032) : "";
+const exec0032 = semComentarios(m0032);
+
+describe("0032 — compatibilidade de dados pessoais sem inventar legado", () => {
+  it("cria a migration e seu espelho local", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0032), `esperava supabase/migrations/${ARQUIVO_0032}`).toBe(true);
+    expect(readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0032)).toBe(true);
+  });
+
+  it("acrescenta classe de patrimônio e valores de investimento sem defaults ou retropreenchimento", () => {
+    expect(exec0032).toMatch(/create type public\.classe_patrimonio as enum\s*\(\s*'imovel',\s*'veiculo',\s*'reserva',\s*'investimento',\s*'outro'\s*\)/is);
+    expect(exec0032).toMatch(/alter table public\.patrimonio\s+add column if not exists classe public\.classe_patrimonio/is);
+    expect(exec0032).toMatch(/alter table public\.investimento\s+add column if not exists aportado numeric\(14, 2\) check \(aportado >= 0\),\s+add column if not exists valor_atual numeric\(14, 2\) check \(valor_atual >= 0\)/is);
+    expect(exec0032).not.toMatch(/\b(default|update\s+public\.(patrimonio|investimento)|insert into public\.(patrimonio|investimento))\b/i);
+  });
+
+  it("mantém o espelho _exec_ idêntico à migration", () => {
+    expect(semComentarios(lerMigracao(ARQUIVO_EXEC_0032)).replace(/\s+/g, " ").trim()).toBe(
+      semComentarios(lerMigracao(ARQUIVO_0032)).replace(/\s+/g, " ").trim(),
+    );
+  });
+});
+
+// ============================================================
+// 0033 — análise interna de evolução e alertas de risco
+// ============================================================
+
+const ARQUIVO_0033 = "0033_ia_evolucao.sql";
+const ARQUIVO_EXEC_0033 = "_exec_0033_ia_evolucao.sql";
+const m0033 = existeArquivoDeMigracao(ARQUIVO_0033) ? lerMigracao(ARQUIVO_0033) : "";
+const exec0033 = semComentarios(m0033);
+
+describe("0033 — evolução: análises e alertas ficam internos", () => {
+  it("cria a migration e seu espelho local", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0033), `esperava supabase/migrations/${ARQUIVO_0033}`).toBe(true);
+    expect(readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0033)).toBe(true);
+  });
+
+  it("declara procedência obrigatória da análise e o enum fechado de alertas", () => {
+    expect(exec0033).toMatch(/create type public\.tipo_alerta as enum\s*\(\s*'queda_score',\s*'silencio',\s*'faltas',\s*'tarefas_atrasadas'\s*\)/is);
+    expect(exec0033).toMatch(/create table if not exists public\.analise_sessao[\s\S]*modelo text not null[\s\S]*gerada_por text not null/is);
+    expect(exec0033).toMatch(/create table if not exists public\.alerta_risco[\s\S]*tipo public\.tipo_alerta not null[\s\S]*resolvido boolean not null default false/is);
+  });
+
+  it("limita todas as políticas a dono ou gestor do próprio workspace, sem mentorado", () => {
+    for (const [tabela, quantidade] of [["analise_sessao", 2], ["alerta_risco", 3]] as const) {
+      const politicas = politicasDaTabela(exec0033, tabela);
+      expect(politicas).toHaveLength(quantidade);
+      for (const politica of politicas) {
+        expect(politica).not.toMatch(/mentorado/i);
+        expect(politica).not.toMatch(/using\s*\(\s*true\s*\)/i);
+        expect(politica).toMatch(/workspace_id = public\.workspace_atual\(\)/i);
+        expect(politica).toMatch(/public\.papel_atual\(\) in \('dono', 'gestor'\)/i);
+      }
+    }
+  });
+
+  it("recusa referências de sessão ou mentorado que pertençam a outro workspace", () => {
+    expect(exec0033).toMatch(/create or replace function public\.validar_referencias_ia_evolucao\(\)\s+returns trigger\s+language plpgsql\s+security definer\s+set search_path = public/is);
+    expect(exec0033).toMatch(/from public\.sessao[\s\S]*id = new\.sessao_id[\s\S]*mentorado_id = new\.mentorado_id[\s\S]*workspace_id = new\.workspace_id/is);
+    expect(exec0033).toMatch(/from public\.mentorado[\s\S]*id = new\.mentorado_id[\s\S]*workspace_id = new\.workspace_id/is);
+    expect(exec0033).toMatch(/create trigger validar_referencias_analise_sessao[\s\S]*before insert or update of workspace_id, sessao_id, mentorado_id[\s\S]*on public\.analise_sessao[\s\S]*execute function public\.validar_referencias_ia_evolucao\(\)/is);
+    expect(exec0033).toMatch(/create trigger validar_referencias_alerta_risco[\s\S]*before insert or update of workspace_id, mentorado_id[\s\S]*on public\.alerta_risco[\s\S]*execute function public\.validar_referencias_ia_evolucao\(\)/is);
+    expect(exec0033).toMatch(/revoke all on function public\.validar_referencias_ia_evolucao\(\) from public/i);
+  });
+
+  it("mantém o espelho _exec_ idêntico à migration", () => {
+    expect(semComentarios(lerMigracao(ARQUIVO_EXEC_0033)).replace(/\s+/g, " ").trim()).toBe(
+      semComentarios(lerMigracao(ARQUIVO_0033)).replace(/\s+/g, " ").trim(),
+    );
+  });
+});

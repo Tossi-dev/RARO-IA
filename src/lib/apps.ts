@@ -360,6 +360,14 @@ export const CATALOGO_SISTEMA: AppCatalogo[] = [
     cor: "#334155", // slate-700, o mais escuro dos quatro
     frase: "Planilha, agenda do Google e o que mais estiver ligado.",
   },
+  {
+    id: "pessoal",
+    nome: "Finanças pessoais",
+    href: "/pessoal",
+    icone: "Wallet",
+    cor: "#0f172a", // slate-900: dado exclusivo do dono, fora da operação diária
+    frase: "Patrimônio e investimentos pessoais, sem misturar com a operação.",
+  },
 ];
 
 /**
