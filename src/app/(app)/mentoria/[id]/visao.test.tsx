@@ -64,6 +64,9 @@ vi.mock("@/lib/mentoria/acoes-ficha", () => ({
   revogarConteudoDaFicha: vi.fn(),
 }));
 
+vi.mock("@/lib/mentoria/acoes-score", () => ({ gravarScoreSemanal: vi.fn() }));
+vi.mock("@/lib/ia/acoes-analise", () => ({ analisarSessao: vi.fn() }));
+
 // Mesma razão, para o bloco de documentos que a ficha passou a montar
 // (Tarefa 12): `./documentos` só referencia as três Server Actions como
 // `action={...}`, mas o módulo real importa `next/cache`/`next/navigation`.
@@ -951,6 +954,20 @@ describe("agenda e transcrição na sessão", () => {
     );
 
     expect(textoDe(visaoGeral)).toContain("ainda não transcrita");
+  });
+
+  it("deixa explícito que a análise é humana no disparo e bloqueia sessão sem transcrição", () => {
+    const { visaoGeral } = paineis(
+      render(fichaComSessao({ transcricao: "", transcritaEm: null }), historico(), undefined, documentos(), true)
+    );
+    const texto = textoDe(visaoGeral);
+
+    expect(texto).toContain("Calcular score desta semana");
+    expect(texto).toContain("Analisar esta sessão com IA");
+    expect(texto).toContain("Quem dispara é uma pessoa");
+    expect(texto).toContain("fica registrada com o nome de quem clicou");
+    expect(texto).toContain("Disponível quando houver transcrição");
+    expect(visaoGeral).toMatch(/<button[^>]*disabled=""[^>]*>Analisar esta sessão com IA<\/button>/);
   });
 
   it("o campo de áudio existe e o formulário sabe enviar arquivo", () => {

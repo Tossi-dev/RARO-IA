@@ -170,3 +170,12 @@ describe("rotaLivre — /certificado (tarefa 29)", () => {
     }
   });
 });
+
+// Tarefa 72 — links de campanha são acessados por quem recebeu o link, sem login.
+describe("rotaLivre — /l (tarefa 72)", () => {
+  it("o código rastreado passa pelo portão sem abrir rotas parecidas", () => {
+    expect(rotaLivre("/l/AbCd1234")).toBe(true);
+    expect(rotaLivre("/links/AbCd1234")).toBe(false);
+    expect(rotaLivre("/landing")).toBe(false);
+  });
+});
