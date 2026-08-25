@@ -15,6 +15,7 @@
 // src/components/fin-rotas.ts e as pastas de src/app/(app)/ — para não
 // inventar rota que não existe nem esquecer nenhuma tela ligada no menu.
 
+import { ROTAS_FIN } from "@/components/fin-rotas";
 import { rotaPermitida, type Papel } from "@/lib/papeis";
 
 /** Nomes de ícone do lucide-react usados no catálogo — a lista fechada que
@@ -132,48 +133,25 @@ const COR_TRILHAS = "#0d9488"; // teal-600 — a esteira de conteúdo da mentori
  */
 // "Capital de giro" e "Comissões" saíram deste catálogo na virada para
 // mentoria (rota removida — ver docs/DESENHO-MENTOROS.md, seção 8).
-const SUBAPPS_FINANCEIRO: SubApp[] = [
-  {
-    id: "financeiro-resultado",
-    nome: "Resultado",
-    href: "/financeiro",
-    icone: "TrendingUp",
-    cor: COR_FINANCEIRO,
-    frase: "O ano está dando lucro e batendo as metas?",
-  },
-  {
-    id: "financeiro-caixa",
-    nome: "Fluxo de caixa",
-    href: "/financeiro/caixa",
-    icone: "ArrowLeftRight",
-    cor: COR_FINANCEIRO,
-    frase: "Sobrou ou faltou dinheiro no período, e por causa de quê?",
-  },
-  {
-    id: "financeiro-projecao",
-    nome: "Projeção 13 semanas",
-    href: "/financeiro/projecao",
-    icone: "LineChart",
-    cor: COR_FINANCEIRO,
-    frase: "Em que semana o caixa fica negativo se nada mudar?",
-  },
-  {
-    id: "financeiro-dre",
-    nome: "DRE gerencial",
-    href: "/financeiro/dre",
-    icone: "FileText",
-    cor: COR_FINANCEIRO,
-    frase: "A operação deu lucro no mês, independente de já ter recebido?",
-  },
-  {
-    id: "financeiro-reembolsos",
-    nome: "Reembolsos",
-    href: "/financeiro/reembolsos",
-    icone: "Undo2",
-    cor: COR_FINANCEIRO,
-    frase: "Quanto do faturamento está voltando, e por qual produto?",
-  },
-];
+const ICONE_FINANCEIRO: Record<string, NomeIcone> = {
+  "/financeiro": "TrendingUp",
+  "/financeiro/caixa": "ArrowLeftRight",
+  "/financeiro/projecao": "LineChart",
+  "/financeiro/dre": "FileText",
+  "/financeiro/reembolsos": "Undo2",
+  "/financeiro/cobrancas": "Wallet",
+  "/financeiro/contratos": "FileText",
+  "/financeiro/recorrencia": "TrendingUp",
+};
+
+const SUBAPPS_FINANCEIRO: SubApp[] = ROTAS_FIN.map((rota) => ({
+  id: `financeiro-${rota.href.split("/").at(-1) || "resultado"}`,
+  nome: rota.rotulo,
+  href: rota.href,
+  icone: ICONE_FINANCEIRO[rota.href],
+  cor: COR_FINANCEIRO,
+  frase: rota.pergunta,
+}));
 
 /**
  * Central de Clientes — as duas telas do lado comercial.

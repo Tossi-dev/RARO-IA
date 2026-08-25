@@ -49,6 +49,24 @@ export const ROTAS_FIN: RotaFin[] = [
     pergunta: "Quanto do faturamento está voltando, e por qual produto?",
     regime: "misto",
   },
+  {
+    href: "/financeiro/cobrancas",
+    rotulo: "Cobranças",
+    pergunta: "O que venceu, o que entrou e qual lembrete precisa de aprovação?",
+    regime: "competencia",
+  },
+  {
+    href: "/financeiro/contratos",
+    rotulo: "Contratos",
+    pergunta: "Quais contratos estão registrados e em que situação?",
+    regime: "competencia",
+  },
+  {
+    href: "/financeiro/recorrencia",
+    rotulo: "Recorrência",
+    pergunta: "Qual receita recorrente foi recebida e o que ainda não tem base?",
+    regime: "competencia",
+  },
   // "Comissões" saiu daqui na virada para mentoria (rota removida).
 ];
 
