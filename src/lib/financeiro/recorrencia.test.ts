@@ -61,4 +61,10 @@ describe("parcelasDe", () => {
       { competencia: "2024-03-01", vencimento: "2024-03-31" },
     ]);
   });
+
+  it("falha fechada quando a última competência excede o ano de quatro dígitos", () => {
+    expect(
+      parcelasDe({ inicio: "9999-12-31", periodicidade: "mensal", quantidade: 2, valor: 10, diaVencimento: 31 }),
+    ).toEqual([]);
+  });
 });

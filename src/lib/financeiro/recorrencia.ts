@@ -25,6 +25,7 @@ export function parcelasDe(entrada: EntradaRecorrencia): Parcela[] {
     !Number.isSafeInteger(entrada.quantidade) ||
     entrada.quantidade <= 0 ||
     entrada.quantidade > QUANTIDADE_MAXIMA ||
+    inicio.ano + Math.floor((inicio.mes + entrada.quantidade - 2) / 12) > 9999 ||
     !Number.isInteger(entrada.diaVencimento) ||
     entrada.diaVencimento < 1 ||
     entrada.diaVencimento > 31 ||
