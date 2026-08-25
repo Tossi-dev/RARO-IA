@@ -14,6 +14,7 @@ const alvos = {
       "oportunidade",
       "analise_sessao",
       "analise_call",
+      "alerta_risco",
       "patrimonio",
       "investimento",
       "renda_pessoal",
@@ -50,7 +51,10 @@ describe("auditar-rls-fase2", () => {
     const plano = montarPlanoAuditoria(alvos);
 
     expect(plano.some((operacao) => operacao.papel === "mentorado" && operacao.tabela === "cobranca")).toBe(true);
-    expect(plano.some((operacao) => operacao.papel === "comercial" && operacao.tabela === "analise_call")).toBe(true);
+    expect(plano.some((operacao) => operacao.papel === "comercial" && operacao.tabela === "cobranca")).toBe(true);
+    expect(plano.some((operacao) => operacao.papel === "comercial" && operacao.tabela === "alerta_risco")).toBe(true);
+    expect(plano.some((operacao) => operacao.papel === "comercial" && operacao.tabela === "oportunidade")).toBe(false);
+    expect(plano.some((operacao) => operacao.papel === "comercial" && operacao.tabela === "analise_call")).toBe(false);
     expect(plano.some((operacao) => operacao.papel === "gestor" && operacao.tabela === "patrimonio")).toBe(true);
     expect(plano.filter((operacao) => operacao.tipo === "patch")).toHaveLength(4);
     expect(plano.some((operacao) => operacao.tipo === "proposta_publica")).toBe(true);

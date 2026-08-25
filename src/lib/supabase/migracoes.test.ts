@@ -3925,6 +3925,37 @@ describe("0033 — evolução: análises e alertas ficam internos", () => {
 });
 
 // ============================================================
+// 0035 — correção do vínculo sessão ↔ mentorado
+// ============================================================
+
+const ARQUIVO_0035 = "0035_corrigir_trigger_analise_sessao.sql";
+const ARQUIVO_EXEC_0035 = "_exec_0035_corrigir_trigger_analise_sessao.sql";
+const m0035 = existeArquivoDeMigracao(ARQUIVO_0035) ? lerMigracao(ARQUIVO_0035) : "";
+const exec0035 = semComentarios(m0035);
+
+describe("0035 — trigger de análise valida sessões individuais e de turma", () => {
+  it("cria a migration corretiva e seu espelho local", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0035), `esperava supabase/migrations/${ARQUIVO_0035}`).toBe(true);
+    expect(readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0035)).toBe(true);
+  });
+
+  it("não consulta mentorado_id em sessao e exige vínculo por matrícula do mesmo workspace", () => {
+    expect(exec0035).toMatch(/create or replace function public\.validar_referencias_ia_evolucao\(\)\s+returns trigger\s+language plpgsql\s+security definer\s+set search_path = public/is);
+    expect(exec0035).toMatch(/from public\.sessao s\s+left join public\.matricula direta on direta\.id = s\.matricula_id\s+left join public\.matricula turma on turma\.turma_id = s\.turma_id/is);
+    expect(exec0035).toMatch(/s\.id = new\.sessao_id[\s\S]*s\.workspace_id = new\.workspace_id[\s\S]*\(direta\.mentorado_id = new\.mentorado_id\s+or turma\.mentorado_id = new\.mentorado_id\)/is);
+    expect(exec0035).not.toMatch(/from public\.sessao\s+where[\s\S]{0,200}\bmentorado_id\s*=\s*new\.mentorado_id/is);
+    expect(exec0035).toMatch(/from public\.mentorado[\s\S]*id = new\.mentorado_id[\s\S]*workspace_id = new\.workspace_id/is);
+    expect(exec0035).toMatch(/revoke all on function public\.validar_referencias_ia_evolucao\(\) from public/i);
+  });
+
+  it("mantém o espelho _exec_ idêntico à migration", () => {
+    expect(semComentarios(lerMigracao(ARQUIVO_EXEC_0035)).replace(/\s+/g, " ").trim()).toBe(
+      semComentarios(lerMigracao(ARQUIVO_0035)).replace(/\s+/g, " ").trim(),
+    );
+  });
+});
+
+// ============================================================
 // 0034 — análise de call interna do funil comercial
 // ============================================================
 
