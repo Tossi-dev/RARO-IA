@@ -148,6 +148,16 @@ function numeroDeLinhas(data: unknown): number {
   return Array.isArray(data) ? data.length : data === null ? 0 : 1;
 }
 
+/** `42501` é a recusa PostgreSQL esperada ao PATCH violar WITH CHECK de RLS. */
+export function recusaRlsEsperada(erro: unknown): boolean {
+  return Boolean(
+    erro &&
+      typeof erro === "object" &&
+      "code" in erro &&
+      (erro as { code?: unknown }).code === "42501"
+  );
+}
+
 /** Adaptador real, separado do plano e sem saída de dados ou tokens. */
 export function criarExecutorSupabase(configuracao: ConfiguracaoAuditoria): ExecutorAuditoria {
   return {
@@ -176,7 +186,10 @@ export function criarExecutorSupabase(configuracao: ConfiguracaoAuditoria): Exec
           ? { mentorado_id: configuracao.alvos.mentoradoAlheioId ?? "00000000-0000-0000-0000-000000000000" }
           : { id: operacao.alvo };
       const { data, error } = await cliente.from(operacao.tabela).update(tentativa).eq("id", operacao.alvo!).select("id");
-      if (error) throw new Error(`${operacao.tabela}: ${error.code ?? "erro"}`);
+      // O PATCH que tenta trocar `mentorado_id` na própria linha pode chegar
+      // ao WITH CHECK e receber 42501. Isso prova exatamente a negação que a
+      // auditoria busca; conexão, SQL e qualquer outro erro continuam falha.
+      if (error && !recusaRlsEsperada(error)) throw new Error(`${operacao.tabela}: ${error.code ?? "erro"}`);
       return { linhas: numeroDeLinhas(data) };
     },
   };

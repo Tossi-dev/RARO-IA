@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { lerUtm } from "@/lib/marketing/utm";
+import { limitarCaptura } from "@/lib/marketing/rate-limit";
 
 const CORPO_MAXIMO_BYTES = 200 * 1024;
-const JANELA_POR_IP_MS = 60_000;
-const IPS_RASTREADOS_MAXIMO = 1024;
-const ultimasCapturasPorIp = new Map<string, number>();
 
 function texto(valor: unknown, limite: number, minusculo = false): string {
   if (typeof valor !== "string") return "";
@@ -14,25 +12,8 @@ function texto(valor: unknown, limite: number, minusculo = false): string {
 }
 
 function ipDaRequisicao(requisicao: Request): string {
-  return texto(requisicao.headers.get("x-forwarded-for")?.split(",")[0], 64) || "desconhecido";
-}
-
-function limiteDeFrequenciaAtingido(ip: string, agora: number): boolean {
-  const anterior = ultimasCapturasPorIp.get(ip);
-  if (anterior !== undefined && agora - anterior < JANELA_POR_IP_MS) return true;
-
-  // A proteção é deliberadamente local: esta tarefa não cria infraestrutura
-  // compartilhada. Ainda assim, IPs forjados ou tráfego amplo não podem fazer
-  // este processo acumular memória indefinidamente.
-  for (const [ipAnterior, instante] of ultimasCapturasPorIp) {
-    if (agora - instante >= JANELA_POR_IP_MS) ultimasCapturasPorIp.delete(ipAnterior);
-  }
-  if (ultimasCapturasPorIp.size >= IPS_RASTREADOS_MAXIMO) {
-    const ipMaisAntigo = ultimasCapturasPorIp.keys().next().value;
-    if (ipMaisAntigo) ultimasCapturasPorIp.delete(ipMaisAntigo);
-  }
-  ultimasCapturasPorIp.set(ip, agora);
-  return false;
+  const encaminhado = requisicao.headers.get("x-vercel-forwarded-for") ?? requisicao.headers.get("x-forwarded-for");
+  return texto(encaminhado?.split(",")[0], 64) || "desconhecido";
 }
 
 function clientePublico() {
@@ -40,15 +21,6 @@ function clientePublico() {
   const chave = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !chave) return null;
   return createClient(url, chave, { auth: { persistSession: false, autoRefreshToken: false } });
-}
-
-/** Exportado apenas para isolar estado de processo entre cenários de teste. */
-export function resetarLimiteCapturaParaTeste(): void {
-  ultimasCapturasPorIp.clear();
-}
-
-export function quantidadeDeIpsLimitadosParaTeste(): number {
-  return ultimasCapturasPorIp.size;
 }
 
 export async function POST(requisicao: Request) {
@@ -80,7 +52,9 @@ export async function POST(requisicao: Request) {
   const telefone = texto(corpo.telefone, 40);
   if (!email && !telefone) return NextResponse.json({ erro: "contato obrigatório" }, { status: 400 });
 
-  if (limiteDeFrequenciaAtingido(ipDaRequisicao(requisicao), Date.now())) {
+  const permitido = await limitarCaptura(ipDaRequisicao(requisicao));
+  if (permitido === null) return NextResponse.json({ erro: "serviço indisponível" }, { status: 503 });
+  if (!permitido) {
     return NextResponse.json({ erro: "tente novamente mais tarde" }, { status: 429 });
   }
 

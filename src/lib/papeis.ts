@@ -72,6 +72,10 @@ const ROTAS_COMERCIAL = [
   // mencionam o papel dele), e a tela mostraria justamente o valor negociado
   // e o motivo da perda dele.
   "/comercial",
+  // TAREFA 73 — marketing interno: capta origem e cria link rastreado.
+  // Não é financeiro e não expõe contato pessoal; a RLS de 0035 confirma o
+  // mesmo trio de papéis na leitura e escrita de `link_rastreado`.
+  "/marketing",
   "/agenda",
   "/conteudo",
 ] as const;
