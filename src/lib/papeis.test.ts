@@ -74,6 +74,15 @@ describe("/comercial — a tela de trabalho do closer (tarefa 47)", () => {
   });
 });
 
+describe("/marketing — leitura e links rastreados (tarefa 73)", () => {
+  it("comercial trabalha no marketing; mentorado não lê dados de captura", () => {
+    expect(rotaPermitida("comercial", "/marketing")).toBe(true);
+    expect(rotaPermitida("dono", "/marketing")).toBe(true);
+    expect(rotaPermitida("gestor", "/marketing")).toBe(true);
+    expect(rotaPermitida("mentorado", "/marketing")).toBe(false);
+  });
+});
+
 describe("rotaPermitida — comercial", () => {
   it("permite as rotas comerciais e a raiz", () => {
     const permitidas = ["/", "/inicio", "/painel", "/comecar", "/tour", "/crm", "/agenda", "/conteudo"];

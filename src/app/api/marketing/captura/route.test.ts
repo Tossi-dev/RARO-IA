@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const rpc = vi.hoisted(() => vi.fn());
 const createClient = vi.hoisted(() => vi.fn(() => ({ rpc })));
+const limitarCaptura = vi.hoisted(() => vi.fn());
 
 vi.mock("@supabase/supabase-js", () => ({ createClient }));
+vi.mock("@/lib/marketing/rate-limit", () => ({ limitarCaptura }));
 
-import { POST, quantidadeDeIpsLimitadosParaTeste, resetarLimiteCapturaParaTeste } from "./route";
+import { POST } from "./route";
 
 function requisicao(corpo: unknown, headers: HeadersInit = {}): Request {
   return new Request("https://raro-ia.vercel.app/api/marketing/captura", {
@@ -21,7 +23,7 @@ describe("POST /api/marketing/captura", () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon-de-teste");
     rpc.mockReset().mockResolvedValue({ error: null });
     createClient.mockClear();
-    resetarLimiteCapturaParaTeste();
+    limitarCaptura.mockReset().mockResolvedValue(true);
   });
 
   it("recusa captura sem e-mail e telefone antes de chamar o banco", async () => {
@@ -41,6 +43,7 @@ describe("POST /api/marketing/captura", () => {
   });
 
   it("barra a segunda captura imediata do mesmo IP", async () => {
+    limitarCaptura.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     const primeira = await POST(requisicao({ email: "lead@exemplo.com" }));
     const segunda = await POST(requisicao({ email: "lead@exemplo.com" }));
 
@@ -49,12 +52,12 @@ describe("POST /api/marketing/captura", () => {
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
-  it("mantém o rate limit local limitado mesmo com IPs variados", async () => {
-    for (let indice = 0; indice < 1030; indice++) {
-      await POST(requisicao({ email: `lead${indice}@exemplo.com` }, { "x-forwarded-for": `198.51.100.${indice}` }));
-    }
+  it("falha fechada sem Redis e não persiste captura", async () => {
+    limitarCaptura.mockResolvedValueOnce(null);
+    const resposta = await POST(requisicao({ email: "lead@exemplo.com" }));
 
-    expect(quantidadeDeIpsLimitadosParaTeste()).toBeLessThanOrEqual(1024);
+    expect(resposta.status).toBe(503);
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("persiste somente via RPC estreita e não devolve a captura", async () => {

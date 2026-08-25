@@ -3,6 +3,7 @@ import {
   carregarConfiguracao,
   executarAuditoria,
   montarPlanoAuditoria,
+  recusaRlsEsperada,
   type ExecutorAuditoria,
 } from "./auditar-rls-fase2";
 
@@ -37,6 +38,12 @@ describe("auditar-rls-fase2", () => {
         SUPABASE_AUDIT_ANON_KEY: "anon",
       })
     ).toThrow("SUPABASE_AUDIT_MENTORADO_A_TOKEN");
+  });
+
+  it("reconhece somente a recusa RLS esperada de PATCH", () => {
+    expect(recusaRlsEsperada({ code: "42501" })).toBe(true);
+    expect(recusaRlsEsperada({ code: "42P01" })).toBe(false);
+    expect(recusaRlsEsperada(new Error("rede"))).toBe(false);
   });
 
   it("monta as leituras e PATCHs proibidos da fase, por papel", () => {

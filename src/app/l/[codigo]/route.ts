@@ -1,9 +1,8 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { codigoValido } from "@/lib/marketing/link";
+import { codigoValido, destinoDoNegocioValido } from "@/lib/marketing/link";
 
-const DOMINIOS_DO_NEGOCIO = new Set(["raro-ia.vercel.app"]);
 const RESPOSTA_NAO_ENCONTRADO = { erro: "link não encontrado" };
 
 function naoEncontrado() {
@@ -25,21 +24,6 @@ function hostDoReferer(requisicao: Request): string {
   }
 }
 
-function destinoPermitido(destino: unknown): destino is string {
-  if (typeof destino !== "string") return false;
-  try {
-    const url = new URL(destino);
-    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
-    const extras = (process.env.MARKETING_DOMINIOS_PERMITIDOS ?? "")
-      .split(",")
-      .map((dominio) => dominio.trim().toLocaleLowerCase("pt-BR"))
-      .filter(Boolean);
-    return DOMINIOS_DO_NEGOCIO.has(url.hostname) || extras.includes(url.hostname);
-  } catch {
-    return false;
-  }
-}
-
 export async function GET(requisicao: Request, contexto: { params: { codigo: string } }) {
   const codigo = contexto.params.codigo;
   if (!codigoValido(codigo)) return naoEncontrado();
@@ -53,7 +37,7 @@ export async function GET(requisicao: Request, contexto: { params: { codigo: str
     p_referer_host: hostDoReferer(requisicao),
     p_agente_hash: createHash("sha256").update(agente).digest("hex"),
   });
-  if (error || !destinoPermitido(destino)) return naoEncontrado();
+  if (error || !destinoDoNegocioValido(destino)) return naoEncontrado();
 
   return NextResponse.redirect(destino, 302);
 }

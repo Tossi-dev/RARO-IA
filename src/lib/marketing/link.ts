@@ -1,6 +1,7 @@
 const ALFABETO = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const FORMATO = /^[0-9A-Za-z]{8,64}$/;
 const BYTES_MAXIMOS = 47;
+const DOMINIOS_DO_NEGOCIO = new Set(["raro-ia.vercel.app"]);
 
 /** Converte somente bytes fornecidos pelo chamador em código URL-seguro e determinístico. */
 export function gerarCodigo(bytes: Uint8Array): string {
@@ -15,4 +16,20 @@ export function gerarCodigo(bytes: Uint8Array): string {
 /** Porta de rota: aceita apenas o código puro, nunca um pedaço de caminho. */
 export function codigoValido(codigo: unknown): codigo is string {
   return typeof codigo === "string" && FORMATO.test(codigo);
+}
+
+/** A mesma lista protege tanto a criação quanto o redirecionamento do link. */
+export function destinoDoNegocioValido(destino: unknown, dominiosExtras = process.env.MARKETING_DOMINIOS_PERMITIDOS ?? ""): destino is string {
+  if (typeof destino !== "string") return false;
+  try {
+    const url = new URL(destino);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
+    const extras = dominiosExtras
+      .split(",")
+      .map((dominio) => dominio.trim().toLocaleLowerCase("pt-BR"))
+      .filter(Boolean);
+    return DOMINIOS_DO_NEGOCIO.has(url.hostname) || extras.includes(url.hostname);
+  } catch {
+    return false;
+  }
 }
