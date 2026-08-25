@@ -18,6 +18,12 @@ const AMBIENTE = {
   RARO_RATE_LIMIT_PEPPER: "segredo-de-teste",
 };
 
+const AMBIENTE_VERCEL = {
+  KV_REST_API_URL: "https://redis-da-vercel.exemplo.upstash.io",
+  KV_REST_API_TOKEN: "token-da-vercel",
+  RARO_RATE_LIMIT_PEPPER: "segredo-de-teste",
+};
+
 describe("rate limit distribuído da captura", () => {
   beforeEach(() => {
     limitar.mockReset().mockResolvedValue({ success: true });
@@ -30,6 +36,31 @@ describe("rate limit distribuído da captura", () => {
     expect(redisConfigurado(AMBIENTE)).toBe(true);
     expect(redisConfigurado({ ...AMBIENTE, RARO_RATE_LIMIT_PEPPER: "" })).toBe(false);
     expect(redisConfigurado({ ...AMBIENTE, UPSTASH_REDIS_REST_TOKEN: undefined })).toBe(false);
+  });
+
+  it("aceita os nomes injetados pela integração Vercel/Upstash", async () => {
+    expect(redisConfigurado(AMBIENTE_VERCEL)).toBe(true);
+
+    await expect(limitarCaptura("198.51.100.10", AMBIENTE_VERCEL)).resolves.toBe(true);
+
+    expect(criarRedis).toHaveBeenCalledWith({
+      url: AMBIENTE_VERCEL.KV_REST_API_URL,
+      token: AMBIENTE_VERCEL.KV_REST_API_TOKEN,
+    });
+  });
+
+  it("não mistura uma URL Upstash residual com o token KV da Vercel", async () => {
+    const ambienteComUrlResidual = {
+      ...AMBIENTE_VERCEL,
+      UPSTASH_REDIS_REST_URL: "https://redis-residual.exemplo.upstash.io",
+    };
+
+    expect(redisConfigurado(ambienteComUrlResidual)).toBe(true);
+    await expect(limitarCaptura("198.51.100.10", ambienteComUrlResidual)).resolves.toBe(true);
+    expect(criarRedis).toHaveBeenCalledWith({
+      url: AMBIENTE_VERCEL.KV_REST_API_URL,
+      token: AMBIENTE_VERCEL.KV_REST_API_TOKEN,
+    });
   });
 
   it("não envia IP cru ao provedor", async () => {

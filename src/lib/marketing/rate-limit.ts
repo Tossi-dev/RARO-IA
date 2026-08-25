@@ -11,17 +11,35 @@ function valor(env: Ambiente, nome: string): string | null {
   return encontrado || null;
 }
 
+interface CredenciaisRedis {
+  url: string;
+  token: string;
+}
+
+/** A integração Vercel/Upstash usa `KV_*`; URL e token nunca são combinados entre pares. */
+function credenciaisRedis(env: Ambiente): CredenciaisRedis | null {
+  const upstash = {
+    url: valor(env, "UPSTASH_REDIS_REST_URL"),
+    token: valor(env, "UPSTASH_REDIS_REST_TOKEN"),
+  };
+  if (upstash.url && upstash.token) return { url: upstash.url, token: upstash.token };
+
+  const vercelKv = {
+    url: valor(env, "KV_REST_API_URL"),
+    token: valor(env, "KV_REST_API_TOKEN"),
+  };
+  if (vercelKv.url && vercelKv.token) return { url: vercelKv.url, token: vercelKv.token };
+
+  return null;
+}
+
 /** A identificação enviada ao Redis é pseudônima; o IP cru fica só nesta requisição. */
 export function identificadorCaptura(ip: string, pepper: string): string {
   return createHmac("sha256", pepper).update(ip.trim() || "desconhecido").digest("hex");
 }
 
 export function redisConfigurado(env: Ambiente = process.env): boolean {
-  return Boolean(
-    valor(env, "UPSTASH_REDIS_REST_URL") &&
-      valor(env, "UPSTASH_REDIS_REST_TOKEN") &&
-      valor(env, "RARO_RATE_LIMIT_PEPPER")
-  );
+  return Boolean(credenciaisRedis(env) && valor(env, "RARO_RATE_LIMIT_PEPPER"));
 }
 
 /**
@@ -32,15 +50,14 @@ export function redisConfigurado(env: Ambiente = process.env): boolean {
  * rota pública; `false` é excesso de frequência e vira 429.
  */
 export async function limitarCaptura(ip: string, env: Ambiente = process.env): Promise<boolean | null> {
-  const url = valor(env, "UPSTASH_REDIS_REST_URL");
-  const token = valor(env, "UPSTASH_REDIS_REST_TOKEN");
+  const redis = credenciaisRedis(env);
   const pepper = valor(env, "RARO_RATE_LIMIT_PEPPER");
-  if (!url || !token || !pepper) return null;
+  if (!redis || !pepper) return null;
 
   try {
-    const redis = new Redis({ url, token });
+    const clienteRedis = new Redis(redis);
     const rateLimit = new Ratelimit({
-      redis,
+      redis: clienteRedis,
       limiter: Ratelimit.slidingWindow(1, "60 s"),
       prefix: PREFIXO_CAPTURA,
       analytics: false,
