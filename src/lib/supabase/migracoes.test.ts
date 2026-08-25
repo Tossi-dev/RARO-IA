@@ -3747,3 +3747,53 @@ describe("0029 — contrato sem leitura direta pelo portal", () => {
     expect(corpo).not.toContain("c.valor_total");
   });
 });
+
+// ============================================================
+// 0030 — finanças pessoais: patrimônio, investimentos e renda
+// ============================================================
+
+const ARQUIVO_0030 = "0030_financas_pessoais.sql";
+const ARQUIVO_EXEC_0030 = "_exec_0030_financas_pessoais.sql";
+const m0030 = existeArquivoDeMigracao(ARQUIVO_0030) ? lerMigracao(ARQUIVO_0030) : "";
+const exec0030 = semComentarios(m0030);
+const TABELAS_0030 = ["patrimonio", "investimento", "renda_pessoal"] as const;
+
+describe("0030 — finanças pessoais isoladas no workspace e no dono", () => {
+  it("a migração existe, e a versão _exec_ também", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0030), `esperava supabase/migrations/${ARQUIVO_0030}`).toBe(true);
+    expect(readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0030)).toBe(true);
+  });
+
+  it.each(TABELAS_0030)("public.%s tem workspace_id, dados financeiros e RLS", (tabela) => {
+    const corpo = blocoCreateTable(exec0030, tabela);
+    expect(corpo, `esperava create table public.${tabela}`).not.toBe("");
+    expect(corpo).toMatch(/workspace_id uuid not null references public\.workspace \(id\)/i);
+    expect(corpo).toMatch(/valor numeric\(14, 2\) not null/i);
+    expect(corpo).toMatch(/criado_em timestamptz not null default now\(\)/i);
+    expect(exec0030).toContain(`alter table public.${tabela} enable row level security`);
+  });
+
+  it("as três tabelas têm somente select/insert/update para dono", () => {
+    for (const tabela of TABELAS_0030) {
+      const politicas = politicasDaTabela(exec0030, tabela);
+      expect(politicas.length, `esperava políticas em public.${tabela}`).toBe(3);
+      for (const politica of politicas) {
+        expect(politica).toMatch(/workspace_id = public\.workspace_atual\(\)/i);
+        expect(politica).toMatch(/public\.papel_atual\(\) = 'dono'/i);
+        expect(politica).not.toMatch(/'gestor'|'comercial'|'mentorado'/i);
+        expect(politica.replace(/\s+/g, " ")).not.toMatch(/(?:using|with check)\s*\(\s*true\s*\)/i);
+        expect(politica).not.toMatch(/for\s+delete/i);
+      }
+      const operacoes = politicas
+        .map((p) => /for\s+(select|insert|update|delete)/i.exec(p)?.[1]?.toLowerCase())
+        .sort();
+      expect(operacoes).toEqual(["insert", "select", "update"]);
+    }
+  });
+
+  it("o par _exec_ é idêntico à fonte, ignorando comentários e espaços", () => {
+    expect(semComentarios(lerMigracao(ARQUIVO_EXEC_0030)).replace(/\s+/g, " ").trim()).toBe(
+      semComentarios(lerMigracao(ARQUIVO_0030)).replace(/\s+/g, " ").trim(),
+    );
+  });
+});
