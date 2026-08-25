@@ -150,6 +150,12 @@ const ROTAS_POR_PAPEL: Record<Papel, readonly string[] | "todas"> = {
   aluno: [...ROTAS_MINIMAS],
 };
 
+// Dados pessoais são exclusivos do dono. Esta negação explícita precisa
+// vencer o atalho "todas" do gestor, sem depender da tela esconder o tile.
+const ROTAS_NEGADAS_POR_PAPEL: Partial<Record<Papel, readonly string[]>> = {
+  gestor: ["/pessoal"],
+};
+
 /**
  * `pathname` começa em `prefixo` respeitando fronteira de segmento — mesma
  * lógica de `rotaLivre` em `src/lib/acesso.ts`. Sem isso, um prefixo
@@ -208,6 +214,8 @@ export function rotaPermitida(papelBruto: Papel, pathname: string): boolean {
   // /login por `startsWith`, mas não é a tela de login, é uma tentativa de
   // usar a rota livre como disfarce. Nesse caso ele cai na guarda abaixo.
   if (rotaLivre(pathname) && !travessiaSuspeita(pathname)) return true;
+
+  if (ROTAS_NEGADAS_POR_PAPEL[papel]?.some((prefixo) => comecaNoPrefixo(pathname, prefixo))) return false;
 
   // Travessia codificada: dono e gestor não precisam desta guarda porque já
   // recebem "todas" no lookup abaixo, travessia ou não.

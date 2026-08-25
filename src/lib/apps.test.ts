@@ -168,6 +168,14 @@ describe("appsDoPapel — B2.7, a navegação passa a respeitar o papel", () => 
     "aluno",
   ];
 
+  it("mostra Finanças pessoais apenas ao dono e não vaza o módulo ao gestor", () => {
+    const doDono = appsDoPapel("dono", CATALOGO_SISTEMA);
+    expect(doDono.find((app) => app.id === "pessoal")?.href).toBe("/pessoal");
+    const serializadoGestor = JSON.stringify(appsDoPapel("gestor", CATALOGO_SISTEMA));
+    expect(serializadoGestor).not.toContain("/pessoal");
+    expect(serializadoGestor).not.toContain("Finanças pessoais");
+  });
+
   it.each(["dono", "gestor"] as const)(
     "%s recebe o catálogo inteiro, com todos os subApps",
     (papel) => {

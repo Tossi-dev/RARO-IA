@@ -46,6 +46,15 @@ describe("rotaPermitida — dono e gestor", () => {
   });
 });
 
+describe("rotaPermitida — finanças pessoais", () => {
+  it("permite /pessoal apenas ao dono, inclusive em rotas filhas", () => {
+    expect(rotaPermitida("dono", "/pessoal")).toBe(true);
+    expect(rotaPermitida("dono", "/pessoal/novo")).toBe(true);
+    expect(rotaPermitida("gestor", "/pessoal")).toBe(false);
+    expect(rotaPermitida("gestor", "/pessoal/novo")).toBe(false);
+  });
+});
+
 describe("/comercial — a tela de trabalho do closer (tarefa 47)", () => {
   it("comercial, dono e gestor abrem; os três papéis de cliente não", () => {
     expect(rotaPermitida("comercial", "/comercial")).toBe(true);
