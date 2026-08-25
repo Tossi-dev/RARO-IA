@@ -55,7 +55,7 @@ describe("CATALOGO_APPS — não inventa rota", () => {
     expect(crm.subApps?.map((s) => s.href)).toEqual(["/crm", "/comercial"]);
   });
 
-  it("Financeiro tem exatamente as cinco telas de fin-rotas.ts, na mesma ordem", () => {
+  it("Financeiro tem exatamente as telas de fin-rotas.ts, na mesma ordem", () => {
     // Capital de giro e Comissões saíram na virada para mentoria (rotas removidas).
     const financeiro = CATALOGO_APPS.find((a) => a.id === "financeiro")!;
     expect(financeiro.subApps?.map((s) => s.href)).toEqual([
@@ -64,7 +64,18 @@ describe("CATALOGO_APPS — não inventa rota", () => {
       "/financeiro/projecao",
       "/financeiro/dre",
       "/financeiro/reembolsos",
+      "/financeiro/cobrancas",
+      "/financeiro/contratos",
+      "/financeiro/recorrencia",
     ]);
+  });
+
+  it("não expõe as novas telas financeiras para comercial ou mentorado", () => {
+    const novas = ["/financeiro/cobrancas", "/financeiro/contratos", "/financeiro/recorrencia"];
+    for (const papel of ["comercial", "mentorado"] as const) {
+      const serializado = JSON.stringify(appsDoPapel(papel));
+      for (const href of novas) expect(serializado).not.toContain(href);
+    }
   });
 
   it("nenhum id de app ou sub-app se repete", () => {
