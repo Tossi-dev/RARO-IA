@@ -41,6 +41,17 @@ const TABELAS_LEITURA_NEGADA = [
   "oportunidade",
   "analise_sessao",
   "analise_call",
+  "alerta_risco",
+  "patrimonio",
+  "investimento",
+  "renda_pessoal",
+] as const;
+// O comercial trabalha no funil e pode consultar oportunidade e analise_call.
+// Auditoria só testa como negação as tabelas que a política realmente veda.
+const TABELAS_COMERCIAL_NEGADAS = [
+  "cobranca",
+  "analise_sessao",
+  "alerta_risco",
   "patrimonio",
   "investimento",
   "renda_pessoal",
@@ -99,7 +110,9 @@ export function montarPlanoAuditoria(alvos: AlvosAuditoria): OperacaoAuditoria[]
   for (const tabela of TABELAS_LEITURA_NEGADA) {
     const alvo = alvoDe(alvos.leituraAlheia, tabela);
     plano.push({ tipo: "select", papel: "mentorado", tabela, alvo });
-    plano.push({ tipo: "select", papel: "comercial", tabela, alvo });
+  }
+  for (const tabela of TABELAS_COMERCIAL_NEGADAS) {
+    plano.push({ tipo: "select", papel: "comercial", tabela, alvo: alvoDe(alvos.leituraAlheia, tabela) });
   }
   for (const tabela of TABELAS_GESTOR_NEGADAS) {
     plano.push({ tipo: "select", papel: "gestor", tabela, alvo: alvoDe(alvos.leituraAlheia, tabela) });
