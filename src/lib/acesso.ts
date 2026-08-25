@@ -189,7 +189,9 @@ export const VALIDADE_ACESSO_SEGUNDOS = 60 * 60 * 24 * 30;
  * (proposta-token.ts). Por isso a página é `noindex` e por isso todos os
  * "não" respondem a mesma coisa: um link de proposta indexado ou um oráculo
  * de enumeração valem o pipeline inteiro. */
-export const ROTAS_LIVRES = ["/acesso", "/login", "/privacidade", "/certificado", "/proposta"];
+// Tarefa 72: quem recebeu um link de campanha não tem conta. A rota só chama
+// a RPC estreita de clique e valida o destino antes de redirecionar.
+export const ROTAS_LIVRES = ["/acesso", "/login", "/privacidade", "/certificado", "/proposta", "/l"];
 
 export function rotaLivre(pathname: string): boolean {
   return ROTAS_LIVRES.some((r) => pathname === r || pathname.startsWith(`${r}/`));

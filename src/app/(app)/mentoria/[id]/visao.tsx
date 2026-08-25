@@ -24,6 +24,8 @@ import { Timeline } from "@/components/timeline";
 import { Badge, Botao, Campo, Card, Input, PageHeader, ProgressBar, Select, TextArea, Vazio, cx, type Tom } from "@/components/ui";
 import type { ListaDocumentos } from "@/lib/documentos/dados";
 import { agendarSessao, darBaixaNaSessao } from "@/lib/mentoria/acoes";
+import { gravarScoreSemanal } from "@/lib/mentoria/acoes-score";
+import { analisarSessao } from "@/lib/ia/acoes-analise";
 import {
   liberarNoPortalDaFicha,
   sincronizarSessaoDaFicha,
@@ -563,6 +565,14 @@ export function FichaVisao({
     <>
       <CardSaudeMentorado historico={historico} />
 
+      <Card titulo="Ações de evolução" className="mt-4">
+        <p className="text-sm text-texto-2">Quem dispara é uma pessoa. O score é calculado com os dados existentes; a análise fica registrada com o nome de quem clicou.</p>
+        <form action={gravarScoreSemanal} className="mt-3">
+          <input type="hidden" name="mentoradoId" value={mentorado.id} />
+          <Botao tipo="fantasma">Calcular score desta semana</Botao>
+        </form>
+      </Card>
+
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <Card titulo="Contato">
           <dl className="space-y-2 text-sm">
@@ -671,6 +681,23 @@ export function FichaVisao({
                       mentoradoId={mentorado.id}
                       agendaConectada={agendaConectada}
                     />
+                    <div className="mt-3 border-t border-borda-sutil pt-3">
+                      <p className="text-xs text-texto-2">Quem dispara é uma pessoa; a análise fica registrada com o nome de quem clicou.</p>
+                      {sessao.transcricao.trim() ? (
+                        <form action={analisarSessao} className="mt-2">
+                          <input type="hidden" name="mentoradoId" value={mentorado.id} />
+                          <input type="hidden" name="sessaoId" value={sessao.id} />
+                          <input type="hidden" name="nome" value={mentorado.nome} />
+                          <input type="hidden" name="resumo" value={sessao.resumo} />
+                          <Botao tipo="fantasma">Analisar esta sessão com IA</Botao>
+                        </form>
+                      ) : (
+                        <button type="button" disabled className="mt-2 cursor-not-allowed rounded-full border border-borda px-4 py-2 text-sm text-texto-3">
+                          Analisar esta sessão com IA
+                        </button>
+                      )}
+                      {!sessao.transcricao.trim() ? <p className="mt-1 text-xs text-texto-3">Disponível quando houver transcrição.</p> : null}
+                    </div>
                     {/* Dar baixa só existe para quem ainda está "agendada" —
                         sair de agendada é o único movimento desta ação (ver
                         `validacao.ts`: o status de baixa nunca aceita voltar

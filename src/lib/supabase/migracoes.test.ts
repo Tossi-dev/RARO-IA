@@ -3201,7 +3201,7 @@ describe("0025 — propostas e leitura pública por token", () => {
     });
   });
 
-  it("o projeto INTEIRO tem duas funções abertas para anon, e são estas duas", () => {
+  it("o projeto INTEIRO tem quatro funções abertas para anon, e são estas quatro", () => {
     // A conta é sobre todas as migrações, não só sobre este arquivo: é o
     // lugar certo para descobrir a terceira porta no dia em que ela nascer.
     const grants = todasAsMigracoes().match(/grant execute on function [^;]*to[^;]*anon/gi) ?? [];
@@ -3210,6 +3210,8 @@ describe("0025 — propostas e leitura pública por token", () => {
       .sort();
     expect(nomes, `funções abertas para anon hoje: ${nomes.join(", ")}`).toEqual([
       "proposta_publica",
+      "registrar_captura",
+      "registrar_clique",
       "verificar_certificado",
     ]);
   });
@@ -3919,5 +3921,93 @@ describe("0033 — evolução: análises e alertas ficam internos", () => {
     expect(semComentarios(lerMigracao(ARQUIVO_EXEC_0033)).replace(/\s+/g, " ").trim()).toBe(
       semComentarios(lerMigracao(ARQUIVO_0033)).replace(/\s+/g, " ").trim(),
     );
+  });
+});
+
+// ============================================================
+// 0034 — análise de call interna do funil comercial
+// ============================================================
+
+const ARQUIVO_0034 = "0034_analise_call.sql";
+const ARQUIVO_EXEC_0034 = "_exec_0034_analise_call.sql";
+const m0034 = existeArquivoDeMigracao(ARQUIVO_0034) ? lerMigracao(ARQUIVO_0034) : "";
+const exec0034 = semComentarios(m0034);
+
+describe("0034 — análise de call fica no time comercial", () => {
+  it("cria a migration e seu espelho local", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0034), `esperava supabase/migrations/${ARQUIVO_0034}`).toBe(true);
+    expect(readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0034)).toBe(true);
+  });
+
+  it("guarda transcrição, score válido e procedência obrigatória", () => {
+    expect(exec0034).toMatch(/create table if not exists public\.analise_call[\s\S]*workspace_id uuid not null[\s\S]*oportunidade_id uuid not null references public\.oportunidade \(id\)[\s\S]*transcricao text not null[\s\S]*score integer check \(score between 0 and 100\)[\s\S]*modelo text not null[\s\S]*gerada_por text not null/is);
+  });
+
+  it("limita as políticas ao time comercial no workspace atual, sem mentorado ou liberação total", () => {
+    const politicas = politicasDaTabela(exec0034, "analise_call");
+    expect(politicas).toHaveLength(2);
+    for (const politica of politicas) {
+      expect(politica).not.toMatch(/mentorado/i);
+      expect(politica).not.toMatch(/using\s*\(\s*true\s*\)/i);
+      expect(politica).toMatch(/workspace_id = public\.workspace_atual\(\)/i);
+      expect(politica).toMatch(/public\.papel_atual\(\) in \('dono', 'gestor', 'comercial'\)/i);
+    }
+  });
+
+  it("não aceita oportunidade de outro workspace e mantém o espelho idêntico", () => {
+    expect(exec0034).toMatch(/create or replace function public\.validar_referencias_analise_call\(\)\s+returns trigger\s+language plpgsql\s+security definer\s+set search_path = public/is);
+    expect(exec0034).toMatch(/from public\.oportunidade[\s\S]*id = new\.oportunidade_id[\s\S]*workspace_id = new\.workspace_id/is);
+    expect(exec0034).toMatch(/revoke all on function public\.validar_referencias_analise_call\(\) from public/i);
+    expect(exec0034).toMatch(/create trigger validar_referencias_analise_call[\s\S]*before insert or update of workspace_id, oportunidade_id[\s\S]*on public\.analise_call[\s\S]*execute function public\.validar_referencias_analise_call\(\)/is);
+    expect(semComentarios(lerMigracao(ARQUIVO_EXEC_0034)).replace(/\s+/g, " ").trim()).toBe(
+      semComentarios(lerMigracao(ARQUIVO_0034)).replace(/\s+/g, " ").trim(),
+    );
+  });
+});
+
+// ============================================================
+// 0035 — captura e links rastreados, sem abrir tabelas ao anon
+// ============================================================
+
+const ARQUIVO_0035 = "0035_marketing.sql";
+const ARQUIVO_EXEC_0035 = "_exec_0035_marketing.sql";
+const m0035 = existeArquivoDeMigracao(ARQUIVO_0035) ? lerMigracao(ARQUIVO_0035) : "";
+const exec0035 = semComentarios(m0035);
+
+describe("0035 — marketing público escreve por funções estreitas", () => {
+  it("cria captura, link rastreado e clique com código único", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0035)).toBe(true);
+    expect(readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0035)).toBe(true);
+    expect(exec0035).toMatch(/create table if not exists public\.captura[\s\S]*workspace_id uuid not null/is);
+    expect(exec0035).toMatch(/create table if not exists public\.link_rastreado[\s\S]*codigo text not null unique/is);
+    expect(exec0035).toMatch(/create table if not exists public\.clique[\s\S]*link_id uuid not null references public\.link_rastreado \(id\)/is);
+  });
+
+  it("mantém RLS interna e nenhuma política anon ou aberta", () => {
+    for (const tabela of ["captura", "link_rastreado", "clique"]) {
+      const politicas = politicasDaTabela(exec0035, tabela);
+      expect(politicas.length).toBeGreaterThan(0);
+      for (const politica of politicas) {
+        expect(politica).not.toMatch(/\bto\s+anon\b/i);
+        expect(politica).not.toMatch(/mentorado/i);
+        expect(politica).not.toMatch(/using\s*\(\s*true\s*\)/i);
+        expect(politica).toMatch(/workspace_id = public\.workspace_atual\(\)/i);
+        expect(politica).toMatch(/public\.papel_atual\(\) in \('dono', 'gestor', 'comercial'\)/i);
+      }
+    }
+  });
+
+  it("expõe somente as funções públicas necessárias, com search path fixo e sem IP ou agente cru", () => {
+    for (const funcao of ["registrar_captura", "registrar_clique"]) {
+      expect(exec0035).toMatch(new RegExp(`create or replace function public\\.${funcao}\\([\\s\\S]*?\\)\\s+returns[\\s\\S]*?language plpgsql\\s+security definer\\s+set search_path = public`, "i"));
+    }
+    const clique = exec0035.slice(exec0035.indexOf("create or replace function public.registrar_clique"));
+    expect(clique).not.toMatch(/\bip\b|user_agent|agente_cru/i);
+    expect(exec0035).toMatch(/revoke all on function public\.registrar_captura\([\s\S]*?\) from public[\s\S]*grant execute on function public\.registrar_captura\([\s\S]*?\) to anon, authenticated/is);
+    expect(exec0035).toMatch(/revoke all on function public\.registrar_clique\([\s\S]*?\) from public[\s\S]*grant execute on function public\.registrar_clique\([\s\S]*?\) to anon, authenticated/is);
+  });
+
+  it("mantém o espelho idêntico", () => {
+    expect(semComentarios(lerMigracao(ARQUIVO_EXEC_0035)).replace(/\s+/g, " ").trim()).toBe(semComentarios(lerMigracao(ARQUIVO_0035)).replace(/\s+/g, " ").trim());
   });
 });
