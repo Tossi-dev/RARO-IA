@@ -3797,3 +3797,48 @@ describe("0030 — finanças pessoais isoladas no workspace e no dono", () => {
     );
   });
 });
+
+// ============================================================
+// 0031 — baixa atômica de cobrança e movimento de caixa
+// ============================================================
+
+const ARQUIVO_0031 = "0031_baixa_cobranca_atomica.sql";
+const ARQUIVO_EXEC_0031 = "_exec_0031_baixa_cobranca_atomica.sql";
+const m0031 = existeArquivoDeMigracao(ARQUIVO_0031) ? lerMigracao(ARQUIVO_0031) : "";
+const exec0031 = semComentarios(m0031);
+
+describe("0031 — baixa de cobrança é atômica e isolada", () => {
+  it("a migration e seu espelho local existem", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0031), `esperava supabase/migrations/${ARQUIVO_0031}`).toBe(true);
+    expect(readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0031)).toBe(true);
+  });
+
+  it("expõe somente uma RPC autenticada que trava a cobrança do workspace", () => {
+    expect(exec0031).toMatch(/create or replace function public\.baixar_cobranca_com_movimento\s*\(\s*p_cobranca_id uuid,\s*p_pago_em date,\s*p_forma public\.forma_cobranca\s*\)/is);
+    expect(exec0031).toMatch(/returns uuid\s+language plpgsql\s+security definer\s+set search_path = public/is);
+    expect(exec0031).toMatch(/public\.papel_atual\(\) not in \('dono', 'gestor'\)/i);
+    expect(exec0031).toMatch(/workspace_id = public\.workspace_atual\(\)[\s\S]*for update/i);
+    expect(exec0031).toMatch(/revoke all on function public\.baixar_cobranca_com_movimento\(uuid, date, public\.forma_cobranca\) from public/i);
+    expect(exec0031).toMatch(/grant execute on function public\.baixar_cobranca_com_movimento\(uuid, date, public\.forma_cobranca\) to authenticated/i);
+  });
+
+  it("insere o movimento e atualiza a cobrança no mesmo corpo transacional", () => {
+    expect(exec0031).toMatch(/insert into public\.movimentos_caixa[\s\S]*workspace_id[\s\S]*v_cobranca\.valor[\s\S]*returning id into v_movimento_id/is);
+    expect(exec0031).toMatch(/update public\.cobranca[\s\S]*set status = 'paga'[\s\S]*movimento_id = v_movimento_id[\s\S]*where id = v_cobranca\.id/is);
+    expect(exec0031).toMatch(/raise exception/i);
+    expect(exec0031).toMatch(/return v_movimento_id/i);
+  });
+
+  it("fecha autenticação, data civil e estados que não podem gerar novo movimento", () => {
+    expect(exec0031).toMatch(/if auth\.uid\(\) is null[\s\S]*public\.papel_atual\(\) not in \('dono', 'gestor'\)[\s\S]*raise exception 'sem permissão para baixar cobrança'/i);
+    expect(exec0031).toMatch(/p_pago_em > \(now\(\) at time zone 'America\/Sao_Paulo'\)::date[\s\S]*raise exception 'data da baixa inválida'/i);
+    expect(exec0031).toMatch(/if v_cobranca\.status = 'cancelada' then[\s\S]*raise exception 'cobrança cancelada não pode receber baixa'/i);
+    expect(exec0031).toMatch(/if v_cobranca\.status = 'paga' then[\s\S]*if v_cobranca\.movimento_id is not null then[\s\S]*return v_cobranca\.movimento_id/i);
+  });
+
+  it("mantém o espelho _exec_ idêntico à migration", () => {
+    expect(semComentarios(lerMigracao(ARQUIVO_EXEC_0031)).replace(/\s+/g, " ").trim()).toBe(
+      semComentarios(lerMigracao(ARQUIVO_0031)).replace(/\s+/g, " ").trim(),
+    );
+  });
+});
