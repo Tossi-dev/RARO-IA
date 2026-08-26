@@ -45,73 +45,75 @@ Este é o critério de aceite. No fim da execução alguém monta a mesma tabela
 a coluna "depois" e compara linha por linha. Nada aqui é marcado `tem` por
 existir só como tabela no banco: tabela sem tela é `falta`, e está dito onde.
 
-| # | Módulo | Bullet da apresentação | Estado | Onde está / por que não |
-|---|---|---|---|---|
-| **1** | **CRM & Clientes** | Kanban com arrastar entre estágios | **tem** | `src/app/(app)/crm/page.tsx` + `src/components/kanban.tsx` |
-| 1 | | Perfil do cliente com atividades | **tem** | `src/app/(app)/crm/[id]/page.tsx` + `src/components/timeline.tsx` |
-| 1 | | WhatsApp na ficha | **tem** | `src/components/crm-whatsapp.tsx`, `src/lib/atendimento/` |
-| 1 | | Estágios Prospect → Alumni | **parcial** | `crm_estagios` (0002) traz Lead/Em conversa/Aluno novo/Aluno ativo/Em risco/Inativo. Não existe Prospect nem Alumni, e a escada não conversa com `status_mentorado` (0006: lead/ativo/pausado/alumni) |
-| 1 | | Histórico 360° unificado | **falta** | Hoje partido: CRM em `/crm/[id]` (notas, atividades, interações), mentoria em `/mentoria/[id]` (sessões, tarefas, marcos, score). Nenhuma tela junta os dois |
-| 1 | | Score de saúde 0–100 do mentorado | **falta** | `src/lib/health.ts` existe e é do NEGÓCIO (margem, crescimento, diversificação), consumido só por `/financeiro` via `src/components/saude-negocio.tsx`. Não há score por pessoa |
-| 1 | | Documentos anexados | **falta** | Não existe tabela, storage, rota nem tela |
-| **2** | **Sessões** | Agendar sessão | **tem** | `agendarSessao` em `src/lib/mentoria/acoes.ts` |
-| 2 | | Dar baixa (realizada/faltou/cancelada) | **tem** | `darBaixaNaSessao`, idem |
-| 2 | | Individual e turma | **tem** | `sessao.matricula_id` XOR `sessao.turma_id` (0006), `CHECK sessao_vinculo_unico` |
-| 2 | | Link de gravação | **tem** | `sessao.link_gravacao` + `linkGravacaoValido` em `src/lib/mentoria/validacao.ts` |
-| 2 | | Resumo da sessão | **tem** | `sessao.resumo`, escrito na baixa |
-| 2 | | Sessão amarrada ao Google Calendar | **falta** | `src/lib/integracoes/google-agenda.ts` pede escopo `calendar.readonly` e `src/lib/integracoes/calendar.ts` sabe criar evento, mas nenhum dos dois conhece `sessao`. Não há coluna de id de evento |
-| 2 | | Transcrição automática | **falta** | `transcreverAudio` existe em `src/lib/integracoes/stt.ts` (Groq Whisper) e é chamada só por `src/app/api/transcrever/route.ts`, sem vínculo com sessão |
-| **3** | **Portal do Mentorado** | Progresso ("sessão 8 de 12") | **tem** | `src/lib/mentoria/progresso.ts` + `/portal` |
-| 3 | | Próxima sessão | **tem** | `proximaSessao`, idem |
-| 3 | | Tarefas com baixa pelo mentorado | **tem** | `portal_marcar_tarefa` (0013) + `src/lib/mentoria/acoes-portal.ts` |
-| 3 | | Marcos | **tem** | `marco` (0006), card no `src/app/(app)/portal/visao.tsx` |
-| 3 | | Conteúdos liberados | **parcial** | `conteudo_liberado` (0006) é lida e desenhada, mas nada no sistema ESCREVE nela — não há tela de liberação |
-| 3 | | Timeline de evolução | **parcial** | Existe um card "Evolução" que lista `score_evolucao`, mas nada escreve nessa tabela. Não há linha do tempo de fatos |
-| 3 | | Acesso a gravações e transcrições | **falta** | `sessao.link_gravacao` e `sessao.transcricao` não são expostos no portal, e não há flag dizendo o que pode ser exposto |
-| **4** | **Conteúdo** | Trilhas | **falta** | `/conteudo` é OUTRA COISA (posts de rede social, campanhas, ranking — `src/app/(app)/conteudo/`). `modulos`/`aulas` existem em 0009 presas a `produtos`, sem tela |
-| 4 | | Liberação gradual | **falta** | Não existe regra, coluna nem tela |
-| 4 | | Progresso do aluno na trilha | **falta** | `progresso_aulas` existe em 0009, RLS FECHADO (só dono/gestor) e por `aluno_id`, não por `mentorado_id`. Sem tela |
-| 4 | | Certificado | **falta** | Não existe |
-| **5** | **Feed & Comunicação** | WhatsApp com fila aprovada por humano | **tem** | `src/lib/atendimento/`, `src/app/api/atendimento/` |
-| 5 | | Feed privado | **falta** | `post`/`comentario` estão no desenho (§3) e não no banco |
-| 5 | | Broadcast (aviso para todos) | **falta** | Não existe |
-| 5 | | DM mentor ↔ mentorado dentro do sistema | **falta** | Não existe (WhatsApp é fora) |
-| **6** | **Onboarding** | Checklist de entrada | **falta** | Não existe |
-| 6 | | Coleta de dados iniciais | **falta** | Não existe |
-| 6 | | Contrato | **falta** | Não existe tabela nem upload |
-| 6 | | Boas-vindas automatizada | **falta** | Não existe |
-| **7** | **Pipeline SDR/Closer** | Funil próprio de vendas | **parcial** | `crm_estagios` + `status_funil` servem ao CRM de alunos, não a um pipeline SDR/Closer com dono da etapa |
-| 7 | | Scripts por etapa | **falta** | Não existe |
-| 7 | | Propostas com link rastreável | **falta** | Não existe |
-| 7 | | Dashboard de conversão | **falta** | `funil()` em `src/lib/metrics.ts` conta aluno por `status_funil`, não conversão de oportunidade entre etapas |
-| **8** | **Financeiro do negócio** | DRE gerencial | **tem** | `/financeiro/dre` |
-| 8 | | Fluxo de caixa | **tem** | `/financeiro/caixa` |
-| 8 | | Projeção 13 semanas | **tem** | `/financeiro/projecao` |
-| 8 | | Reembolsos | **tem** | `/financeiro/reembolsos` |
-| 8 | | Extrato CSV/OFX | **tem** | `src/lib/extrato/`, `/extrato` |
-| 8 | | Contas a pagar / a receber | **tem** | `pagaveis`/`recebiveis` (0004), `datasetCaixa` |
-| 8 | | Cobrança recorrente | **falta** | Não existe tabela `cobranca`. Versão degradada definida em §1.3 (Pix com baixa manual) ainda não construída |
-| 8 | | Régua de inadimplência | **falta** | Não existe |
-| 8 | | Contratos | **falta** | Não existe |
-| 8 | | MRR / ARR / LTV | **parcial** | `statsAluno` em `src/lib/metrics.ts` calcula LTV por aluno somando matrícula paga. Não há MRR nem ARR, e nada de recorrência para sustentá-los |
-| **9** | **Finanças pessoais do mentor** | Patrimônio | **falta** | Não existe |
-| 9 | | Investimentos | **falta** | Não existe |
-| 9 | | Renda pessoal separada do negócio | **falta** | Não existe |
-| **10** | **IA de Evolução** | Groq/Anthropic ligados | **tem** | `src/lib/integracoes/ia.ts`, `src/lib/integracoes/stt.ts`, `src/app/api/ia/route.ts` |
-| 10 | | Resumo de transcrição | **tem** | `resumirTranscricao` em `src/lib/integracoes/ia.ts` |
-| 10 | | Tabela de score semanal | **tem** | `score_evolucao` (0006), com `unique (mentorado_id, semana)` |
-| 10 | | Análise da sessão | **falta** | Nada liga uma sessão a uma análise. Não há tabela de análise |
-| 10 | | Cálculo do score semanal | **falta** | Ninguém escreve em `score_evolucao` |
-| 10 | | Alerta de risco / churn | **falta** | Não existe |
-| 10 | | Recomendações | **falta** | Não existe |
-| **11** | **IA de Vendas** | Análise de call de vendas | **falta** | `calls_resumos` existe desde 0001, presa a `lancamento_id` (rota de infoproduto removida na Fase 1), sem tela nenhuma |
-| 11 | | Score da call / objeções | **falta** | Não existe |
-| **12** | **Marketing** | Captura de lead com UTM | **falta** | Não existe |
-| 12 | | Link rastreável | **falta** | Não existe |
-| 12 | | E-mail marketing | **falta** | Não existe — e não vai existir nesta fase (ver Parte C) |
-| 12 | | Construtor de landing page | **falta** | Não existe — e não vai existir nesta fase (ver Parte C) |
+| # | Módulo | Bullet da apresentação | Estado antes | Onde estava / por que não | Depois |
+|---|---|---|---|---|---|
+| **1** | **CRM & Clientes** | Kanban com arrastar entre estágios | **tem** | `/crm` | **tem** — tela `/crm` mantém o kanban. |
+| 1 | | Perfil do cliente com atividades | **tem** | `/crm/[id]` | **tem** — tela `/crm/[id]`. |
+| 1 | | WhatsApp na ficha | **tem** | `crm-whatsapp` | **tem** — fila de aprovação humana em `/crm/[id]`. |
+| 1 | | Estágios Prospect → Alumni | **parcial** | Escada incompleta | **tem** — jornada exibida em `/crm`. |
+| 1 | | Histórico 360° unificado | **falta** | CRM e mentoria separados | **tem** — aba Histórico em `/mentoria/[id]`. |
+| 1 | | Score de saúde 0–100 do mentorado | **falta** | Só saúde do negócio | **tem** — score individual em `/mentoria/[id]`. |
+| 1 | | Documentos anexados | **falta** | Sem tela | **tem** — documentos em `/mentoria/[id]`. |
+| **2** | **Sessões** | Agendar sessão | **tem** | Mentoria | **tem** — `/mentoria/[id]` e `/agenda`. |
+| 2 | | Dar baixa (realizada/faltou/cancelada) | **tem** | Mentoria | **tem** — `/mentoria/[id]`. |
+| 2 | | Individual e turma | **tem** | Modelo de dados | **tem** — modalidades em `/mentoria/[id]`. |
+| 2 | | Link de gravação | **tem** | Sessão | **tem** — `/mentoria/[id]`. |
+| 2 | | Resumo da sessão | **tem** | Sessão | **tem** — `/mentoria/[id]`. |
+| 2 | | Sessão amarrada ao Google Calendar | **falta** | Sem vínculo | **tem** — agenda e vínculo por sessão em `/agenda`. |
+| 2 | | Transcrição automática | **falta** | Sem vínculo | **parcial** — ação humana e chave Groq ainda são necessárias. |
+| **3** | **Portal do Mentorado** | Progresso ("sessão 8 de 12") | **tem** | `/portal` | **tem** — `/portal`. |
+| 3 | | Próxima sessão | **tem** | `/portal` | **tem** — `/portal`. |
+| 3 | | Tarefas com baixa pelo mentorado | **tem** | `/portal` | **tem** — `/portal`. |
+| 3 | | Marcos | **tem** | `/portal` | **tem** — `/portal`. |
+| 3 | | Conteúdos liberados | **parcial** | Só leitura | **tem** — gestão em `/mentoria/[id]` e leitura em `/portal`. |
+| 3 | | Timeline de evolução | **parcial** | Sem fatos | **tem** — evolução em `/portal`. |
+| 3 | | Acesso a gravações e transcrições | **falta** | Não exposto | **tem** — acesso controlado no portal. |
+| **4** | **Conteúdo** | Trilhas | **falta** | Sem tela | **tem** — `/trilhas`. |
+| 4 | | Liberação gradual | **falta** | Sem regra | **tem** — editor `/trilhas/[id]`. |
+| 4 | | Progresso do aluno na trilha | **falta** | Sem tela | **tem** — `/portal/trilha`. |
+| 4 | | Certificado | **falta** | Não existe | **tem** — verificação em `/certificado/[codigo]`. |
+| **5** | **Feed & Comunicação** | WhatsApp com fila aprovada por humano | **tem** | Atendimento | **tem** — `/crm/[id]`. |
+| 5 | | Feed privado | **falta** | Sem banco/tela | **tem** — `/feed`. |
+| 5 | | Broadcast (aviso para todos) | **falta** | Não existe | **tem** — `/feed`. |
+| 5 | | DM mentor ↔ mentorado dentro do sistema | **falta** | Não existe | **parcial** — mural e broadcast; sem destinatário individual. |
+| **6** | **Onboarding** | Checklist de entrada | **falta** | Não existe | **tem** — `/onboarding` e `/portal`. |
+| 6 | | Coleta de dados iniciais | **falta** | Não existe | **parcial** — etapas, sem coleta estruturada dedicada. |
+| 6 | | Contrato | **falta** | Sem tabela/upload | **parcial** — documento interno, sem autoenvio pelo portal. |
+| 6 | | Boas-vindas automatizada | **falta** | Não existe | **falta** — não implementada. |
+| **7** | **Pipeline SDR/Closer** | Funil próprio de vendas | **parcial** | Só CRM | **tem** — `/comercial`. |
+| 7 | | Scripts por etapa | **falta** | Não existe | **falta** — não implementado. |
+| 7 | | Propostas com link rastreável | **falta** | Não existe | **tem** — `/proposta/[token]`. |
+| 7 | | Dashboard de conversão | **falta** | Métrica de aluno | **tem** — `/comercial/conversao`. |
+| **8** | **Financeiro do negócio** | DRE gerencial | **tem** | `/financeiro/dre` | **tem** — `/financeiro/dre`. |
+| 8 | | Fluxo de caixa | **tem** | `/financeiro/caixa` | **tem** — `/financeiro/caixa`. |
+| 8 | | Projeção 13 semanas | **tem** | `/financeiro/projecao` | **tem** — `/financeiro/projecao`. |
+| 8 | | Reembolsos | **tem** | `/financeiro/reembolsos` | **tem** — `/financeiro/reembolsos`. |
+| 8 | | Extrato CSV/OFX | **tem** | `/extrato` | **tem** — `/extrato`. |
+| 8 | | Contas a pagar / a receber | **tem** | Financeiro | **tem** — `/financeiro/caixa`. |
+| 8 | | Cobrança recorrente | **falta** | Não construída | **tem** — `/financeiro/cobrancas` e `/financeiro/recorrencia`. |
+| 8 | | Régua de inadimplência | **falta** | Não existe | **tem** — `/financeiro/cobrancas`. |
+| 8 | | Contratos | **falta** | Não existe | **tem** — `/financeiro/contratos`. |
+| 8 | | MRR / ARR / LTV | **parcial** | Só LTV | **tem** — MRR/ARR em `/financeiro/recorrencia` e LTV em `/crm`. |
+| **9** | **Finanças pessoais do mentor** | Patrimônio | **falta** | Não existe | **tem** — `/pessoal`. |
+| 9 | | Investimentos | **falta** | Não existe | **tem** — `/pessoal`. |
+| 9 | | Renda pessoal separada do negócio | **falta** | Não existe | **falta** — não exposta em `/pessoal`. |
+| **10** | **IA de Evolução** | Groq/Anthropic ligados | **tem** | Integrações | **parcial** — depende de credenciais externas; demo não persiste. |
+| 10 | | Resumo de transcrição | **tem** | Módulo IA | **parcial** — depende do provedor configurado. |
+| 10 | | Tabela de score semanal | **tem** | `score_evolucao` | **tem** — score semanal em `/mentoria/[id]`. |
+| 10 | | Análise da sessão | **falta** | Sem ligação | **tem** — `/mentoria/[id]`. |
+| 10 | | Cálculo do score semanal | **falta** | Sem escrita | **tem** — evolução em `/mentoria/[id]` e `/portal`. |
+| 10 | | Alerta de risco / churn | **falta** | Não existe | **tem** — `/mentoria/risco`. |
+| 10 | | Recomendações | **falta** | Não existe | **parcial** — calculadas, mas não exibidas na tela de risco. |
+| **11** | **IA de Vendas** | Análise de call de vendas | **falta** | Sem tela | **tem** — `/comercial/[id]`. |
+| 11 | | Score da call / objeções | **falta** | Não existe | **tem** — `/comercial/[id]`. |
+| **12** | **Marketing** | Captura de lead com UTM | **falta** | Não existe | **tem** — origem e capturas UTM em `/marketing`. |
+| 12 | | Link rastreável | **falta** | Não existe | **tem** — link rastreável em `/marketing`. |
+| 12 | | E-mail marketing | **falta** | Fora da fase | **falta** — explicitamente fora desta versão. |
+| 12 | | Construtor de landing page | **falta** | Fora da fase | **falta** — explicitamente fora desta versão. |
 
 Contagem do ANTES: **17 `tem`**, **7 `parcial`**, **32 `falta`**.
+
+Contagem do DEPOIS (revisão independente de telas): **51 `tem`**, **7 `parcial`**, **5 `falta`**.
 
 ---
 
