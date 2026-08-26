@@ -4073,3 +4073,73 @@ describe("0035 — marketing público escreve por funções estreitas", () => {
     expect(semComentarios(lerMigracao(ARQUIVO_EXEC_0035)).replace(/\s+/g, " ").trim()).toBe(semComentarios(lerMigracao(ARQUIVO_0035)).replace(/\s+/g, " ").trim());
   });
 });
+
+// ============================================================
+// 0038–0040 — ficha de atendimento com dados sensíveis
+// ============================================================
+
+const MIGRACOES_ATENDIMENTO = [
+  ["0038_atendimento_mapa.sql", "_exec_0038_atendimento_mapa.sql", ["atendimento_mapa", "atendimento_consentimento", "atendimento_evento_acesso"]],
+  ["0039_atendimento_plano.sql", "_exec_0039_atendimento_plano.sql", ["atendimento_meta", "atendimento_passo", "atendimento_reflexao"]],
+  ["0040_atendimento_grafo.sql", "_exec_0040_atendimento_grafo.sql", ["atendimento_grafo_no", "atendimento_grafo_relacao"]],
+] as const;
+
+describe("0038–0040 — atendimento preserva acesso mínimo e projeção segura", () => {
+  it.each(MIGRACOES_ATENDIMENTO)(
+    "%s e seu espelho existem",
+    (arquivo, espelho) => {
+      expect(existeArquivoDeMigracao(arquivo)).toBe(true);
+      expect(readdirSync(MIGRATIONS_DIR).includes(espelho)).toBe(true);
+      expect(semComentarios(lerMigracao(espelho)).replace(/\s+/g, " ").trim()).toBe(
+        semComentarios(lerMigracao(arquivo)).replace(/\s+/g, " ").trim(),
+      );
+    },
+  );
+
+  it.each(MIGRACOES_ATENDIMENTO)(
+    "%s cria suas tabelas com workspace, mentorado e RLS",
+    (arquivo, _espelho, tabelas) => {
+      const sql = semComentarios(lerMigracao(arquivo));
+      for (const tabela of tabelas) {
+        expect(sql).toMatch(new RegExp(`create table if not exists public\\.${tabela}[\\s\\S]*?workspace_id uuid not null references public\\.workspace[\\s\\S]*?mentorado_id uuid not null references public\\.mentorado`, "i"));
+        expect(sql).toMatch(new RegExp(`alter table public\\.${tabela} enable row level security`, "i"));
+      }
+    },
+  );
+
+  it.each(MIGRACOES_ATENDIMENTO)(
+    "%s não abre tabelas sensíveis a anon, mentorado ou using (true)",
+    (arquivo, _espelho, tabelas) => {
+      const sql = semComentarios(lerMigracao(arquivo));
+      for (const tabela of tabelas) {
+        const politicas = politicasDaTabela(sql, tabela);
+        expect(politicas.length, `esperava políticas para public.${tabela}`).toBeGreaterThan(0);
+        for (const politica of politicas) {
+          expect(politica).not.toMatch(/\bto\s+anon\b|\bmentorado\b|using\s*\(\s*true\s*\)/i);
+          expect(politica).toMatch(/workspace_id = public\.workspace_atual\(\)/i);
+          expect(politica).toMatch(/public\.papel_atual\(\) in \('dono', 'gestor'\)/i);
+        }
+      }
+    },
+  );
+
+  it("protege as referências cruzadas, fecha funções e expõe apenas metas compartilháveis ao portal", () => {
+    const mapa = semComentarios(lerMigracao("0038_atendimento_mapa.sql"));
+    const plano = semComentarios(lerMigracao("0039_atendimento_plano.sql"));
+    const grafo = semComentarios(lerMigracao("0040_atendimento_grafo.sql"));
+    const combinado = `${mapa}\n${plano}\n${grafo}`;
+
+    expect(combinado).toMatch(/create or replace function public\.validar_referencias_atendimento\(\)[\s\S]*?security definer\s+set search_path = public/is);
+    expect(combinado).toMatch(/from public\.mentorado[\s\S]*?id = new\.mentorado_id[\s\S]*?workspace_id = new\.workspace_id/is);
+    expect(combinado).toMatch(/revoke all on function public\.validar_referencias_atendimento\(\) from public/i);
+    expect(grafo).toMatch(/tg_table_name = 'atendimento_passo'[\s\S]*?from public\.atendimento_meta[\s\S]*?id = new\.meta_id[\s\S]*?mentorado_id = new\.mentorado_id[\s\S]*?workspace_id = new\.workspace_id/is);
+    expect(grafo).toMatch(/tg_table_name = 'atendimento_grafo_relacao'[\s\S]*?origem_no_id[\s\S]*?destino_no_id/is);
+    const politicaEvento = politicasDaTabela(mapa, "atendimento_evento_acesso");
+    expect(politicaEvento.join("\n")).not.toMatch(/\btexto\b|\bdor\b|\bmedo\b|\bobjetivo\b/i);
+    expect(combinado).toMatch(/create or replace function public\.atendimento_portal_minimo\(\)[\s\S]*?security definer\s+set search_path = public/is);
+    expect(plano).toMatch(/public\.papel_atual\(\) = 'mentorado'[\s\S]*?m\.mentorado_id = public\.mentorado_atual\(\)/is);
+    expect(combinado).toMatch(/visibilidade = 'compartilhavel'[\s\S]*?categoria = 'meta'[\s\S]*?categoria = 'portal'/is);
+    expect(combinado).toMatch(/revoke all on function public\.atendimento_portal_minimo\(\) from public[\s\S]*?grant execute on function public\.atendimento_portal_minimo\(\) to authenticated/is);
+    expect(combinado).not.toMatch(/grant execute on function public\.atendimento_portal_minimo\(\) to anon/i);
+  });
+});

@@ -17,9 +17,11 @@ describe("consentimento", () => {
     expect(consentimentos.reflexao).toBe(true);
   });
 
-  it("só projeta conteúdo compartilhável quando portal foi consentido", () => {
-    expect(podeExibirParaCliente("privada_profissional", consentimentos)).toBe(false);
-    expect(podeExibirParaCliente("compartilhavel", consentimentos)).toBe(true);
-    expect(podeExibirParaCliente("compartilhavel", { ...consentimentos, portal: false })).toBe(false);
+  it("só projeta conteúdo compartilhável quando portal e categoria foram consentidos", () => {
+    expect(podeExibirParaCliente("privada_profissional", "reflexao", consentimentos)).toBe(false);
+    expect(podeExibirParaCliente("compartilhavel", "reflexao", consentimentos)).toBe(true);
+    expect(podeExibirParaCliente("compartilhavel", "reflexao", { ...consentimentos, portal: false })).toBe(false);
+    expect(podeExibirParaCliente("compartilhavel", "reflexao", { ...consentimentos, reflexao: false })).toBe(false);
+    expect(podeExibirParaCliente("compartilhavel", "transcricao", consentimentos)).toBe(false);
   });
 });
