@@ -72,13 +72,3 @@ tarefa como aprovada sem evidência de revisão.
 - Próximas tarefas do plano: T-083 ficha 360°, T-084 histórico/portal, T-085
   onboarding, T-086 roteiro de sessão, T-087 transcrição manual, Portão 2,
   T-087B, T-088 a T-092.
-
-## Prompt de retomada
-
-> Retome o RARO IA no branch `mentoros`. Leia `CONTEXTO-AUTONOMO.md` e o plano
-> `docs/superpowers/plans/2026-08-26-mentoros-atendimento.md`; confira
-> `git status -sb` e `git pull --ff-only origin mentoros`. Continue da T-082
-> com TDD, testes focados, TypeScript, ledger e revisão independente. Não
-> aplique migrations nem faça ações externas sem autorização específica. Após
-> cada mudança verificada, faça commit descritivo e `git push origin mentoros`,
-> confirmando que o SHA remoto é igual ao local.
