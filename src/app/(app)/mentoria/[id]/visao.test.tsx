@@ -339,6 +339,99 @@ function glifosForaDoPermitido(html: string): string[] {
   return [...achados];
 }
 
+describe("FichaVisao — ficha 360 do atendimento", () => {
+  it("explica quando não há base de atendimento", async () => {
+    const ficha = fichaVazia();
+    ficha.atendimento.consentimentos = [{ categoria: "mapa", consentido: true }];
+    const html = render(ficha);
+    expect(html).toContain("Mapa de atendimento");
+    expect(html).toContain("Ainda não há dados de atendimento registrados.");
+  });
+
+  it("não exibe dados quando o consentimento está ausente", () => {
+    const ficha = fichaVazia();
+    ficha.atendimento.mapa.push({ id: "mapa-1", dimensao: "profissional", nota: 8, dor: "dor privada" });
+    const html = render(ficha);
+    expect(html).toContain("consentimento");
+    expect(html).not.toContain("dor privada");
+  });
+
+  it("distingue falha de leitura de ausência de registros", () => {
+    const html = render({ ...fichaVazia(), atendimento: { ...fichaVazia().atendimento, conectado: false } });
+    expect(html).toContain("Não foi possível carregar os dados de atendimento agora.");
+    expect(html).not.toContain("Ainda não há dados de atendimento registrados.");
+  });
+
+  it("mostra mapa, metas, passos, reflexões, relações e perguntas editáveis só na ficha profissional", () => {
+    const ficha = fichaVazia();
+    ficha.atendimento = {
+      conectado: true,
+      encontrado: true,
+      mapa: [{ id: "mapa-1", dimensao: "profissional", nota: 8, dor: "sobrecarga", medo: "estagnar", objetivo: "organizar a semana" }],
+      metas: [{ id: "meta-1", titulo: "Rotina sustentável", prazo: "2026-09-10", status: "em_andamento", visibilidade: "privada_profissional" }],
+      passos: [{ id: "passo-1", meta_id: "meta-1", descricao: "Bloquear duas horas", responsavel: "profissional", ordem: 1, status: "pendente" }],
+      reflexoes: [{ id: "ref-1", texto: "Revisar limites", origem: "profissional", visibilidade: "privada_profissional" }],
+      consentimentos: [{ id: "con-1", categoria: "mapa", consentido: true }, { id: "con-2", categoria: "meta", consentido: true }, { id: "con-3", categoria: "reflexao", consentido: true }],
+    };
+    const html = render(ficha);
+    expect(html).toContain("Mapa de atendimento");
+    expect(html).toContain("Rotina sustentável");
+    expect(html).toContain("Bloquear duas horas");
+    expect(html).toContain("Revisar limites");
+    expect(html).toContain("Relações");
+    expect(html).toContain("Sugestão de pergunta");
+    expect(html).toContain('contenteditable="true"');
+    expect(html).toContain("profissional");
+  });
+
+  it("não expõe metas, passos ou relações quando o consentimento de meta falta", () => {
+    const ficha = fichaVazia();
+    ficha.atendimento = {
+      ...ficha.atendimento,
+      metas: [{ id: "meta-revogada", titulo: "Meta privada", status: "ativa" }],
+      passos: [{ id: "passo-revogado", meta_id: "meta-revogada", descricao: "Passo privado" }],
+      reflexoes: [{ id: "ref-2", texto: "Reflexão autorizada", visibilidade: "privada_profissional" }],
+      consentimentos: [{ categoria: "reflexao", consentido: true }, { categoria: "meta", consentido: false }],
+    };
+    const html = render(ficha);
+    expect(html).toContain("Reflexão autorizada");
+    expect(html).not.toContain("Meta privada");
+    expect(html).not.toContain("Passo privado");
+    expect(html).not.toContain("Relações");
+  });
+
+  it("explica indisponibilidade de plano e relações sem ler ou expor conteúdo", () => {
+    const ficha = fichaVazia();
+    ficha.atendimento = { ...ficha.atendimento, conectado: false };
+    const html = render(ficha);
+    expect(html.match(/Não foi possível carregar os dados de atendimento agora\./g)?.length).toBeGreaterThanOrEqual(3);
+
+    const semConsentimento = render(fichaVazia());
+    expect(semConsentimento).toContain("O plano de ação não está disponível porque o consentimento está ausente.");
+    expect(semConsentimento).toContain("As relações não estão disponíveis porque o consentimento está ausente.");
+  });
+
+  it("não expõe reflexões quando somente o consentimento de meta está ativo", () => {
+    const ficha = fichaVazia();
+    ficha.atendimento = {
+      ...ficha.atendimento,
+      metas: [{ id: "meta-1", titulo: "Meta autorizada" }],
+      reflexoes: [{ id: "ref-3", texto: "Reflexão não autorizada" }],
+      consentimentos: [{ categoria: "meta", consentido: true }, { categoria: "reflexao", consentido: false }],
+    };
+    const html = render(ficha);
+    expect(html).toContain("Meta autorizada");
+    expect(html).not.toContain("Reflexão não autorizada");
+  });
+
+  it("explica ficha de atendimento não encontrada nos três painéis", () => {
+    const ficha = fichaVazia();
+    ficha.atendimento = { ...ficha.atendimento, encontrado: false };
+    const html = render(ficha);
+    expect(html.match(/Não encontramos uma ficha de atendimento para este mentorado\./g)?.length).toBe(3);
+  });
+});
+
 /**
  * Os dois painéis de aba, na ordem, e a prova de que são DOIS e de que o que
  * abre por padrão é o primeiro ("Visão geral").

@@ -49,6 +49,9 @@ import {
 } from "../textos";
 import { DocumentosDoMentorado } from "./documentos";
 import { ConteudosLiberados } from "./liberados";
+import { Grafo } from "./grafo";
+import { MapaAtendimento } from "./mapa-atendimento";
+import { PlanoAcao } from "./plano-acao";
 
 const LABEL_STATUS_MENTORADO: Record<StatusMentorado, string> = {
   lead: "Lead",
@@ -564,6 +567,12 @@ export function FichaVisao({
   const visaoGeral = (
     <>
       <CardSaudeMentorado historico={historico} />
+
+      <div className="mt-4 space-y-4">
+        <MapaAtendimento atendimento={ficha.atendimento} />
+        <PlanoAcao atendimento={ficha.atendimento} />
+        <Grafo atendimento={ficha.atendimento} />
+      </div>
 
       <Card titulo="Ações de evolução" className="mt-4">
         <p className="text-sm text-texto-2">Quem dispara é uma pessoa. O score é calculado com os dados existentes; a análise fica registrada com o nome de quem clicou.</p>
