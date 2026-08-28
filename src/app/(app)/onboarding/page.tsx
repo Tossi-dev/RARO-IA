@@ -11,13 +11,18 @@
 // cá — o progresso de uma pessoa aparece na ficha dela.
 
 import { lerModeloDeOnboarding } from "@/lib/onboarding/dados";
-import { OnboardingVisao } from "./visao";
+import { OnboardingEstruturado, OnboardingVisao } from "./visao";
 
 export const dynamic = "force-dynamic";
 
 export default async function Onboarding({ searchParams }: { searchParams: { erro?: string } }) {
   const modelo = await lerModeloDeOnboarding();
   return (
-    <OnboardingVisao modelo={modelo} erro={typeof searchParams.erro === "string" ? searchParams.erro : ""} />
+    <>
+      <OnboardingVisao modelo={modelo} erro={typeof searchParams.erro === "string" ? searchParams.erro : ""} />
+      <div className="mt-6">
+        <OnboardingEstruturado />
+      </div>
+    </>
   );
 }
