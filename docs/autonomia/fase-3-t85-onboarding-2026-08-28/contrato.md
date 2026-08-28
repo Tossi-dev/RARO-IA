@@ -3,7 +3,7 @@ schema_version: 2
 projeto: RARO IA
 missao_id: fase-3-t85-onboarding-2026-08-28
 tarefa: T-085-onboarding-estruturado
-estado: em_execucao
+estado: concluida
 autorizacao: contrato-mestre aprovado e continuidade autônoma autorizada
 janela_maxima: 2h
 pulso_maximo: 30min
