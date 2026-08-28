@@ -505,3 +505,77 @@ export function projetarParaPortal(fatos: readonly FatoHistorico[]): FatoHistori
       detalhe: higienizarTextoPublico(f.detalhe),
     }));
 }
+
+/**
+ * Revisão curta entre sessões, composta somente por fatos observáveis.
+ *
+ * A função não interpreta o estado da pessoa: a nota é apresentada como
+ * diferença numérica e a meta apenas como vencida pela comparação de datas.
+ * Ela é deliberadamente uma projeção separada de `FatoHistorico`, pois
+ * "mudança de nota" e "meta vencida" são resumos de estado, não novos fatos
+ * persistidos nem categorias clínicas.
+ */
+export interface RevisaoEntreSessoes {
+  quando: string;
+  tipo: "sessao" | "mudanca_nota" | "meta_vencida";
+  titulo: string;
+  detalhe: string;
+  visibilidade: "interno";
+}
+
+export function revisaoEntreSessoes(
+  entrada: Pick<EntradaHistorico, "sessoes" | "scores" | "tarefas">,
+  agoraIso: string,
+): RevisaoEntreSessoes[] {
+  const itens: RevisaoEntreSessoes[] = [];
+
+  for (const sessao of entrada.sessoes ?? []) {
+    itens.push({
+      quando: sessao.quando,
+      tipo: "sessao",
+      titulo: `Sessão ${sessao.status}`,
+      detalhe: sessao.resumo ?? "",
+      visibilidade: "interno",
+    });
+  }
+
+  const scores = [...(entrada.scores ?? [])]
+    .filter((score) => Number.isFinite(Date.parse(score.semana)))
+    .sort((a, b) => Date.parse(a.semana) - Date.parse(b.semana));
+  for (let i = 1; i < scores.length; i += 1) {
+    const anterior = scores[i - 1];
+    const atual = scores[i];
+    const delta = atual.score - anterior.score;
+    itens.push({
+      quando: atual.semana,
+      tipo: "mudanca_nota",
+      titulo: `Mudança de nota: ${anterior.score} → ${atual.score}`,
+      detalhe: `Variação de ${delta} ${Math.abs(delta) === 1 ? "ponto" : "pontos"}`,
+      visibilidade: "interno",
+    });
+  }
+
+  const agora = Date.parse(agoraIso);
+  if (Number.isFinite(agora)) {
+    for (const tarefa of entrada.tarefas ?? []) {
+      const prazo = Date.parse(tarefa.prazo ?? "");
+      if (!tarefa.concluida && Number.isFinite(prazo) && prazo < agora) {
+        itens.push({
+          quando: tarefa.prazo ?? "",
+          tipo: "meta_vencida",
+          titulo: `Meta vencida: ${tarefa.titulo}`,
+          detalhe: "",
+          visibilidade: "interno",
+        });
+      }
+    }
+  }
+
+  return itens.sort((a, b) => {
+    const ta = Date.parse(a.quando);
+    const tb = Date.parse(b.quando);
+    if (Number.isFinite(ta) && Number.isFinite(tb) && ta !== tb) return tb - ta;
+    if (Number.isFinite(ta) !== Number.isFinite(tb)) return Number.isFinite(ta) ? -1 : 1;
+    return a.titulo < b.titulo ? -1 : a.titulo > b.titulo ? 1 : 0;
+  });
+}

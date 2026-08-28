@@ -19,6 +19,7 @@ import { concluirTarefa, reabrirTarefa } from "@/lib/mentoria/acoes-portal";
 import type { MeuFeed } from "@/lib/feed/dados";
 import type { MeuOnboarding } from "@/lib/onboarding/dados";
 import type { Portal } from "@/lib/mentoria/portal";
+import { visibilidadeDoTipo } from "@/lib/mentoria/historico";
 import { AvisosDoPortal } from "./avisos";
 import { PrimeirosPassos } from "./primeiros-passos";
 import type { StatusMatricula, StatusSessao } from "@/lib/mentoria/tipos";
@@ -145,11 +146,16 @@ function PortalAindaNaoLigado() {
  * registrado em `atividadesDoHistorico`, na ficha do time.
  */
 function LinhaDoTempo({ fatos }: { fatos: Portal["linhaTempo"] }) {
-  if (!fatos.length) return <Vazio>{VAZIO_LINHA_TEMPO}</Vazio>;
+  // Defesa final da visão: a leitura já projeta o portal, mas um objeto
+  // montado por outra camada nunca deve conseguir renderizar conteúdo privado.
+  const fatosPublicos = fatos.filter(
+    (fato) => fato.visibilidade === "publico" && visibilidadeDoTipo(fato.tipo) === "publico",
+  );
+  if (!fatosPublicos.length) return <Vazio>{VAZIO_LINHA_TEMPO}</Vazio>;
 
-  return (
-    <ol className="relative space-y-3 border-l border-borda pl-5">
-      {fatos.map((fato, indice) => (
+    return (
+      <ol className="relative space-y-3 border-l border-borda pl-5">
+      {fatosPublicos.map((fato, indice) => (
         <li key={`${indice}-${fato.tipo}`} className="relative">
           <span
             aria-hidden
@@ -372,7 +378,10 @@ export function PortalVisao({
                         {tarefa.titulo}
                       </p>
                       {prazoBr ? (
-                        <p className={cx("mt-0.5 text-xs", COR_TOM_PRAZO[tom])}>{prazoBr}</p>
+                        <p className={cx("mt-0.5 text-xs", COR_TOM_PRAZO[tom])}>
+                          {tom === "vencido" ? "Meta vencida · " : ""}
+                          {prazoBr}
+                        </p>
                       ) : null}
                     </div>
                     <form action={tarefa.concluida ? reabrirTarefa : concluirTarefa}>
