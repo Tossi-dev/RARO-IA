@@ -13,16 +13,34 @@
 // middleware.test.ts).
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AtendimentoLido } from "./dados-atendimento";
 
-const { criarSupabaseServerMock } = vi.hoisted(() => ({
+const { criarSupabaseServerMock, lerAtendimentoMock } = vi.hoisted(() => ({
   criarSupabaseServerMock: vi.fn(),
+  lerAtendimentoMock: vi.fn(),
 }));
 
 vi.mock("../supabase/server", () => ({
   criarSupabaseServer: criarSupabaseServerMock,
 }));
 
+vi.mock("./dados-atendimento", () => ({
+  lerAtendimento: lerAtendimentoMock,
+}));
+
 const { lerCarteira, lerFicha, lerMentoradoDoAluno } = await import("./dados");
+
+const ATENDIMENTO_VAZIO: AtendimentoLido = {
+  conectado: true,
+  encontrado: true,
+  mapa: [],
+  metas: [],
+  passos: [],
+  reflexoes: [],
+  consentimentos: [],
+};
+
+lerAtendimentoMock.mockResolvedValue(ATENDIMENTO_VAZIO);
 
 // ============================================================
 // Dublê do cliente Supabase
@@ -81,6 +99,7 @@ function ligarSupabase() {
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.resetAllMocks();
+  lerAtendimentoMock.mockResolvedValue(ATENDIMENTO_VAZIO);
 });
 
 // ============================================================
@@ -649,6 +668,41 @@ describe("lerFicha", () => {
     expect(resultado.scores.map((s) => s.id)).toEqual(["sc-1", "sc-2"]);
     expect(resultado.matriculas).toHaveLength(1);
     expect(resultado.matriculas[0].progresso.realizadas).toBe(2);
+  });
+
+  it("compõe o atendimento já autorizado na ficha do mesmo mentorado", async () => {
+    ligarSupabase();
+    ligarCliente({
+      mentorado: { data: linhaMentorado({ id: "ment-1" }), error: null },
+      matricula: { data: [], error: null },
+      sessao: { data: [], error: null },
+      tarefa_mentoria: { data: [], error: null },
+      marco: { data: [], error: null },
+      score_evolucao: { data: [], error: null },
+      conteudo_liberado: { data: [], error: null },
+    });
+    lerAtendimentoMock.mockResolvedValueOnce({
+      conectado: true,
+      encontrado: true,
+      mapa: [{ dimensao: "emocional", nota: 7 }],
+      metas: [{ titulo: "Ter uma conversa importante" }],
+      passos: [],
+      reflexoes: [{ texto: "Quero agir com mais clareza.", visibilidade: "privada_profissional" }],
+      consentimentos: [],
+    } satisfies AtendimentoLido);
+
+    const resultado = await lerFicha("ment-1", AGORA);
+
+    expect(resultado.atendimento).toEqual({
+      conectado: true,
+      encontrado: true,
+      mapa: [{ dimensao: "emocional", nota: 7 }],
+      metas: [{ titulo: "Ter uma conversa importante" }],
+      passos: [],
+      reflexoes: [{ texto: "Quero agir com mais clareza.", visibilidade: "privada_profissional" }],
+      consentimentos: [],
+    });
+    expect(lerAtendimentoMock).toHaveBeenCalledWith("ment-1");
   });
 
   it("erro na consulta: conectado:false, motivo sem detalhe técnico, console.warn chamado", async () => {

@@ -61,4 +61,33 @@ describe("registrarReflexaoAtendimento", () => {
     expect(insert).toHaveBeenCalledTimes(1);
     expect(revalidatePathMock).not.toHaveBeenCalled();
   });
+
+  it("preserva duas reflexões registradas em paralelo, sem sobrescrever uma pela outra", async () => {
+    const insert = cliente();
+    const [primeira, segunda] = await Promise.all([
+      registrarReflexaoAtendimento(formulario({
+        mentoradoId: CLIENTE,
+        texto: "Percebi que posso pedir ajuda antes de me sobrecarregar.",
+        origem: "cliente",
+        visibilidade: "privada_profissional",
+      })),
+      registrarReflexaoAtendimento(formulario({
+        mentoradoId: CLIENTE,
+        texto: "Perguntar quais recursos a pessoa já reconhece em si.",
+        origem: "profissional",
+        visibilidade: "privada_profissional",
+      })),
+    ]);
+
+    expect([primeira, segunda]).toEqual([{ ok: true }, { ok: true }]);
+    expect(insert).toHaveBeenCalledTimes(2);
+    expect(insert).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      mentorado_id: CLIENTE,
+      texto: "Percebi que posso pedir ajuda antes de me sobrecarregar.",
+    }));
+    expect(insert).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      mentorado_id: CLIENTE,
+      texto: "Perguntar quais recursos a pessoa já reconhece em si.",
+    }));
+  });
 });

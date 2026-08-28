@@ -32,6 +32,7 @@
 
 import { criarSupabaseServer } from "../supabase/server";
 import { supabaseConfigurado } from "../data";
+import { lerAtendimento, type AtendimentoLido } from "./dados-atendimento";
 import {
   diasEmSilencio,
   progressoDe,
@@ -105,6 +106,14 @@ export interface Ficha {
    * 0018, que exige `arquivado = false` no ramo dele.
    */
   conteudos: ConteudoLiberado[];
+  /**
+   * Dados do atendimento que só a equipe autorizada pode ler.
+   *
+   * `conectado: false` aqui não derruba a ficha inteira: a tela seguinte
+   * mostra que esse bloco não pôde ser carregado, sem fingir que não existe
+   * histórico de atendimento.
+   */
+  atendimento: AtendimentoLido;
 }
 
 // ============================================================
@@ -117,6 +126,10 @@ const MOTIVO_SEM_CONEXAO =
   "Nenhuma conexão com o banco de dados configurada. Os dados da mentoria não podem ser carregados agora.";
 
 const MOTIVO_ERRO_LEITURA = "Não foi possível carregar os dados da mentoria agora. Tente novamente em instantes.";
+
+function atendimentoIndisponivel(conectado: boolean, encontrado: boolean): AtendimentoLido {
+  return { conectado, encontrado, mapa: [], metas: [], passos: [], reflexoes: [], consentimentos: [] };
+}
 
 function carteiraDesconectada(motivo: string): Carteira {
   return { conectado: false, motivo, linhas: [] };
@@ -133,6 +146,7 @@ function fichaDesconectada(motivo: string): Ficha {
     marcos: [],
     scores: [],
     conteudos: [],
+    atendimento: atendimentoIndisponivel(false, false),
   };
 }
 
@@ -477,12 +491,23 @@ export async function lerFicha(mentoradoId: string, agoraIso: string): Promise<F
     if (!mentoradoRow) {
       // Regra 7: CONECTOU e não achou. Diferente de "não consegui
       // conectar" — por isso `conectado: true` aqui, não `false`.
-      return { conectado: true, motivo: "", mentorado: null, matriculas: [], sessoes: [], tarefas: [], marcos: [], scores: [], conteudos: [] };
+      return {
+        conectado: true,
+        motivo: "",
+        mentorado: null,
+        matriculas: [],
+        sessoes: [],
+        tarefas: [],
+        marcos: [],
+        scores: [],
+        conteudos: [],
+        atendimento: atendimentoIndisponivel(true, false),
+      };
     }
 
     const mentorado = linhaParaMentorado(mentoradoRow as Row);
 
-    const [matriculasRes, sessoesRes, tarefasRes, marcosRes, scoresRes, conteudosRes] = await Promise.all([
+    const [matriculasRes, sessoesRes, tarefasRes, marcosRes, scoresRes, conteudosRes, atendimento] = await Promise.all([
       s.from("matricula").select("*, programa(*)").eq("mentorado_id", mentoradoId),
       // Todas as sessões, não só `eq("matricula_id", ...)`: sessão de turma
       // não carrega mentorado_id nem matricula_id (ver `sessoesDaMatricula`
@@ -497,6 +522,7 @@ export async function lerFicha(mentoradoId: string, agoraIso: string): Promise<F
       // diferentes. Quem vê só o ativo é o mentorado, e não por filtro aqui —
       // pela política de select de 0018.
       s.from("conteudo_liberado").select("*").eq("mentorado_id", mentoradoId),
+      lerAtendimento(mentoradoId),
     ]);
 
     const erro =
@@ -557,6 +583,7 @@ export async function lerFicha(mentoradoId: string, agoraIso: string): Promise<F
       marcos,
       scores,
       conteudos,
+      atendimento,
     };
   } catch (excecao) {
     avisar("lerFicha", excecao);

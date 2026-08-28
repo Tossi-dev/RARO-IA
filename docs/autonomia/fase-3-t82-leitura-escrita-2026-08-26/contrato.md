@@ -3,7 +3,7 @@ schema_version: 2
 projeto: RARO IA
 missao_id: fase-3-t82-leitura-escrita-2026-08-26
 tarefa: T-082-leitura-e-escrita-do-atendimento
-estado: em_execucao
+estado: concluida
 janela_maxima: 2h
 pulso_maximo: 30min
 telemetria_estimativa_unidades: 3

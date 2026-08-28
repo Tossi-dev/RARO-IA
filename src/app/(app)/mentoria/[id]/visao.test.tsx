@@ -111,6 +111,15 @@ function fichaVazia(): Ficha {
     marcos: [],
     scores: [],
     conteudos: [],
+    atendimento: {
+      conectado: true,
+      encontrado: true,
+      mapa: [],
+      metas: [],
+      passos: [],
+      reflexoes: [],
+      consentimentos: [],
+    },
   };
 }
 
