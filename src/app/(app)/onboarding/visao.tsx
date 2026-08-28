@@ -1,3 +1,5 @@
+"use client";
+
 // A parte PURA de apresentação do MODELO de onboarding — o roteiro que todo
 // mentorado novo percorre. Recebe o `OnboardingDoMentorado` já resolvido e só
 // desenha; `page.tsx` cuida da busca.
@@ -26,6 +28,7 @@
 // configuração de roteiro não tem por que saber o que foi enviado.
 
 import { Badge, Botao, Campo, Card, Input, PageHeader, Select, TextArea, Vazio } from "@/components/ui";
+import { useState } from "react";
 import { arquivarEtapaDoForm, reordenarEtapaDoForm, salvarEtapaDoForm } from "@/lib/onboarding/acoes-form";
 import type { OnboardingDoMentorado } from "@/lib/onboarding/dados";
 import { responsavelDaEtapa, type EtapaDeOnboarding } from "@/lib/onboarding/roteiro";
@@ -34,6 +37,109 @@ const ROTULO_RESPONSAVEL: Record<string, string> = {
   mentor: "Do mentor",
   mentorado: "Do mentorado",
 };
+
+type Bloco = "mapa" | "objetivo" | "meta";
+type Respostas = Record<Bloco, string>;
+export type EstadoDoBloco = { consentido: boolean; pulado: boolean; resposta: string };
+type EventoDoBloco = { tipo: "revogar" } | { tipo: "pular" } | { tipo: "consentir" };
+
+/** Revogar autorização também revoga a retenção local daquela resposta. */
+export function limparRespostaDoBloco(respostas: Respostas, bloco: Bloco): Respostas {
+  return { ...respostas, [bloco]: "" };
+}
+
+/** Transições usadas pelos eventos de consentimento e de recusa da tela. */
+export function transicionarBloco(estado: EstadoDoBloco, evento: EventoDoBloco) {
+  if (evento.tipo === "pular") return { ...estado, consentido: false, pulado: true, resposta: "", ativo: false };
+  if (evento.tipo === "revogar") return { ...estado, consentido: false, pulado: false, resposta: "", ativo: false };
+  return { ...estado, consentido: true, pulado: false, ativo: true };
+}
+
+/**
+ * Entrada mínima do mentorado. O componente é deliberadamente local: não há
+ * action, request ou persistência aqui. O estado representa o que foi
+ * respondido nesta sessão e torna abandono parcial um estado válido, não um
+ * erro de validação.
+ */
+export function OnboardingEstruturado() {
+  const [consentidos, setConsentidos] = useState<Record<Bloco, boolean>>({ mapa: false, objetivo: false, meta: false });
+  const [pulados, setPulados] = useState<Record<Bloco, boolean>>({ mapa: false, objetivo: false, meta: false });
+  const [respostas, setRespostas] = useState<Respostas>({ mapa: "", objetivo: "", meta: "" });
+
+  function consentir(bloco: Bloco, valor: boolean) {
+    const estado = transicionarBloco(
+      { consentido: consentidos[bloco], pulado: pulados[bloco], resposta: respostas[bloco] },
+      valor ? { tipo: "consentir" } : { tipo: "revogar" },
+    );
+    setConsentidos((atual) => ({ ...atual, [bloco]: estado.consentido }));
+    setPulados((atual) => ({ ...atual, [bloco]: estado.pulado }));
+    setRespostas((atual) => (estado.resposta === "" ? limparRespostaDoBloco(atual, bloco) : atual));
+  }
+
+  function pular(bloco: Bloco) {
+    const estado = transicionarBloco(
+      { consentido: consentidos[bloco], pulado: pulados[bloco], resposta: respostas[bloco] },
+      { tipo: "pular" },
+    );
+    setPulados((atual) => ({ ...atual, [bloco]: estado.pulado }));
+    setConsentidos((atual) => ({ ...atual, [bloco]: estado.consentido }));
+    setRespostas((atual) => limparRespostaDoBloco(atual, bloco));
+  }
+
+  function bloco(bloco: Bloco, titulo: string, explicacao: string, campo: string, placeholder: string) {
+    const ativo = consentidos[bloco] && !pulados[bloco];
+    return (
+      <section data-onboarding-step={bloco} className="rounded-2xl border border-borda-sutil bg-poco p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-medium">{titulo}</h3>
+            <p className="mt-1 text-xs text-texto-2">{explicacao}</p>
+          </div>
+          <label className="flex items-center gap-2 text-xs text-texto-2">
+            <input
+              type="checkbox"
+              name={`consentimento${bloco[0].toUpperCase()}${bloco.slice(1)}`}
+              checked={consentidos[bloco]}
+              onChange={(e) => consentir(bloco, e.target.checked)}
+            />
+            Autorizo esta resposta
+          </label>
+        </div>
+        <div className="mt-3">
+          <label className="sr-only" htmlFor={`onboarding-${bloco}`}>{titulo}</label>
+          <textarea
+            id={`onboarding-${bloco}`}
+            name={campo}
+            value={respostas[bloco]}
+            onChange={(e) => setRespostas((atual) => ({ ...atual, [bloco]: e.target.value }))}
+            maxLength={1000}
+            rows={3}
+            placeholder={placeholder}
+            disabled={!ativo}
+            aria-disabled={!ativo}
+            className="w-full rounded-xl border border-borda-sutil bg-fundo px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+          />
+        </div>
+        <button type="button" className="mt-3 text-xs text-texto-2 underline" onClick={() => pular(bloco)}>
+          Prefiro não responder
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <Card titulo="Comece pelo que quiser">
+      <p className="mb-4 text-sm text-texto-2">
+        Responda somente o que fizer sentido. Cada parte é opcional, o consentimento é separado e você pode sair no meio.
+      </p>
+      <div data-abandono-parcial="true" className="space-y-3">
+        {bloco("mapa", "Mapa inicial", "O contexto que você autorizar para orientar o atendimento.", "mapa", "O que está acontecendo hoje?")}
+        {bloco("objetivo", "Objetivo", "O resultado que você gostaria de construir primeiro.", "objetivo", "O que você quer alcançar?")}
+        {bloco("meta", "Primeira meta", "Um primeiro passo concreto, se já houver um.", "primeiraMeta", "Qual é a primeira meta?")}
+      </div>
+    </Card>
+  );
+}
 
 function LinhaDaEtapa({ etapa }: { etapa: EtapaDeOnboarding & { descricao: string } }) {
   const responsavel = responsavelDaEtapa(etapa.responsavel);

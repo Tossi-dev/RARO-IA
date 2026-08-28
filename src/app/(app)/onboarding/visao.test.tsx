@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Testes de render das duas telas de onboarding: o modelo (`OnboardingVisao`)
 // e o card do portal (`PrimeirosPassos`).
 //
@@ -13,8 +14,12 @@
 // 5) zero emoji.
 
 import { renderToStaticMarkup } from "react-dom/server";
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
 import type { Etapa, MeuOnboarding, OnboardingDoMentorado } from "@/lib/onboarding/dados";
+
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 vi.mock("@/lib/onboarding/acoes-form", () => ({
   salvarEtapaDoForm: vi.fn(),
@@ -24,7 +29,7 @@ vi.mock("@/lib/onboarding/acoes-form", () => ({
   marcarMinhaEtapaDoForm: vi.fn(),
 }));
 
-const { OnboardingVisao } = await import("./visao");
+const { OnboardingVisao, OnboardingEstruturado } = await import("./visao");
 const { PrimeirosPassos } = await import("../portal/primeiros-passos");
 
 function etapa(over: Partial<Etapa> = {}): Etapa {
@@ -68,6 +73,13 @@ function textoDe(html: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&amp;/g, "&")
     .replace(/\s+/g, " ");
+}
+
+function preencherTextarea(textarea: HTMLTextAreaElement, valor: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!;
+  setter.call(textarea, valor);
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  textarea.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 describe("OnboardingVisao — a régua", () => {
@@ -149,6 +161,72 @@ describe("OnboardingVisao — a régua", () => {
 
     expect(t).not.toMatch(/mentorados? em programa|carteira/i);
     expect(html).not.toContain('name="mentoradoId"');
+  });
+});
+
+describe("OnboardingEstruturado — coleta mínima e consentida", () => {
+  it("ao desmarcar consentimento no DOM, limpa a textarea e a desabilita", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    act(() => root.render(<OnboardingEstruturado />));
+    const consentimento = host.querySelector<HTMLInputElement>('input[name="consentimentoMapa"]')!;
+    const mapa = host.querySelector<HTMLTextAreaElement>('textarea[name="mapa"]')!;
+    act(() => {
+      consentimento.click();
+      preencherTextarea(mapa, "contexto que não deve permanecer");
+    });
+    expect(mapa.value).toBe("contexto que não deve permanecer");
+    act(() => consentimento.click());
+    expect(mapa.value).toBe("");
+    expect(mapa.disabled).toBe(true);
+    act(() => root.unmount());
+    host.remove();
+  });
+
+  it("ao clicar 'Prefiro não responder' no DOM, limpa a textarea e a desabilita", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => root.render(<OnboardingEstruturado />));
+    const consentimento = host.querySelector<HTMLInputElement>('input[name="consentimentoObjetivo"]')!;
+    const objetivo = host.querySelector<HTMLTextAreaElement>('textarea[name="objetivo"]')!;
+    const recusar = host.querySelector<HTMLButtonElement>('[data-onboarding-step="objetivo"] button')!;
+    await act(async () => {
+      consentimento.click();
+      preencherTextarea(objetivo, "objetivo privado");
+    });
+    expect(objetivo.value).toBe("objetivo privado");
+    await act(async () => recusar.click());
+    expect(objetivo.value).toBe("");
+    expect(objetivo.disabled).toBe(true);
+    await act(async () => root.unmount());
+    host.remove();
+  });
+
+  it("oferece consentimento granular para mapa, objetivo e primeira meta", () => {
+    const html = renderToStaticMarkup(<OnboardingEstruturado />);
+    expect(html).toContain('name="consentimentoMapa"');
+    expect(html).toContain('name="consentimentoObjetivo"');
+    expect(html).toContain('name="consentimentoMeta"');
+    expect(html).toContain('name="mapa"');
+    expect(html).toContain('name="objetivo"');
+    expect(html).toContain('name="primeiraMeta"');
+  });
+
+  it("explica que cada resposta é opcional e oferece prefiro não responder", () => {
+    const html = renderToStaticMarkup(<OnboardingEstruturado />);
+    expect(textoDe(html)).toContain("Prefiro não responder");
+    expect(textoDe(html)).toMatch(/opcional/i);
+    expect(textoDe(html)).not.toMatch(/telefone|cpf|renda|senha|documento/i);
+  });
+
+  it("mantém o avanço parcial no fluxo sem exigir os outros blocos", () => {
+    const html = renderToStaticMarkup(<OnboardingEstruturado />);
+    expect(html).toContain('data-onboarding-step="mapa"');
+    expect(html).toContain('data-onboarding-step="objetivo"');
+    expect(html).toContain('data-onboarding-step="meta"');
+    expect(html).toContain('data-abandono-parcial="true"');
   });
 });
 
