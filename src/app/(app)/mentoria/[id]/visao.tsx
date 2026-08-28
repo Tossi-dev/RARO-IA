@@ -52,6 +52,7 @@ import { ConteudosLiberados } from "./liberados";
 import { Grafo } from "./grafo";
 import { MapaAtendimento } from "./mapa-atendimento";
 import { PlanoAcao } from "./plano-acao";
+import { RoteiroSessao } from "./roteiro-sessao";
 
 const LABEL_STATUS_MENTORADO: Record<StatusMentorado, string> = {
   lead: "Lead",
@@ -570,6 +571,7 @@ export function FichaVisao({
 
       <div className="mt-4 space-y-4">
         <MapaAtendimento atendimento={ficha.atendimento} />
+        <RoteiroSessao atendimento={ficha.atendimento} />
         <PlanoAcao atendimento={ficha.atendimento} />
         <Grafo atendimento={ficha.atendimento} />
       </div>
