@@ -74,7 +74,7 @@ import {
   linhaParaSessao,
   linhaParaTarefaMentoria,
 } from "./dados";
-import { historicoDe, type FatoHistorico } from "./historico";
+import { historicoDe, revisaoEntreSessoes, type FatoHistorico, type RevisaoEntreSessoes } from "./historico";
 import { saudeDoMentorado, type SaudeMentorado } from "./saude-mentorado";
 import type { Matricula, Programa, Sessao } from "./tipos";
 import type { Atividade, Interacao, Nota } from "../types";
@@ -106,6 +106,8 @@ export interface HistoricoDaFicha {
   parcial: boolean;
   /** Ordem decrescente por data — quem ordena é `historicoDe`, não esta camada. */
   fatos: FatoHistorico[];
+  /** Revisão factual para a ficha interna; nunca é projeção do portal. */
+  revisoes?: RevisaoEntreSessoes[];
   /** Sempre presente: `score: null` + `semBase: true` quando não há base. */
   saude: SaudeMentorado;
 }
@@ -150,12 +152,12 @@ function saudeSemDado(agoraIso: string): SaudeMentorado {
 }
 
 function historicoDesconectado(motivo: string, agoraIso: string): HistoricoDaFicha {
-  return { conectado: false, motivo, parcial: false, fatos: [], saude: saudeSemDado(agoraIso) };
+  return { conectado: false, motivo, parcial: false, fatos: [], revisoes: [], saude: saudeSemDado(agoraIso) };
 }
 
 /** Conectou e não achou a ficha. `conectado: true` de propósito: "não existe" é uma resposta. */
 function historicoSemFicha(agoraIso: string): HistoricoDaFicha {
-  return { conectado: true, motivo: "", parcial: false, fatos: [], saude: saudeSemDado(agoraIso) };
+  return { conectado: true, motivo: "", parcial: false, fatos: [], revisoes: [], saude: saudeSemDado(agoraIso) };
 }
 
 // ============================================================
@@ -333,6 +335,7 @@ export async function lerHistorico(mentoradoId: string, agoraIso: string): Promi
     },
     agoraIso
   );
+  const revisoes = revisaoEntreSessoes({ sessoes, tarefas, scores }, agoraIso);
 
   // ============================================================
   // A CONTA DA SAÚDE SÓ RODA SOBRE LEITURA COMPLETA
@@ -372,7 +375,7 @@ export async function lerHistorico(mentoradoId: string, agoraIso: string): Promi
     !crmRes.atividades.ok ||
     !crmRes.interacoes.ok;
 
-  return { conectado: true, motivo: "", parcial, fatos, saude };
+  return { conectado: true, motivo: "", parcial, fatos, revisoes, saude };
 }
 
 /**

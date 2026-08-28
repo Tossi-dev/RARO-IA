@@ -3,6 +3,7 @@ import {
   TIPOS_FATO,
   VISIBILIDADE_POR_TIPO,
   historicoDe,
+  revisaoEntreSessoes,
   projetarParaPortal,
   visibilidadeDoTipo,
   type CobrancaDoHistorico,
@@ -212,6 +213,27 @@ function tiposProduzidos(fatos: readonly FatoHistorico[]): TipoFato[] {
 }
 
 describe("historicoDe — classificação e visibilidade", () => {
+  it("projeta revisão factual entre sessões, mudança numérica de nota e meta vencida", () => {
+    const revisao = revisaoEntreSessoes(
+      {
+        sessoes: [sessaoDe({ quando: "2026-05-10T14:00:00.000Z", resumo: "Revisamos a oferta" })],
+        scores: [
+          scoreDe({ semana: "2026-05-01", score: 60 }),
+          scoreDe({ id: "score-2", semana: "2026-05-11", score: 68 }),
+        ],
+        tarefas: [tarefaDe({ titulo: "Enviar proposta", prazo: "2026-05-12T00:00:00.000Z" })],
+      },
+      AGORA,
+    );
+
+    expect(revisao.map((item) => item.tipo)).toEqual(["meta_vencida", "mudanca_nota", "sessao"]);
+    expect(revisao[0]).toMatchObject({ titulo: "Meta vencida: Enviar proposta", quando: "2026-05-12T00:00:00.000Z" });
+    expect(revisao[1]).toMatchObject({ titulo: "Mudança de nota: 60 → 68", detalhe: "Variação de 8 pontos" });
+    expect(revisao[2]).toMatchObject({ titulo: "Sessão realizada", detalhe: "Revisamos a oferta" });
+    expect(revisao.every((item) => item.visibilidade === "interno")).toBe(true);
+    expect(revisao.some((item) => /melhor|pior|clínic/i.test(`${item.titulo} ${item.detalhe}`))).toBe(false);
+  });
+
   it("nenhum fato interno sobrevive a projetarParaPortal, varrendo TODOS os tipos declarados", () => {
     // A varredura é sobre `TIPOS_FATO`, não sobre uma amostra escolhida a
     // dedo: um tipo criado amanhã entra automaticamente neste laço.

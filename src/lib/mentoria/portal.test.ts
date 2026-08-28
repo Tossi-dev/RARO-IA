@@ -9,6 +9,12 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+// `portal.ts` alcança o leitor server-only por meio dos dados do CRM. No
+// runtime do Vitest o pacote marcador não está instalado; o mock virtual
+// mantém este teste isolado sem alterar a fronteira de produção.
+// @ts-expect-error Vitest 2 aceita a opção virtual em runtime; a tipagem local só expõe dois argumentos.
+vi.mock("server-only", () => ({}), { virtual: true });
+
 const { criarSupabaseServerMock } = vi.hoisted(() => ({
   criarSupabaseServerMock: vi.fn(),
 }));

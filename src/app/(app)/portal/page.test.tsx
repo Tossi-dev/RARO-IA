@@ -313,6 +313,18 @@ describe("Portal — estado 'não é mentorado' (conectado: true, ehMentorado: f
 // ============================================================
 
 describe("Portal — estado conectado (ehMentorado: true)", () => {
+  it("identifica meta aberta cujo prazo já passou", async () => {
+    lerPortalMock.mockResolvedValue(
+      portalConectado({
+        tarefas: [{ ...portalConectado().tarefas[0], titulo: "Enviar proposta", prazo: "2020-01-01" }],
+      }),
+    );
+
+    const html = await renderizarPortal();
+
+    expect(html).toContain("Meta vencida");
+  });
+
   it("url http(s) vira href clicável; url javascript: NUNCA vira href", async () => {
     lerPortalMock.mockResolvedValue(portalConectado());
 
@@ -559,19 +571,16 @@ describe("Portal — Sua evolução (linha do tempo)", () => {
     expect(html).toContain("Sessão 2 realizada");
   });
 
-  // A tela NÃO tem régua de visibilidade própria — quem projeta é `lerPortal`
-  // (Tarefa 19). Este teste documenta essa fronteira em vez de fingir que a
-  // tela protege: se um fato interno chegar aqui, ele é desenhado, e o defeito
-  // está na leitura. Duas réguas seriam pior que uma: a segunda é a que
-  // ninguém lembra de atualizar.
-  it("não é a tela que filtra — o portão é a leitura (fronteira documentada)", async () => {
+  // Defesa em profundidade: mesmo que uma camada anterior seja adulterada,
+  // conteúdo privado nunca deve chegar à marcação do portal.
+  it("oculta fato interno mesmo quando ele chega à visão", async () => {
     lerPortalMock.mockResolvedValue(
       portalConectado({ linhaTempo: [fato({ tipo: "nota", titulo: "Nota interna", visibilidade: "interno" })] })
     );
 
     const html = await renderizarPortal();
 
-    expect(html).toContain("Nota interna");
+    expect(html).not.toContain("Nota interna");
   });
 
   it("data inválida não vira data inventada — some a linha, fica o fato", async () => {

@@ -29,6 +29,13 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+// `dados.ts` alcança `dados-atendimento.ts`, que marca o módulo como
+// server-only em produção. O pacote não existe no runtime do Vitest; este
+// mock virtual mantém o teste isolado sem relaxar a fronteira no código real.
+// @ts-expect-error Vitest 2 runtime supports the virtual-module option, but
+// the local type declaration exposes only the two-argument overload.
+vi.mock("server-only", () => ({}), { virtual: true });
+
 import { visibilidadeDoTipo } from "./historico";
 import { saudeDoMentorado } from "./saude-mentorado";
 import {
@@ -401,6 +408,19 @@ describe("lerHistorico sem Supabase configurado", () => {
 
     expect(resultado.saude.score).toBeNull();
     expect(resultado.saude.semBase).toBe(true);
+  });
+
+  it("expõe revisão factual integrada no retorno interno, sem projetá-la ao portal", async () => {
+    ligarSupabase();
+    ligarCliente(respostasCheias(linhaMentorado({ aluno_id: null })));
+    ligarCrm();
+
+    const resultado = await lerHistorico("ment-1", "2026-05-20T12:00:00.000Z");
+
+    expect(resultado.revisoes).toBeDefined();
+    const revisoes = resultado.revisoes!;
+    expect(revisoes.map((item) => item.tipo)).toEqual(["mudanca_nota", "sessao", "sessao"]);
+    expect(revisoes.every((item) => item.visibilidade === "interno")).toBe(true);
   });
 });
 
