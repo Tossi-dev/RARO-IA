@@ -107,14 +107,15 @@ describe("transcreverSessaoDaFicha", () => {
     expect(destino).not.toContain("MARCADOR");
   });
 
-  it("recusa POST forjado com arquivo enquanto o Portao 2 da T-087B esta fechado", async () => {
+  it("encaminha arquivo somente para a acao externa protegida pelo consentimento no servidor", async () => {
+    transcreverMock.mockResolvedValue({ ok: true, caracteres: 120 });
     const f = formulario({ mentoradoId: "ment-2", sessaoId: "ses-9" });
     f.set("arquivo", new Blob(["audio"], { type: "audio/mpeg" }));
 
-    const destino = await destinoDoRedirect(transcreverSessaoDaFicha(f));
+    await transcreverSessaoDaFicha(f);
 
     expect(transcricaoManualMock).not.toHaveBeenCalled();
-    expect(transcreverMock).not.toHaveBeenCalled();
-    expect(destino).toContain(encodeURIComponent("A transcricao automatica permanece bloqueada ate a autorizacao do Portao 2."));
+    expect(transcreverMock).toHaveBeenCalledWith(f);
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 });

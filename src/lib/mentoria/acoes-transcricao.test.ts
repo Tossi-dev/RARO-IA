@@ -63,10 +63,13 @@ type OpcoesCliente = {
   updateSessaoResposta?: RespostaUpdate;
   updateSessaoLanca?: Error;
   selectLanca?: Record<string, unknown>;
+  /** Faz a N-ésima leitura de uma tabela falhar, para cobrir leituras repetidas. */
+  selectLancaNaChamada?: Record<string, Readonly<{ chamada: number; erro: unknown }>>;
 };
 
 function construirCliente(selects: Record<string, RespostaSelect>, opcoes: OpcoesCliente = {}) {
   const eqChamadas: Array<{ tabela: string; coluna: string; valor: unknown }> = [];
+  const leiturasPorTabela = new Map<string, number>();
   const updateSessaoMock = vi.fn((_valores: Record<string, unknown>) => ({
     eq: (coluna: string, valor: unknown) => {
       eqChamadas.push({ tabela: "sessao(update)", coluna, valor });
@@ -92,8 +95,14 @@ function construirCliente(selects: Record<string, RespostaSelect>, opcoes: Opcoe
           return builder;
         },
         maybeSingle: () => {
+          const chamada = (leiturasPorTabela.get(tabela) ?? 0) + 1;
+          leiturasPorTabela.set(tabela, chamada);
           if (opcoes.selectLanca && Object.prototype.hasOwnProperty.call(opcoes.selectLanca, tabela)) {
             return Promise.reject(opcoes.selectLanca[tabela]);
+          }
+          const falhaProgramada = opcoes.selectLancaNaChamada?.[tabela];
+          if (falhaProgramada && chamada === falhaProgramada.chamada) {
+            return Promise.reject(falhaProgramada.erro);
           }
           return Promise.resolve(selects[tabela] ?? { data: null, error: null });
         },
@@ -159,6 +168,7 @@ function selectsFeliz(overridesSessao: Partial<Record<string, unknown>> = {}): R
   return {
     sessao: { data: linhaSessao(overridesSessao), error: null },
     matricula: { data: linhaMatricula(), error: null },
+    atendimento_consentimento: { data: { categoria: "transcricao", consentido: true }, error: null },
   };
 }
 
@@ -228,6 +238,19 @@ describe("entrada inválida e sessão não encontrada", () => {
     ).resolves.toMatchObject({ ok: false });
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+});
+
+describe("Portao 2 — consentimento antes do fornecedor", () => {
+  it("sem consentimento de transcricao derivado no servidor nao envia o audio ao fornecedor", async () => {
+    const selects = selectsFeliz();
+    selects.atendimento_consentimento = { data: null, error: null };
+    ligarCliente(selects);
+
+    const resultado = await transcreverSessao(formData({ sessaoId: "ses-1", arquivo: arquivoAudio() }));
+
+    expect(resultado.ok).toBe(false);
+    expect(transcreverAudioMock).not.toHaveBeenCalled();
   });
 });
 
@@ -797,7 +820,7 @@ describe("D8 — falha ao buscar o caminho da ficha não desfaz um sucesso já g
   it("UPDATE confirma e a leitura da matrícula REJEITA: resultado ainda é ok:true, e /mentoria ainda é revalidada", async () => {
     transcreverAudioMock.mockResolvedValue({ provider: "groq", texto: `fala com ${MARCADOR_FICHA} dentro` });
     const cliente = ligarCliente(selectsFeliz(), {
-      selectLanca: { matricula: new Error(`conexão perdida ao ler payload ${MARCADOR_FICHA}`) },
+      selectLancaNaChamada: { matricula: { chamada: 2, erro: new Error(`conexão perdida ao ler payload ${MARCADOR_FICHA}`) } },
     });
     const console_ = espiarConsole();
 
@@ -881,7 +904,7 @@ describe("D9 — bailout dinâmico do Next é relançado, o resto é engolido", 
 
   it("busca do caminho da ficha: bailout sobe, enquanto uma falha comum vira ok:true (ver D8)", async () => {
     transcreverAudioMock.mockResolvedValue({ provider: "groq", texto: "texto gravado" });
-    ligarCliente(selectsFeliz(), { selectLanca: { matricula: erroComDigest(BAILOUT) } });
+    ligarCliente(selectsFeliz(), { selectLancaNaChamada: { matricula: { chamada: 2, erro: erroComDigest(BAILOUT) } } });
 
     await expect(transcreverSessao(formData({ sessaoId: "ses-1", arquivo: arquivoAudio() }))).rejects.toThrow(
       /Dynamic server usage/i
