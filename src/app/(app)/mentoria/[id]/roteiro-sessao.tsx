@@ -7,9 +7,19 @@ import type { AtendimentoLido, AtendimentoPasso, AtendimentoReflexao } from "@/l
 
 export type PerguntaRoteiro = Readonly<{ id: string; pergunta: string; dimensao: string }>;
 
-type EntradaFicha = Pick<AtendimentoLido, "mapa" | "metas">;
+type EntradaFicha = Pick<AtendimentoLido, "mapa" | "metas" | "consentimentos"> & Partial<Pick<AtendimentoLido, "conectado" | "encontrado">>;
 
-export function roteiroDaFicha({ mapa, metas }: EntradaFicha): PerguntaRoteiro[] {
+function atendimentoDisponivel(entrada: EntradaFicha): boolean {
+  if (entrada.conectado === false || entrada.encontrado === false) return false;
+  const consentimentos = Array.isArray(entrada.consentimentos) ? entrada.consentimentos : [];
+  const mapaAutorizado = consentimentos.some((item) => item.categoria === "mapa" && item.consentido === true);
+  const metaAutorizada = entrada.metas.length === 0 || consentimentos.some((item) => item.categoria === "meta" && item.consentido === true);
+  return mapaAutorizado && metaAutorizada;
+}
+
+export function roteiroDaFicha(entrada: EntradaFicha): PerguntaRoteiro[] {
+  const { mapa, metas } = entrada;
+  if (!atendimentoDisponivel(entrada)) return [];
   if (mapa.length === 0 && metas.length === 0) return [];
   const mapaBase = mapa[0];
   const dimensao = mapaBase?.dimensao ?? "profissional";
@@ -41,14 +51,14 @@ export function converterPerguntaEmPasso(passos: readonly AtendimentoPasso[], ro
 export function RoteiroSessao({ atendimento }: { atendimento: AtendimentoLido }) {
   const inicial = useMemo(() => roteiroDaFicha(atendimento), [atendimento]);
   const [roteiro, setRoteiro] = useState<PerguntaRoteiro[]>(inicial);
-  const reflexaoAutorizada = atendimento.consentimentos.some((item) => item.categoria === "reflexao" && item.consentido === true);
+  const reflexaoAutorizada = Array.isArray(atendimento.consentimentos) && atendimento.consentimentos.some((item) => item.categoria === "reflexao" && item.consentido === true);
   const [reflexoes, setReflexoes] = useState<AtendimentoReflexao[]>(reflexaoAutorizada ? atendimento.reflexoes : []);
   const [passos, setPassos] = useState<AtendimentoPasso[]>(atendimento.passos);
   const [reflexao, setReflexao] = useState("");
 
   return <Card titulo="Roteiro da sessão">
     <p className="mb-4 text-xs text-texto-2">Perguntas são sugestões para o profissional conduzir a conversa; não são respostas nem prescrições.</p>
-    {roteiro.length ? <div className="space-y-3">
+    {!atendimentoDisponivel(atendimento) ? <p className="rounded-xl border border-dashed border-borda px-4 py-6 text-sm text-texto-3">Roteiro indisponível enquanto a ficha ou o consentimento não estiver disponível.</p> : roteiro.length ? <div className="space-y-3">
       {roteiro.map((item) => <article key={item.id} className="rounded-xl border border-borda-sutil bg-poco p-3">
         <label className="block text-xs text-texto-2">Pergunta sugerida
           <input aria-label={`Pergunta ${item.id}`} value={item.pergunta} onChange={(event) => setRoteiro((atual) => editarPergunta(atual, item.id, event.target.value))} className="mt-1 w-full rounded-xl border border-borda-sutil bg-poco px-3 py-2 text-sm text-texto" />
