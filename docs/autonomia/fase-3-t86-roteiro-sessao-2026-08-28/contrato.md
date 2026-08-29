@@ -3,7 +3,7 @@ schema_version: 2
 projeto: RARO IA
 missao_id: fase-3-t86-roteiro-sessao-2026-08-28
 tarefa: T-086-roteiro-de-sessao-e-reflexoes
-estado: em_execucao
+estado: concluida
 autorizacao: contrato-mestre aprovado e execução autônoma ativa
 janela_maxima: 2h
 pulso_maximo: 30min
