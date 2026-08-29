@@ -38,9 +38,20 @@ function supabaseDuble(erro: { code?: string; message?: string } | null = null) 
   const chamadas: Chamada[] = [];
   const cliente = {
     from(tabela: string) {
+      if (tabela === "atendimento_consentimento") {
+        const query = { select: () => query, eq: () => Promise.resolve({ data: [
+          { categoria: "transcricao", consentido: true }, { categoria: "portal", consentido: true },
+        ], error: erro }) };
+        return query;
+      }
+      if (tabela === "matricula") {
+        const query = { select: () => query, eq: () => ({ maybeSingle: () => Promise.resolve({ data: { mentorado_id: "ment-1" }, error: erro }) }) };
+        return query;
+      }
       if (tabela !== "sessao") throw new Error(`tabela inesperada: ${tabela}`);
       const registro: Chamada = { update: {}, eq: [] };
       const encadeado = {
+        select() { return { eq: () => ({ maybeSingle: () => Promise.resolve({ data: { id: "ses-1", matricula_id: "mat-1" }, error: erro }) }) }; },
         update(valores: Record<string, unknown>) {
           registro.update = valores;
           chamadas.push(registro);

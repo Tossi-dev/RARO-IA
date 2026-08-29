@@ -1072,17 +1072,13 @@ describe("agenda e transcrição na sessão", () => {
     expect(visaoGeral).toMatch(/<button[^>]*disabled=""[^>]*>Analisar esta sessão com IA<\/button>/);
   });
 
-  it("o campo de áudio existe e o formulário sabe enviar arquivo", () => {
+  it("oferece entrada manual com visibilidade explícita e não oferece upload de áudio", () => {
     const { visaoGeral } = paineis(render(fichaComSessao({}), historico(), undefined, documentos(), true));
 
-    expect(visaoGeral).toContain('type="file"');
-    expect(visaoGeral).toContain('name="audio"');
-    // Sem `multipart/form-data` o arquivo chega como nome, não como conteúdo —
-    // e a ação recusaria por "0 byte" sem ninguém entender por quê.
-    // `encType` com T maiúsculo é como o React serializa o atributo (o
-    // formulário de documentos, que já funcionava, sai igual); HTML não
-    // diferencia caixa em nome de atributo.
-    expect(visaoGeral).toContain('encType="multipart/form-data"');
+    expect(visaoGeral).toContain('name="texto"');
+    expect(visaoGeral).toContain('name="visibilidade"');
+    expect(visaoGeral).toContain("Salvar transcrição manual");
+    expect(visaoGeral).not.toContain('name="audio"');
   });
 
   it("o bloco novo não trouxe emoji nenhum", () => {

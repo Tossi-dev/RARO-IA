@@ -438,13 +438,21 @@ function AgendaETranscricaoDaSessao({
               : "ainda não transcrita"}
           </span>
         </div>
-        <form action={transcreverSessaoDaFicha} encType="multipart/form-data" className="flex flex-wrap items-end gap-2">
+        <form action={transcreverSessaoDaFicha} className="space-y-2">
           <input type="hidden" name="mentoradoId" value={mentoradoId} />
           <input type="hidden" name="sessaoId" value={sessao.id} />
-          <Campo label="Áudio da sessão">
-            <Input type="file" name="audio" accept="audio/*,video/mp4,video/webm,video/quicktime" />
+          <Campo label="Transcrição manual">
+            <TextArea name="texto" rows={5} placeholder="Cole ou digite a transcrição desta sessão." />
           </Campo>
-          <Botao tipo="fantasma">Transcrever</Botao>
+          <div className="flex flex-wrap items-end gap-2">
+            <Campo label="Visibilidade">
+              <Select name="visibilidade" defaultValue="privada_profissional">
+                <option value="privada_profissional">Somente equipe</option>
+                <option value="compartilhavel">Compartilhável no portal</option>
+              </Select>
+            </Campo>
+            <Botao tipo="fantasma">Salvar transcrição manual</Botao>
+          </div>
         </form>
       </div>
 

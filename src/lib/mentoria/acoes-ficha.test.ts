@@ -11,12 +11,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const sincronizarMock = vi.fn();
 const transcreverMock = vi.fn();
+const transcricaoManualMock = vi.fn();
 const redirectMock = vi.fn((destino: string) => {
   throw new Error(`REDIRECT:${destino}`);
 });
 
 vi.mock("./acoes-calendario", () => ({ sincronizarSessaoNaAgenda: sincronizarMock }));
 vi.mock("./acoes-transcricao", () => ({ transcreverSessao: transcreverMock }));
+vi.mock("./acoes-transcricao-manual", () => ({ registrarTranscricaoManual: transcricaoManualMock }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
 const { sincronizarSessaoDaFicha, transcreverSessaoDaFicha } = await import("./acoes-ficha");
@@ -72,21 +74,22 @@ describe("sincronizarSessaoDaFicha", () => {
 });
 
 describe("transcreverSessaoDaFicha", () => {
-  it("repassa o formData inteiro e nao redireciona quando deu certo", async () => {
-    transcreverMock.mockResolvedValue({ ok: true, caracteres: 120 });
-    const f = formulario({ mentoradoId: "ment-1", sessaoId: "ses-1" });
+  it("repassa a transcricao manual e nao redireciona quando deu certo", async () => {
+    transcricaoManualMock.mockResolvedValue({ ok: true, caracteres: 120 });
+    const f = formulario({ mentoradoId: "ment-1", sessaoId: "ses-1", texto: "Registro manual", visibilidade: "privada_profissional" });
 
     await transcreverSessaoDaFicha(f);
 
-    expect(transcreverMock).toHaveBeenCalledWith(f);
+    expect(transcricaoManualMock).toHaveBeenCalledWith(f);
+    expect(transcreverMock).not.toHaveBeenCalled();
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
   it("volta com o motivo de 'ja transcrita' em vez de um erro generico", async () => {
-    transcreverMock.mockResolvedValue({ ok: false, erro: "Esta sessao ja tem transcricao." });
+    transcricaoManualMock.mockResolvedValue({ ok: false, erro: "Esta sessao ja tem transcricao." });
 
     const destino = await destinoDoRedirect(
-      transcreverSessaoDaFicha(formulario({ mentoradoId: "ment-2", sessaoId: "ses-9" })),
+      transcreverSessaoDaFicha(formulario({ mentoradoId: "ment-2", sessaoId: "ses-9", texto: "Registro manual" })),
     );
 
     expect(destino).toContain(encodeURIComponent("Esta sessao ja tem transcricao."));
@@ -95,12 +98,23 @@ describe("transcreverSessaoDaFicha", () => {
   // O texto transcrito nunca volta pela URL: URL vai para histórico do
   // navegador, para log de servidor e para o Referer da próxima requisição.
   it("nunca coloca o texto transcrito na URL de volta", async () => {
-    transcreverMock.mockResolvedValue({ ok: false, erro: "Falhou.", texto: "MARCADOR-DA-CONVERSA" });
+    transcricaoManualMock.mockResolvedValue({ ok: false, erro: "Falhou.", texto: "MARCADOR-DA-CONVERSA" });
 
     const destino = await destinoDoRedirect(
-      transcreverSessaoDaFicha(formulario({ mentoradoId: "ment-2", sessaoId: "ses-9" })),
+      transcreverSessaoDaFicha(formulario({ mentoradoId: "ment-2", sessaoId: "ses-9", texto: "Registro manual" })),
     );
 
     expect(destino).not.toContain("MARCADOR");
+  });
+
+  it("recusa POST forjado com arquivo enquanto o Portao 2 da T-087B esta fechado", async () => {
+    const f = formulario({ mentoradoId: "ment-2", sessaoId: "ses-9" });
+    f.set("arquivo", new Blob(["audio"], { type: "audio/mpeg" }));
+
+    const destino = await destinoDoRedirect(transcreverSessaoDaFicha(f));
+
+    expect(transcricaoManualMock).not.toHaveBeenCalled();
+    expect(transcreverMock).not.toHaveBeenCalled();
+    expect(destino).toContain(encodeURIComponent("A transcricao automatica permanece bloqueada ate a autorizacao do Portao 2."));
   });
 });
