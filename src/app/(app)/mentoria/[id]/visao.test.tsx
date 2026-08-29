@@ -1072,12 +1072,15 @@ describe("agenda e transcrição na sessão", () => {
     expect(visaoGeral).toMatch(/<button[^>]*disabled=""[^>]*>Analisar esta sessão com IA<\/button>/);
   });
 
-  it("oferece entrada manual com visibilidade explícita e não oferece upload de áudio", () => {
+  it("oferece entrada manual e envio automático separado, com aviso de consentimento", () => {
     const { visaoGeral } = paineis(render(fichaComSessao({}), historico(), undefined, documentos(), true));
 
     expect(visaoGeral).toContain('name="texto"');
     expect(visaoGeral).toContain('name="visibilidade"');
     expect(visaoGeral).toContain("Salvar transcrição manual");
+    expect(visaoGeral).toContain('name="arquivo"');
+    expect(visaoGeral).toContain("Transcrever áudio autorizado");
+    expect(visaoGeral).toContain("consentimento explícito");
     expect(visaoGeral).not.toContain('name="audio"');
   });
 

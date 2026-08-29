@@ -238,6 +238,8 @@ export interface ResultadoTranscricao {
 export const MOTIVO_SESSAO_INVALIDA = "Informe a sessão que deseja transcrever.";
 export const MOTIVO_SESSAO_NAO_ENCONTRADA = "Sessão não encontrada.";
 export const MOTIVO_ERRO_LEITURA = "Não foi possível carregar os dados da sessão agora. Tente novamente em instantes.";
+export const MOTIVO_SEM_CONSENTIMENTO_TRANSCRICAO =
+  "A transcrição automática exige consentimento explícito antes do envio.";
 const MOTIVO_ERRO_GRAVAR = "A transcrição foi gerada, mas não foi possível salvá-la agora. Tente novamente em instantes.";
 const MOTIVO_ERRO_INESPERADO = "Não foi possível transcrever esta sessão agora. Tente novamente em instantes.";
 const MOTIVO_ERRO_TRANSCREVER = "Não foi possível transcrever este áudio agora. Tente novamente em instantes.";
@@ -551,6 +553,38 @@ export async function transcreverSessao(formData: FormData): Promise<ResultadoTr
     // da de erro de leitura acima (D6) — uma diz "não deu para checar",
     // a outra diz "checamos, não existe/não é sua".
     if (!sessaoRow) return { ok: false, erro: MOTIVO_SESSAO_NAO_ENCONTRADA };
+
+    // Portão 2: o áudio só pode sair depois de derivar, no servidor, o
+    // mentorado da sessão autorizada pela RLS e confirmar seu consentimento
+    // de transcrição. Nenhum campo vindo do formulário representa essa
+    // autorização; sem ela, a chamada ao fornecedor nem é iniciada.
+    const matriculaId = textoDe(sessaoRow.matricula_id);
+    if (matriculaId === "") return { ok: false, erro: MOTIVO_SEM_CONSENTIMENTO_TRANSCRICAO };
+    const { data: matriculaData, error: erroMatricula } = await s
+      .from("matricula")
+      .select("mentorado_id")
+      .eq("id", matriculaId)
+      .maybeSingle();
+    if (erroMatricula) {
+      avisar("consentimento/matricula", codigoDe(erroMatricula));
+      return { ok: false, erro: MOTIVO_ERRO_LEITURA };
+    }
+    const mentoradoId = textoDe(comoRow(matriculaData)?.mentorado_id);
+    if (mentoradoId === "") return { ok: false, erro: MOTIVO_SEM_CONSENTIMENTO_TRANSCRICAO };
+    const { data: consentimentoData, error: erroConsentimento } = await s
+      .from("atendimento_consentimento")
+      .select("categoria, consentido")
+      .eq("mentorado_id", mentoradoId)
+      .eq("categoria", "transcricao")
+      .maybeSingle();
+    if (erroConsentimento) {
+      avisar("consentimento/transcricao", codigoDe(erroConsentimento));
+      return { ok: false, erro: MOTIVO_ERRO_LEITURA };
+    }
+    const consentimento = comoRow(consentimentoData);
+    if (consentimento?.categoria !== "transcricao" || consentimento.consentido !== true) {
+      return { ok: false, erro: MOTIVO_SEM_CONSENTIMENTO_TRANSCRICAO };
+    }
 
     // Sessão já transcrita + sem `substituir=1` → recusa AQUI, antes de
     // gastar a chamada à Groq com um resultado que já sabemos que vamos

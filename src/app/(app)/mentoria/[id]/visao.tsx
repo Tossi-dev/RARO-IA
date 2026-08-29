@@ -454,6 +454,17 @@ function AgendaETranscricaoDaSessao({
             <Botao tipo="fantasma">Salvar transcrição manual</Botao>
           </div>
         </form>
+        <form action={transcreverSessaoDaFicha} encType="multipart/form-data" className="space-y-2 border-t border-borda-sutil pt-2">
+          <input type="hidden" name="mentoradoId" value={mentoradoId} />
+          <input type="hidden" name="sessaoId" value={sessao.id} />
+          <Campo label="Áudio da sessão autorizado">
+            <Input type="file" name="arquivo" accept="audio/*,video/mp4,video/webm,video/quicktime" />
+          </Campo>
+          <p className="text-xs text-texto-2">
+            Envie somente após consentimento explícito para transcrição automática. O resultado fica privado para revisão profissional.
+          </p>
+          <Botao tipo="fantasma">Transcrever áudio autorizado</Botao>
+        </form>
       </div>
 
       <div className="space-y-2 border-t border-borda-sutil pt-2">
