@@ -45,7 +45,17 @@ export function montarGrafoCliente(entrada: GrafoCliente): ResultadoGrafo {
     ok: true,
     valor: {
       clienteId,
-      nos: entrada.nos.map((no) => ({ ...no })),
+      // Whitelist fields deliberately.  A transcription is sensitive and
+      // must never become a graph payload by accident (for example through
+      // an untyped `texto` property received from a form or database row).
+      nos: entrada.nos.map((no) => ({
+        id: no.id,
+        clienteId: no.clienteId,
+        tipo: no.tipo,
+        ...(no.tipo === "transcricao_referencia" && no.transcricaoAutorizada === true
+          ? { transcricaoAutorizada: true }
+          : {}),
+      })),
       arestas: entrada.arestas.map((aresta) => ({ ...aresta })),
     },
   };

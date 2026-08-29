@@ -104,9 +104,33 @@ export async function liberarNoPortal(formData: FormData): Promise<void> {
   if (!coluna) redirecionarComErro(caminho, MOTIVO_CAMPO_INVALIDO);
 
   const ligar = String(formData.get("valor") ?? "") === VALOR_LIGADO;
+  let caminhoRevalidacao = caminho;
 
   try {
     const s = criarSupabaseServer();
+
+    // Transcrição é uma publicação de dado sensível. Antes de alterar a
+    // flag, derive a sessão e o mentorado pelo servidor/RLS e confirme os
+    // dois consentimentos; nenhum campo equivalente enviado pelo POST vale.
+    if (campo === "transcricao") {
+      const sessao = await s.from("sessao").select("id, matricula_id").eq("id", sessaoId).maybeSingle();
+      if (sessao.error || !sessao.data) redirecionarComErro(caminho, MOTIVO_ERRO_GRAVAR);
+      const matriculaId = typeof sessao.data.matricula_id === "string" ? sessao.data.matricula_id : "";
+      const matricula = matriculaId
+        ? await s.from("matricula").select("mentorado_id").eq("id", matriculaId).maybeSingle()
+        : { data: null, error: new Error("matricula ausente") };
+      const mentoradoIdDerivado = typeof matricula.data?.mentorado_id === "string" ? matricula.data.mentorado_id : "";
+      if (matricula.error || !mentoradoIdDerivado) redirecionarComErro(caminho, MOTIVO_ERRO_GRAVAR);
+      const consentimentos = await s.from("atendimento_consentimento").select("categoria, consentido").eq("mentorado_id", mentoradoIdDerivado);
+      if (consentimentos.error) redirecionarComErro(caminho, MOTIVO_ERRO_GRAVAR);
+      const linhas = Array.isArray(consentimentos.data) ? consentimentos.data : [];
+      const consentido = (categoria: string) => linhas.some((item: unknown) => {
+        const row = item as { categoria?: unknown; consentido?: unknown };
+        return row.categoria === categoria && row.consentido === true;
+      });
+      if (!consentido("transcricao") || !consentido("portal")) redirecionarComErro(caminho, MOTIVO_ERRO_GRAVAR);
+      caminhoRevalidacao = caminhoFicha(mentoradoIdDerivado);
+    }
     // Uma chave só no update. Nem a outra flag, nem `transcricao`, nem
     // `link_gravacao`: liberar a gravação não pode, de carona, publicar a
     // transcrição.
@@ -127,7 +151,7 @@ export async function liberarNoPortal(formData: FormData): Promise<void> {
     redirecionarComErro(caminho, MOTIVO_ERRO_GRAVAR);
   }
 
-  revalidatePath(caminho);
+  revalidatePath(caminhoRevalidacao);
   // O portal do mentorado é a outra ponta desta chave: sem revalidar aqui, o
   // mentorado continuaria vendo a versão em cache por até o próximo acesso
   // frio — publicado no banco e invisível na tela, ou o contrário.

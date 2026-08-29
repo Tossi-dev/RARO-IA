@@ -90,4 +90,15 @@ describe("montarGrafoCliente", () => {
       },
     });
   });
+
+  it("descarta texto acidental de uma referência de transcrição", () => {
+    const entrada = {
+      clienteId: "mentorado-1",
+      nos: [{ id: "transcricao-1", clienteId: "mentorado-1", tipo: "transcricao_referencia" as const, transcricaoAutorizada: true, texto: "fala privada" }],
+      arestas: [],
+    } as never;
+    const resultado = montarGrafoCliente(entrada);
+    expect(resultado.ok).toBe(true);
+    if (resultado.ok) expect(resultado.valor.nos[0]).not.toHaveProperty("texto");
+  });
 });

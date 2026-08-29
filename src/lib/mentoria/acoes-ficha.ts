@@ -23,7 +23,10 @@ import { redirect } from "next/navigation";
 import { sincronizarSessaoNaAgenda } from "./acoes-calendario";
 import { liberarConteudo, revogarConteudo } from "./acoes-conteudo-liberado";
 import { liberarNoPortal } from "./acoes-liberacao";
-import { transcreverSessao } from "./acoes-transcricao";
+import { registrarTranscricaoManual } from "./acoes-transcricao-manual";
+
+const MOTIVO_TRANSCRICAO_AUTOMATICA_BLOQUEADA =
+  "A transcricao automatica permanece bloqueada ate a autorizacao do Portao 2.";
 
 /** A ficha para onde voltar. Vazio cai na carteira — nunca numa URL quebrada. */
 function caminhoFicha(formData: FormData): string {
@@ -58,7 +61,14 @@ export async function sincronizarSessaoDaFicha(formData: FormData): Promise<void
  * o que explica ao dono por que nada mudou na tela.
  */
 export async function transcreverSessaoDaFicha(formData: FormData): Promise<void> {
-  const resultado = await transcreverSessao(formData);
+  // T-087 aceita somente texto local. A fronteira também recusa POSTs
+  // forjados: remover o upload da tela não impediria uma chamada direta à
+  // Server Action de alcançar o fluxo legado/Groq, que pertence à T-087B e
+  // continua bloqueado até o Portão 2 ser autorizado explicitamente.
+  if (!formData.has("texto")) {
+    voltarComErro(caminhoFicha(formData), MOTIVO_TRANSCRICAO_AUTOMATICA_BLOQUEADA);
+  }
+  const resultado = await registrarTranscricaoManual(formData);
   if (!resultado.ok) voltarComErro(caminhoFicha(formData), resultado.erro ?? "Não foi possível transcrever.");
 }
 
