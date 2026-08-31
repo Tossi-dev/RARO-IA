@@ -243,6 +243,7 @@ export const MOTIVO_SEM_CONSENTIMENTO_TRANSCRICAO =
 const MOTIVO_ERRO_GRAVAR = "A transcrição foi gerada, mas não foi possível salvá-la agora. Tente novamente em instantes.";
 const MOTIVO_ERRO_INESPERADO = "Não foi possível transcrever esta sessão agora. Tente novamente em instantes.";
 const MOTIVO_ERRO_TRANSCREVER = "Não foi possível transcrever este áudio agora. Tente novamente em instantes.";
+const MOTIVO_AUDIO_NAO_VINCULADO = "Vincule primeiro um áudio privado a esta sessão.";
 
 const MOTIVO_ARQUIVO_AUSENTE = "Selecione um arquivo de áudio para transcrever.";
 export const MOTIVO_ARQUIVO_VAZIO = "O arquivo de áudio está vazio.";
@@ -424,9 +425,9 @@ function pareceVazio(texto: string): boolean {
   return texto.replace(LARGURA_ZERO, "").trim() === "";
 }
 
-type ArquivoValidado = { ok: true; blob: Blob; nome: string } | { ok: false; erro: string };
+export type ArquivoValidado = { ok: true; blob: Blob; nome: string } | { ok: false; erro: string };
 
-function validarArquivo(bruto: FormDataEntryValue | null): ArquivoValidado {
+export function validarArquivo(bruto: FormDataEntryValue | null): ArquivoValidado {
   if (!(bruto instanceof Blob)) return { ok: false, erro: MOTIVO_ARQUIVO_AUSENTE };
   if (bruto.size === 0) return { ok: false, erro: MOTIVO_ARQUIVO_VAZIO };
   if (bruto.size > LIMITE_BYTES) return { ok: false, erro: MOTIVO_ARQUIVO_GRANDE };
@@ -529,11 +530,6 @@ export async function transcreverSessao(formData: FormData): Promise<ResultadoTr
   // plano: um único caminho, sem ambiguidade de formato).
   const substituir = String(formData.get("substituir") ?? "") === "1";
 
-  // Limites do arquivo — ANTES de qualquer chamada externa. Nem o cliente
-  // Supabase é construído se o arquivo já está desqualificado.
-  const arquivoValidado = validarArquivo(formData.get("arquivo"));
-  if (!arquivoValidado.ok) return { ok: false, erro: arquivoValidado.erro };
-
   try {
     const s = criarSupabaseServer();
 
@@ -571,6 +567,28 @@ export async function transcreverSessao(formData: FormData): Promise<ResultadoTr
       return { ok: false, erro: MOTIVO_SEM_CONSENTIMENTO_TRANSCRICAO };
     }
 
+    // O navegador não fornece o Blob à transcrição. O único áudio elegível é
+    // a referência privada criada pela ação de vínculo, no mesmo `sessaoId`.
+    const { data: referenciaData, error: erroReferencia } = await s
+      .from("sessao_transcricao_arquivo")
+      .select("sessao_id, caminho_storage, arquivado")
+      .eq("sessao_id", sessaoId)
+      .maybeSingle();
+    if (erroReferencia) {
+      avisar("referencia/transcricao", codigoDe(erroReferencia));
+      return { ok: false, erro: MOTIVO_ERRO_LEITURA };
+    }
+    const referencia = comoRow(referenciaData);
+    const caminhoStorage = textoDe(referencia?.caminho_storage);
+    if (referencia?.sessao_id !== sessaoId || referencia.arquivado === true || caminhoStorage === "") {
+      return { ok: false, erro: MOTIVO_AUDIO_NAO_VINCULADO };
+    }
+    const { data: audioPrivado, error: erroDownload } = await s.storage.from("transcricoes").download(caminhoStorage);
+    if (erroDownload || !(audioPrivado instanceof Blob)) {
+      avisar("referencia/download", erroDownload ?? "blob ausente");
+      return { ok: false, erro: MOTIVO_ERRO_LEITURA };
+    }
+
     // Sessão já transcrita + sem `substituir=1` → recusa AQUI, antes de
     // gastar a chamada à Groq com um resultado que já sabemos que vamos
     // jogar fora (decisão 4 do plano).
@@ -586,7 +604,7 @@ export async function transcreverSessao(formData: FormData): Promise<ResultadoTr
     // exceção não tratada, e sobretudo: nada do banco é tocado neste ramo.
     let resultado: { texto: string; provider: "groq" | "demo" };
     try {
-      resultado = await transcreverAudio(arquivoValidado.blob, arquivoValidado.nome);
+      resultado = await transcreverAudio(audioPrivado, caminhoStorage.split("/").at(-1) || "audio");
     } catch (excecaoGroq) {
       relancarSeForBailoutDoNext(excecaoGroq);
       // Nunca o corpo da resposta da Groq aqui — só que a chamada falhou.
