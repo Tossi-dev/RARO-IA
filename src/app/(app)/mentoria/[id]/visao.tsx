@@ -30,6 +30,7 @@ import {
   liberarNoPortalDaFicha,
   sincronizarSessaoDaFicha,
   transcreverSessaoDaFicha,
+  vincularAudioDaFicha,
 } from "@/lib/mentoria/acoes-ficha";
 import type { Ficha } from "@/lib/mentoria/dados";
 import type { HistoricoDaFicha } from "@/lib/mentoria/dados-historico";
@@ -454,16 +455,20 @@ function AgendaETranscricaoDaSessao({
             <Botao tipo="fantasma">Salvar transcrição manual</Botao>
           </div>
         </form>
-        <form action={transcreverSessaoDaFicha} encType="multipart/form-data" className="space-y-2 border-t border-borda-sutil pt-2">
+        <form action={vincularAudioDaFicha} encType="multipart/form-data" className="space-y-2 border-t border-borda-sutil pt-2">
           <input type="hidden" name="mentoradoId" value={mentoradoId} />
           <input type="hidden" name="sessaoId" value={sessao.id} />
           <Campo label="Áudio da sessão autorizado">
             <Input type="file" name="arquivo" accept="audio/*,video/mp4,video/webm,video/quicktime" />
           </Campo>
           <p className="text-xs text-texto-2">
-            Envie somente após consentimento explícito para transcrição automática. O resultado fica privado para revisão profissional.
+            O profissional confirma que houve consentimento explícito para esta sessão. O áudio fica privado e vinculado à sessão antes de qualquer transcrição.
           </p>
-          <Botao tipo="fantasma">Transcrever áudio autorizado</Botao>
+          <label className="flex items-start gap-2 text-xs text-texto-2">
+            <input type="checkbox" name="confirmarConsentimento" value="1" required />
+            Confirmo o consentimento explícito do cliente para enviar este áudio à transcrição automática.
+          </label>
+          <Botao tipo="fantasma">Vincular áudio privado</Botao>
         </form>
       </div>
 

@@ -44,6 +44,21 @@ revisor: independente
 - Vitest focado, `npx tsc --noEmit --incremental false` e revisão
   independente aprovados.
 
+## Células atômicas de execução
+
+Esta tarefa não pode mais ocupar uma célula única. O supervisor executa e
+fecha, nesta ordem: (1) schema local e espelho; (2) referência privada do
+arquivo; (3) ação de transcrição somente a partir da referência; (4) testes,
+TypeScript e revisão. Cada célula tem checkpoint próprio antes de 50 minutos;
+o próximo pulso inicia a célula seguinte, nunca prolonga silenciosamente a
+anterior.
+
+Checkpoint da célula 2: concluída localmente. O formulário passou a exigir a
+atestado explícito do profissional, deriva workspace e mentorado da sessão
+acessível por RLS, grava consentimento por sessão, envia o objeto ao bucket
+privado e registra hash, mime, tamanho e caminho. A ação de transcrição ainda
+não pode receber essa referência até a célula 3.
+
 ## Pausa de segurança
 
 Revisão independente reprovou a célula anterior: o schema atual só consegue derivar

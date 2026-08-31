@@ -24,6 +24,7 @@ import { sincronizarSessaoNaAgenda } from "./acoes-calendario";
 import { liberarConteudo, revogarConteudo } from "./acoes-conteudo-liberado";
 import { liberarNoPortal } from "./acoes-liberacao";
 import { transcreverSessao } from "./acoes-transcricao";
+import { vincularAudioDaSessao } from "./acoes-transcricao-arquivo";
 import { registrarTranscricaoManual } from "./acoes-transcricao-manual";
 
 const MOTIVO_TRANSCRICAO_ENTRADA_AUSENTE = "Informe uma transcrição manual ou selecione o áudio da sessão.";
@@ -66,10 +67,16 @@ export async function transcreverSessaoDaFicha(formData: FormData): Promise<void
   // consentimento no servidor antes de falar com o fornecedor.
   const resultado = formData.has("texto")
     ? await registrarTranscricaoManual(formData)
-    : formData.has("arquivo")
-      ? await transcreverSessao(formData)
-      : { ok: false, erro: MOTIVO_TRANSCRICAO_ENTRADA_AUSENTE };
+    : await transcreverSessao(formData);
   if (!resultado.ok) voltarComErro(caminhoFicha(formData), resultado.erro ?? "Não foi possível transcrever.");
+}
+
+/** Vincula o áudio privado à sessão; a transcrição usa a referência em uma ação separada. */
+export async function vincularAudioDaFicha(formData: FormData): Promise<void> {
+  const resultado = formData.has("arquivo")
+    ? await vincularAudioDaSessao(formData)
+    : { ok: false, erro: MOTIVO_TRANSCRICAO_ENTRADA_AUSENTE };
+  if (!resultado.ok) voltarComErro(caminhoFicha(formData), resultado.erro ?? "Não foi possível vincular o áudio.");
 }
 
 /**

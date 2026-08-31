@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const sincronizarMock = vi.fn();
 const transcreverMock = vi.fn();
+const vincularAudioMock = vi.fn();
 const transcricaoManualMock = vi.fn();
 const redirectMock = vi.fn((destino: string) => {
   throw new Error(`REDIRECT:${destino}`);
@@ -18,10 +19,11 @@ const redirectMock = vi.fn((destino: string) => {
 
 vi.mock("./acoes-calendario", () => ({ sincronizarSessaoNaAgenda: sincronizarMock }));
 vi.mock("./acoes-transcricao", () => ({ transcreverSessao: transcreverMock }));
+vi.mock("./acoes-transcricao-arquivo", () => ({ vincularAudioDaSessao: vincularAudioMock }));
 vi.mock("./acoes-transcricao-manual", () => ({ registrarTranscricaoManual: transcricaoManualMock }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
-const { sincronizarSessaoDaFicha, transcreverSessaoDaFicha } = await import("./acoes-ficha");
+const { sincronizarSessaoDaFicha, transcreverSessaoDaFicha, vincularAudioDaFicha } = await import("./acoes-ficha");
 
 function formulario(campos: Record<string, string>): FormData {
   const f = new FormData();
@@ -107,15 +109,16 @@ describe("transcreverSessaoDaFicha", () => {
     expect(destino).not.toContain("MARCADOR");
   });
 
-  it("encaminha arquivo somente para a acao externa protegida pelo consentimento no servidor", async () => {
-    transcreverMock.mockResolvedValue({ ok: true, caracteres: 120 });
+  it("não trata arquivo como transcrição: só o vínculo privado recebe o upload", async () => {
+    vincularAudioMock.mockResolvedValue({ ok: true });
     const f = formulario({ mentoradoId: "ment-2", sessaoId: "ses-9" });
     f.set("arquivo", new Blob(["audio"], { type: "audio/mpeg" }));
 
-    await transcreverSessaoDaFicha(f);
+    await vincularAudioDaFicha(f);
 
     expect(transcricaoManualMock).not.toHaveBeenCalled();
-    expect(transcreverMock).toHaveBeenCalledWith(f);
+    expect(transcreverMock).not.toHaveBeenCalled();
+    expect(vincularAudioMock).toHaveBeenCalledWith(f);
     expect(redirectMock).not.toHaveBeenCalled();
   });
 });

@@ -113,7 +113,16 @@ function construirCliente(selects: Record<string, RespostaSelect>, opcoes: Opcoe
     delete: deleteMock,
   }));
 
-  return { from: fromMock, eqChamadas, updateSessaoMock, deleteMock };
+  const downloadMock = vi.fn(() => Promise.resolve({ data: arquivoAudio(), error: null }));
+
+  return {
+    from: fromMock,
+    storage: { from: vi.fn(() => ({ download: downloadMock })) },
+    eqChamadas,
+    updateSessaoMock,
+    deleteMock,
+    downloadMock,
+  };
 }
 
 function ligarCliente(selects: Record<string, RespostaSelect>, opcoes: OpcoesCliente = {}) {
