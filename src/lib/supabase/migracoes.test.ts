@@ -4082,6 +4082,7 @@ const MIGRACOES_ATENDIMENTO = [
   ["0038_atendimento_mapa.sql", "_exec_0038_atendimento_mapa.sql", ["atendimento_mapa", "atendimento_consentimento", "atendimento_evento_acesso"]],
   ["0039_atendimento_plano.sql", "_exec_0039_atendimento_plano.sql", ["atendimento_meta", "atendimento_passo", "atendimento_reflexao"]],
   ["0040_atendimento_grafo.sql", "_exec_0040_atendimento_grafo.sql", ["atendimento_grafo_no", "atendimento_grafo_relacao"]],
+  ["0041_sessao_transcricao_autorizada.sql", "_exec_0041_sessao_transcricao_autorizada.sql", ["sessao_transcricao_consentimento", "sessao_transcricao_arquivo"]],
 ] as const;
 
 describe("0038–0040 — atendimento preserva acesso mínimo e projeção segura", () => {
@@ -4141,5 +4142,17 @@ describe("0038–0040 — atendimento preserva acesso mínimo e projeção segur
     expect(combinado).toMatch(/visibilidade = 'compartilhavel'[\s\S]*?categoria = 'meta'[\s\S]*?categoria = 'portal'/is);
     expect(combinado).toMatch(/revoke all on function public\.atendimento_portal_minimo\(\) from public[\s\S]*?grant execute on function public\.atendimento_portal_minimo\(\) to authenticated/is);
     expect(combinado).not.toMatch(/grant execute on function public\.atendimento_portal_minimo\(\) to anon/i);
+  });
+
+  it("0041 exige consentimento por sessão e mantém o áudio num bucket privado vinculado à sessão", () => {
+    const sql = semComentarios(lerMigracao("0041_sessao_transcricao_autorizada.sql"));
+
+    expect(sql).toMatch(/create table if not exists public\.sessao_transcricao_consentimento[\s\S]*?sessao_id uuid not null references public\.sessao/i);
+    expect(sql).toMatch(/unique\s*\(workspace_id, sessao_id\)/i);
+    expect(sql).toMatch(/create table if not exists public\.sessao_transcricao_arquivo[\s\S]*?sessao_id uuid not null references public\.sessao/i);
+    expect(sql).toMatch(/caminho_storage text not null[\s\S]*?sha256 text not null/i);
+    expect(sql).toMatch(/insert into storage\.buckets \(id, name, public\)[\s\S]*?'transcricoes', 'transcricoes', false/i);
+    expect(sql).toMatch(/bucket_id = 'transcricoes'[\s\S]*?storage\.foldername\(name\)\)\[1\] = public\.workspace_atual\(\)::text/is);
+    expect(sql).not.toMatch(/\bto\s+anon\b|using\s*\(\s*true\s*\)/i);
   });
 });
