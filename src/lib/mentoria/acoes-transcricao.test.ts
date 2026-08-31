@@ -372,7 +372,7 @@ describe("provider demo recusa gravar", () => {
       provider: "demo",
       texto: "[TRANSCRIÇÃO DEMO — configure GROQ_API_KEY para transcrever áudio real]",
     });
-    const cliente = ligarCliente(selectsFeliz({ id: "ses-escopo-42" }));
+    const cliente = ligarCliente(selectsFeliz());
 
     const resultado = await transcreverSessao(formData({ sessaoId: "ses-1", arquivo: arquivoAudio() }));
 
@@ -393,7 +393,7 @@ describe("provider demo recusa gravar", () => {
 describe("erro HTTP da Groq não grava nada", () => {
   it("transcreverAudio rejeita (Groq 500): zero UPDATE em sessao, erro humano, zero revalidatePath", async () => {
     transcreverAudioMock.mockRejectedValue(new Error("Groq 500: falha interna"));
-    const cliente = ligarCliente(selectsFeliz());
+    const cliente = ligarCliente(selectsFeliz({ id: "ses-escopo-42" }));
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const resultado = await transcreverSessao(formData({ sessaoId: "ses-1", arquivo: arquivoAudio() }));
