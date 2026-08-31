@@ -3,7 +3,7 @@ schema_version: 2
 projeto: RARO IA
 missao_id: fase-3-t87b-transcricao-externa-2026-08-29
 tarefa: T-087B-transcricao-externa-e-resumo-revisavel
-estado: pausada
+estado: em_execucao
 autorizacao: Portao 2 autorizado explicitamente pelo Tossi em 2026-08-29; transcricao automatica com consentimento explicito, sem expor segredos
 janela_maxima: 60min
 pulso_maximo: 30min
@@ -46,9 +46,12 @@ revisor: independente
 
 ## Pausa de segurança
 
-Revisão independente reprovou a célula: o schema atual só consegue derivar
+Revisão independente reprovou a célula anterior: o schema atual só consegue derivar
 consentimento por mentorado/categoria, não por sessão; além disso, um `Blob`
 enviado pelo formulário não permite provar que o áudio pertence à sessão. A
 implementação parcial não foi aprovada nem publicada. Retomar exige uma
 decisão de modelo de dados para consentimento por sessão e vinculação auditável
-do arquivo, sem aplicar banco real nesta missão.
+do arquivo, sem aplicar banco real nesta missão. O Tossi autorizou a retomada
+em 2026-08-31 pelo modelo seguro: consentimento por sessão e arquivo privado
+vinculado à sessão. A migration será somente local e espelhada; aplicação no
+MentorOS real continua proibida.
