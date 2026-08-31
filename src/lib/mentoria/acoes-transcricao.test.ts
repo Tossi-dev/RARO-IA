@@ -314,11 +314,13 @@ describe("campos fora dos três lidos são ignorados", () => {
 // ============================================================
 
 describe("limites do arquivo, checados antes da chamada à Groq", () => {
-  it("sem arquivo nenhum: recusa, zero chamada externa", async () => {
+  it("sem arquivo no formulário: busca somente a referência privada e não chama o fornecedor quando ela não existe", async () => {
+    const selects = selectsFeliz();
+    selects.sessao_transcricao_arquivo = { data: null, error: null };
+    ligarCliente(selects);
     const resultado = await transcreverSessao(formData({ sessaoId: "ses-1" }));
 
     expect(resultado.ok).toBe(false);
-    expect(criarSupabaseServerMock).not.toHaveBeenCalled();
     expect(transcreverAudioMock).not.toHaveBeenCalled();
   });
 
@@ -402,7 +404,7 @@ describe("provider demo recusa gravar", () => {
 describe("erro HTTP da Groq não grava nada", () => {
   it("transcreverAudio rejeita (Groq 500): zero UPDATE em sessao, erro humano, zero revalidatePath", async () => {
     transcreverAudioMock.mockRejectedValue(new Error("Groq 500: falha interna"));
-    const cliente = ligarCliente(selectsFeliz({ id: "ses-escopo-42" }));
+    const cliente = ligarCliente(selectsFeliz());
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const resultado = await transcreverSessao(formData({ sessaoId: "ses-1", arquivo: arquivoAudio() }));
@@ -1132,7 +1134,7 @@ describe("D12 — nenhum canal de console carrega o texto no caminho feliz nem n
 describe("D13 — o UPDATE é escopado em .eq('id', sessaoId), com coluna e valor exatos", () => {
   it("a chamada .eq do UPDATE é exatamente coluna 'id' com o sessaoId pedido — e é a única", async () => {
     transcreverAudioMock.mockResolvedValue({ provider: "groq", texto: "conteúdo transcrito" });
-    const cliente = ligarCliente(selectsFeliz());
+    const cliente = ligarCliente(selectsFeliz({ id: "ses-escopo-42" }));
 
     const resultado = await transcreverSessao(
       formData({ sessaoId: "ses-escopo-42", arquivo: arquivoAudio() })
@@ -1141,6 +1143,21 @@ describe("D13 — o UPDATE é escopado em .eq('id', sessaoId), com coluna e valo
     expect(resultado.ok).toBe(true);
     const eqDoUpdate = cliente.eqChamadas.filter((c) => c.tabela === "sessao(update)");
     expect(eqDoUpdate).toEqual([{ tabela: "sessao(update)", coluna: "id", valor: "ses-escopo-42" }]);
+  });
+});
+
+describe("Portão 2 — transcrição lê somente o objeto privado", () => {
+  it("ignora o Blob livre do formulário e envia ao adaptador somente o download da referência da sessão", async () => {
+    transcreverAudioMock.mockResolvedValue({ provider: "groq", texto: "conteúdo transcrito" });
+    const cliente = ligarCliente(selectsFeliz());
+    const blobDoFormulario = arquivoAudio();
+
+    const resultado = await transcreverSessao(formData({ sessaoId: "ses-1", arquivo: blobDoFormulario }));
+
+    expect(resultado.ok).toBe(true);
+    expect(cliente.downloadMock).toHaveBeenCalledWith("ws-1/transcricoes/audio.mp3");
+    expect(transcreverAudioMock).toHaveBeenCalledTimes(1);
+    expect(transcreverAudioMock.mock.calls[0]?.[0]).not.toBe(blobDoFormulario);
   });
 });
 

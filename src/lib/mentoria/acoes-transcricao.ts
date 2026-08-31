@@ -530,6 +530,14 @@ export async function transcreverSessao(formData: FormData): Promise<ResultadoTr
   // plano: um único caminho, sem ambiguidade de formato).
   const substituir = String(formData.get("substituir") ?? "") === "1";
 
+  // Compatibilidade defensiva: a transcrição não usa mais este campo, mas um
+  // cliente que ainda o envie não pode usar um tipo inválido para alcançar o
+  // restante do fluxo. A ausência é aceita porque o objeto vem do Storage.
+  if (formData.has("arquivo")) {
+    const arquivoLegado = validarArquivo(formData.get("arquivo"));
+    if (!arquivoLegado.ok) return arquivoLegado;
+  }
+
   try {
     const s = criarSupabaseServer();
 
@@ -579,7 +587,7 @@ export async function transcreverSessao(formData: FormData): Promise<ResultadoTr
       return { ok: false, erro: MOTIVO_ERRO_LEITURA };
     }
     const referencia = comoRow(referenciaData);
-    const caminhoStorage = textoDe(referencia?.caminho_storage);
+    const caminhoStorage = typeof referencia?.caminho_storage === "string" ? referencia.caminho_storage.trim() : "";
     if (referencia?.sessao_id !== sessaoId || referencia.arquivado === true || caminhoStorage === "") {
       return { ok: false, erro: MOTIVO_AUDIO_NAO_VINCULADO };
     }
