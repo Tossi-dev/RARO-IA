@@ -3,7 +3,7 @@ schema_version: 2
 projeto: RARO IA
 missao_id: fase-3-t87b-transcricao-externa-2026-08-29
 tarefa: T-087B-transcricao-externa-e-resumo-revisavel
-estado: pausada
+estado: em_execucao
 autorizacao: Portao 2 autorizado explicitamente pelo Tossi em 2026-08-29; transcricao automatica com consentimento explicito, sem expor segredos
 janela_maxima: 60min
 pulso_maximo: 30min
@@ -62,3 +62,7 @@ A célula de implementação venceu sem evidência final de validação. O patch
 local e a migration espelhada foram preservados para retomada; nada externo
 foi executado. A próxima célula deve validar a migration, recuperar os testes
 e só então continuar a adaptação da ação.
+
+Validação recuperada: a suíte de migrations aprovou 698 testes, incluindo a
+0041 e seu espelho. A próxima célula passa a ler apenas o arquivo privado
+já vinculado à sessão.
