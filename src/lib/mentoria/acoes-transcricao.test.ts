@@ -165,10 +165,14 @@ function linhaMatricula(parcial: Partial<Record<string, unknown>> = {}): Record<
 }
 
 function selectsFeliz(overridesSessao: Partial<Record<string, unknown>> = {}): Record<string, RespostaSelect> {
+  const sessao = linhaSessao(overridesSessao);
+  const sessaoId = typeof sessao.id === "string" ? sessao.id : "ses-1";
   return {
-    sessao: { data: linhaSessao(overridesSessao), error: null },
+    sessao: { data: sessao, error: null },
     matricula: { data: linhaMatricula(), error: null },
     atendimento_consentimento: { data: { categoria: "transcricao", consentido: true }, error: null },
+    sessao_transcricao_consentimento: { data: { sessao_id: sessaoId, consentido: true }, error: null },
+    sessao_transcricao_arquivo: { data: { sessao_id: sessaoId, caminho_storage: "ws-1/transcricoes/audio.mp3", arquivado: false }, error: null },
   };
 }
 
@@ -242,9 +246,20 @@ describe("entrada inválida e sessão não encontrada", () => {
 });
 
 describe("Portao 2 — consentimento antes do fornecedor", () => {
+  it("consentimento global do mentorado nao substitui o consentimento da sessao", async () => {
+    const selects = selectsFeliz();
+    selects.sessao_transcricao_consentimento = { data: null, error: null };
+    ligarCliente(selects);
+
+    const resultado = await transcreverSessao(formData({ sessaoId: "ses-1", arquivo: arquivoAudio() }));
+
+    expect(resultado.ok).toBe(false);
+    expect(transcreverAudioMock).not.toHaveBeenCalled();
+  });
+
   it("sem consentimento de transcricao derivado no servidor nao envia o audio ao fornecedor", async () => {
     const selects = selectsFeliz();
-    selects.atendimento_consentimento = { data: null, error: null };
+    selects.sessao_transcricao_consentimento = { data: null, error: null };
     ligarCliente(selects);
 
     const resultado = await transcreverSessao(formData({ sessaoId: "ses-1", arquivo: arquivoAudio() }));
@@ -357,7 +372,7 @@ describe("provider demo recusa gravar", () => {
       provider: "demo",
       texto: "[TRANSCRIÇÃO DEMO — configure GROQ_API_KEY para transcrever áudio real]",
     });
-    const cliente = ligarCliente(selectsFeliz());
+    const cliente = ligarCliente(selectsFeliz({ id: "ses-escopo-42" }));
 
     const resultado = await transcreverSessao(formData({ sessaoId: "ses-1", arquivo: arquivoAudio() }));
 
@@ -904,7 +919,7 @@ describe("D9 — bailout dinâmico do Next é relançado, o resto é engolido", 
 
   it("busca do caminho da ficha: bailout sobe, enquanto uma falha comum vira ok:true (ver D8)", async () => {
     transcreverAudioMock.mockResolvedValue({ provider: "groq", texto: "texto gravado" });
-    ligarCliente(selectsFeliz(), { selectLancaNaChamada: { matricula: { chamada: 2, erro: erroComDigest(BAILOUT) } } });
+    ligarCliente(selectsFeliz(), { selectLancaNaChamada: { matricula: { chamada: 1, erro: erroComDigest(BAILOUT) } } });
 
     await expect(transcreverSessao(formData({ sessaoId: "ses-1", arquivo: arquivoAudio() }))).rejects.toThrow(
       /Dynamic server usage/i

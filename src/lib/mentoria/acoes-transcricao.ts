@@ -554,35 +554,20 @@ export async function transcreverSessao(formData: FormData): Promise<ResultadoTr
     // a outra diz "checamos, não existe/não é sua".
     if (!sessaoRow) return { ok: false, erro: MOTIVO_SESSAO_NAO_ENCONTRADA };
 
-    // Portão 2: o áudio só pode sair depois de derivar, no servidor, o
-    // mentorado da sessão autorizada pela RLS e confirmar seu consentimento
-    // de transcrição. Nenhum campo vindo do formulário representa essa
-    // autorização; sem ela, a chamada ao fornecedor nem é iniciada.
-    const matriculaId = textoDe(sessaoRow.matricula_id);
-    if (matriculaId === "") return { ok: false, erro: MOTIVO_SEM_CONSENTIMENTO_TRANSCRICAO };
-    const { data: matriculaData, error: erroMatricula } = await s
-      .from("matricula")
-      .select("mentorado_id")
-      .eq("id", matriculaId)
-      .maybeSingle();
-    if (erroMatricula) {
-      avisar("consentimento/matricula", codigoDe(erroMatricula));
-      return { ok: false, erro: MOTIVO_ERRO_LEITURA };
-    }
-    const mentoradoId = textoDe(comoRow(matriculaData)?.mentorado_id);
-    if (mentoradoId === "") return { ok: false, erro: MOTIVO_SEM_CONSENTIMENTO_TRANSCRICAO };
+    // Portão 2: a autorização é por SESSÃO, jamais pelo consentimento geral
+    // do mentorado. A RLS entrega apenas a linha da sessão acessível ao ator;
+    // o formulário não escolhe nem substitui esta evidência.
     const { data: consentimentoData, error: erroConsentimento } = await s
-      .from("atendimento_consentimento")
-      .select("categoria, consentido")
-      .eq("mentorado_id", mentoradoId)
-      .eq("categoria", "transcricao")
+      .from("sessao_transcricao_consentimento")
+      .select("sessao_id, consentido")
+      .eq("sessao_id", sessaoId)
       .maybeSingle();
     if (erroConsentimento) {
       avisar("consentimento/transcricao", codigoDe(erroConsentimento));
       return { ok: false, erro: MOTIVO_ERRO_LEITURA };
     }
     const consentimento = comoRow(consentimentoData);
-    if (consentimento?.categoria !== "transcricao" || consentimento.consentido !== true) {
+    if (consentimento?.sessao_id !== sessaoId || consentimento.consentido !== true) {
       return { ok: false, erro: MOTIVO_SEM_CONSENTIMENTO_TRANSCRICAO };
     }
 
