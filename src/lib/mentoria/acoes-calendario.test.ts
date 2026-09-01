@@ -22,6 +22,12 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+// `dados-atendimento.ts` é server-only no produto; o módulo marcador não é
+// instalado no runtime do Vitest. Este mock virtual preserva a fronteira sem
+// carregar Next, rede ou configuração de ambiente.
+// @ts-expect-error Vitest aceita a opção virtual no runtime.
+vi.mock("server-only", () => ({}), { virtual: true });
+
 const {
   criarSupabaseServerMock,
   revalidatePathMock,
