@@ -25,3 +25,12 @@ pode ser executada sem uma massa mínima explicitamente sintética para as
 novas tabelas e sem o login manual do Tossi no app local. A próxima ação não
 é inferida: exige autorizar a criação desse conjunto e o usuário inserir as
 senhas no navegador.
+
+## Bloqueio técnico encontrado
+
+A criação atômica autorizada foi tentada e revertida integralmente pelo
+PostgreSQL: a função `validar_referencias_atendimento()` instalada no MentorOS
+acessa `NEW.meta_id` também quando acionada por tabelas sem essa coluna. A
+correção precisa ser uma migration corretiva versionada e a aplicação dessa
+mudança no banco real requer autorização específica. Nenhum registro
+sintético foi persistido.
