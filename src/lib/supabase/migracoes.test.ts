@@ -4175,3 +4175,35 @@ describe("0038–0040 — atendimento preserva acesso mínimo e projeção segur
     expect(sql).not.toMatch(/\bto\s+anon\b|using\s*\(\s*true\s*\)/i);
   });
 });
+
+// ============================================================
+// 0043 — correção do gatilho compartilhado do atendimento
+// ============================================================
+
+const ARQUIVO_0043_ATENDIMENTO = "0043_corrigir_trigger_referencias_atendimento.sql";
+const ARQUIVO_EXEC_0043_ATENDIMENTO = "_exec_0043_corrigir_trigger_referencias_atendimento.sql";
+
+describe("0043 — gatilho do atendimento só lê campos da tabela que o acionou", () => {
+  it("cria a migration corretiva e seu espelho local", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0043_ATENDIMENTO)).toBe(true);
+    expect(readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0043_ATENDIMENTO)).toBe(true);
+  });
+
+  it("valida passo e relação em ramos separados, sem short-circuit inseguro", () => {
+    const sql = semComentarios(lerMigracao(ARQUIVO_0043_ATENDIMENTO));
+
+    expect(sql).toMatch(/create or replace function public\.validar_referencias_atendimento\(\)\s+returns trigger\s+language plpgsql\s+security definer\s+set search_path = public/is);
+    expect(sql).toMatch(/if tg_table_name = 'atendimento_passo' then\s+if not exists[\s\S]*?new\.meta_id/is);
+    expect(sql).toMatch(/if tg_table_name = 'atendimento_grafo_relacao' then\s+if[\s\S]*?new\.origem_no_id[\s\S]*?new\.destino_no_id/is);
+    expect(sql).not.toMatch(/tg_table_name\s*=\s*'atendimento_passo'\s+and\s+not exists/is);
+    expect(sql).not.toMatch(/tg_table_name\s*=\s*'atendimento_grafo_relacao'\s+and\s*\(/is);
+    expect(sql).toMatch(/revoke all on function public\.validar_referencias_atendimento\(\) from public/i);
+    expect(sql).toMatch(/revoke all on function public\.validar_referencias_atendimento\(\) from anon/i);
+  });
+
+  it("mantém o espelho _exec_ idêntico à migration", () => {
+    expect(lerMigracao(ARQUIVO_EXEC_0043_ATENDIMENTO)).toBe(
+      lerMigracao(ARQUIVO_0043_ATENDIMENTO),
+    );
+  });
+});

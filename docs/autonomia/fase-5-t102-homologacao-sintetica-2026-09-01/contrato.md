@@ -34,3 +34,7 @@ acessa `NEW.meta_id` também quando acionada por tabelas sem essa coluna. A
 correção precisa ser uma migration corretiva versionada e a aplicação dessa
 mudança no banco real requer autorização específica. Nenhum registro
 sintético foi persistido.
+
+## Correção autorizada no loop
+
+A continuação autorizada cobre a migration `0043_corrigir_trigger_referencias_atendimento` e seu espelho executável. Ela substitui somente a função de validação já existente: separa os ramos de `atendimento_passo` e `atendimento_grafo_relacao`, preserva `security definer`, `search_path` fixo e as revogações. Não altera tabelas, RLS, permissões, dados reais ou Storage.
