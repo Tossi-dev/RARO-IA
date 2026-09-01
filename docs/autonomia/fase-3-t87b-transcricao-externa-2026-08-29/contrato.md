@@ -81,3 +81,11 @@ e só então continuar a adaptação da ação.
 Validação recuperada: a suíte de migrations aprovou 698 testes, incluindo a
 0041 e seu espelho. A próxima célula passa a ler apenas o arquivo privado
 já vinculado à sessão.
+
+## Conclusão técnica
+
+T-087B concluída localmente. A ficha primeiro exige atestado explícito e
+vincula um único áudio privado à sessão; só então uma ação separada lê a
+referência, confirma consentimento por sessão, prefixo de caminho e SHA-256
+antes do adaptador. Não há substituição silenciosa nem objeto órfão quando o
+registro falha. A migration 0041 e seu espelho continuam somente locais.
