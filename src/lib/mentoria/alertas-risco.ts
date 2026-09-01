@@ -5,6 +5,11 @@ export type SessaoRisco = { data: string; status: string };
 export type TarefaRisco = { id: string; vencimento: string; concluida: boolean };
 export type ScoreRisco = { semana: string; score: number };
 export type AlertaExistente = Pick<AlertaRisco, "tipo" | "fato"> & { resolvido: boolean };
+export type RecomendacaoProfissional = {
+  fatos: string[];
+  incerteza: string;
+  pergunta: string;
+};
 
 const QUEDA_MINIMA = 10;
 const SILENCIO_DIAS = 14;
@@ -18,6 +23,34 @@ function dataCivil(valor: string): Date | null {
 function diasEntre(inicio: Date, fim: Date): number { return Math.round((fim.getTime() - inicio.getTime()) / 86_400_000); }
 function chave(alerta: Pick<AlertaRisco, "tipo" | "fato">): string { return `${alerta.tipo}:${alerta.fato}`; }
 function semEmoji(texto: string): string { return texto.replace(/[\p{Extended_Pictographic}\p{Regional_Indicator}\p{Emoji_Modifier}\uFE0E\uFE0F\u200D\u20E3\u{E0020}-\u{E007F}]/gu, "").replace(/\s+/g, " ").trim(); }
+
+/**
+ * Tradução deliberadamente conservadora: alerta é um sinal factual, não uma
+ * explicação sobre a pessoa. A saída propõe uma pergunta para o profissional
+ * revisar, jamais uma resposta, diagnóstico ou instrução ao mentorado.
+ */
+export function recomendacaoProfissionalDe(alerta: Pick<AlertaRisco, "tipo" | "texto">): RecomendacaoProfissional {
+  const porTipo: Record<TipoAlertaRisco, Pick<RecomendacaoProfissional, "incerteza" | "pergunta">> = {
+    queda_score: {
+      incerteza: "A variação registrada não explica a causa nem define uma conclusão sobre a pessoa.",
+      pergunta: "Que mudanças você percebeu desde a última medição que valeria explorar com cuidado?",
+    },
+    silencio: {
+      incerteza: "A ausência de sessão registrada não explica a causa nem permite supor desinteresse.",
+      pergunta: "O que pode ter influenciado esse intervalo e o que faria sentido perguntar antes de qualquer conclusão?",
+    },
+    faltas: {
+      incerteza: "As faltas registradas não explicam a causa nem permitem inferir intenção ou condição pessoal.",
+      pergunta: "O que você gostaria de compreender sobre essas ausências antes de combinar um próximo passo?",
+    },
+    tarefas_atrasadas: {
+      incerteza: "O atraso registrado não explica os obstáculos nem mede comprometimento do mentorado.",
+      pergunta: "Que contexto ou obstáculo seria útil explorar para que o mentorado encontre o próximo passo?",
+    },
+  };
+  const base = porTipo[alerta.tipo];
+  return { fatos: [semEmoji(alerta.texto)].filter(Boolean), incerteza: base.incerteza, pergunta: base.pergunta };
+}
 
 /** Calcula alertas explicáveis com dados existentes; nenhuma regra consulta IA ou banco. */
 export function alertasDe(

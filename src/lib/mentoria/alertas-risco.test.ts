@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alertasDe } from "./alertas-risco";
+import { alertasDe, recomendacaoProfissionalDe } from "./alertas-risco";
 
 const mentorado = { id: "m-1", nome: "Ana" };
 
@@ -31,5 +31,17 @@ describe("alertasDe", () => {
     expect(alertasDe(mentorado, [{ data: "2026-08-01", status: "faltou" }, { data: "2026-08-08", status: "faltou" }], [], [], "2026-08-15", [{ tipo: "faltas", fato: "faltas:2026-08-01:2026-08-08", resolvido: false }])).toEqual([]);
     const alerta = alertasDe(mentorado, [], [{ id: "tarefa ✨", vencimento: "2026-08-01", concluida: false }], [], "2026-08-15")[0];
     expect(`${alerta.fato} ${alerta.texto}`).not.toMatch(/\p{Extended_Pictographic}|\p{Regional_Indicator}|\p{Emoji_Modifier}/u);
+  });
+
+  it("transforma fato em pergunta de acompanhamento, com incerteza e sem diagnóstico", () => {
+    const recomendacao = recomendacaoProfissionalDe({
+      tipo: "faltas",
+      texto: "Duas faltas seguidas foram registradas em 2026-08-01 e 2026-08-08.",
+    });
+
+    expect(recomendacao.fatos).toEqual(["Duas faltas seguidas foram registradas em 2026-08-01 e 2026-08-08."]);
+    expect(recomendacao.incerteza.toLowerCase()).toContain("não explica");
+    expect(recomendacao.pergunta).toMatch(/\?$/);
+    expect(recomendacao.pergunta.toLowerCase()).not.toMatch(/diagnóstico|transtorno|você deve|faça /);
   });
 });

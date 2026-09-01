@@ -21,6 +21,21 @@ describe("PainelRiscoVisao", () => {
     expect(html).toContain("Resolver alerta");
   });
 
+  it("mostra recomendação como pergunta revisável, com fato e incerteza, nunca diagnóstico", () => {
+    const html = renderToStaticMarkup(
+      <PainelRiscoVisao
+        alertas={[{ id: "a-1", mentoradoId: "m-1", nome: "Ana", tipo: "faltas", severidade: "alta", detalhe: "Duas faltas consecutivas em 01/08 e 08/08." }]}
+        analises={[]}
+      />
+    );
+
+    expect(html).toContain("Pergunta sugerida para acompanhamento");
+    expect(html).toContain("Duas faltas consecutivas em 01/08 e 08/08.");
+    expect(html.toLowerCase()).toContain("não explica");
+    expect(html).toMatch(/\?/);
+    expect(html.toLowerCase()).not.toMatch(/diagnóstico|transtorno|prescri/);
+  });
+
   it("marca análise como IA, mostra o modelo e não deixa emoji atravessar", () => {
     const html = renderToStaticMarkup(
       <PainelRiscoVisao

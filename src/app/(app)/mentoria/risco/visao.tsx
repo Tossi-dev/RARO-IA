@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Botao, Card, PageHeader, Vazio, type Tom } from "@/components/ui";
+import { recomendacaoProfissionalDe } from "@/lib/mentoria/alertas-risco";
 
 export interface AlertaParaPainel {
   id: string;
@@ -90,6 +91,17 @@ export function PainelRiscoVisao({
                       </span>
                     </div>
                     <p className="mt-2 text-sm text-texto-2">Fato de origem: {semEmoji(alerta.detalhe)}</p>
+                    {(() => {
+                      const recomendacao = recomendacaoProfissionalDe({ tipo: alerta.tipo, texto: alerta.detalhe });
+                      return (
+                        <div className="mt-3 rounded-lg border border-borda-sutil px-3 py-2.5 text-sm">
+                          <p className="font-medium">Pergunta sugerida para acompanhamento</p>
+                          <p className="mt-1 text-texto">{recomendacao.pergunta}</p>
+                          <p className="mt-1 text-xs text-texto-2">{recomendacao.incerteza}</p>
+                          <p className="mt-1 text-xs text-texto-3">Revisão profissional obrigatória antes de usar esta sugestão.</p>
+                        </div>
+                      );
+                    })()}
                     <form action={resolverAlerta} className="mt-3">
                       <input type="hidden" name="alertaId" value={alerta.id} />
                       <Botao tipo="fantasma">Resolver alerta</Botao>
