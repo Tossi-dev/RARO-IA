@@ -36,8 +36,9 @@ inserção ou alteração de dado de negócio.
 
 ## Estado de 0038–0042
 
-O teste local focado aprovou 25 verificações. No catálogo remoto, as cinco
-tabelas novas ainda estão ausentes e nenhuma política `transcricoes` de 0041
-existe. O recheck confirmou os vínculos `workspace_id`/`matricula_id` de
-sessão e `workspace_id`/`mentorado_id` de matrícula. A aplicação delas ainda
-depende de revisão independente e de aviso/confirmacão final ao usuário.
+O teste local focado aprovou 25 verificações e a revisão independente foi
+aprovada. Após confirmação explícita do usuário, 0038–0042 foram executadas
+no MentorOS main, uma por vez, sem erro. A verificação de catálogo confirmou
+onze tabelas novas com RLS ativa, o bucket `transcricoes` privado, e as funções
+do portal negadas a `anon` e permitidas a `authenticated`. Não houve inserção
+de dados de negócio, envio de arquivos ou exposição de segredos.
