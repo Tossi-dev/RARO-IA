@@ -60,15 +60,14 @@ tarefa como aprovada sem evidência de revisão.
 - Ao surgir risco novo, escopo proibido, dado sensível inesperado ou ação
   externa: parada forte, registrar evidência e pedir direção ao Tossi.
 
-## Estado atual em 27/08/2026
+## Estado atual em 01/09/2026
 
-- T-076 a T-080: regras locais de mapa, metas/plano, perguntas/reflexões,
-  grafo e consentimento implementadas e verificadas.
-- T-081: migrations locais `0038`–`0040` e RLS do atendimento criadas; testes
-  de migrations aprovados. Não foram aplicadas ao MentorOS real.
-- T-082: em execução. Já existem leitura server-only e escrita inicial de
-  reflexão, sem aceitar `workspace_id` do formulário. Ainda faltam composição
-  completa da ficha, concorrência e revisão independente.
-- Próximas tarefas do plano: T-083 ficha 360°, T-084 histórico/portal, T-085
-  onboarding, T-086 roteiro de sessão, T-087 transcrição manual, Portão 2,
-  T-087B, T-088 a T-092.
+- A Fase 3, T-076 a T-092, foi concluída localmente com testes, TypeScript e
+  revisão independente. As migrations continuam somente como arquivos locais.
+- T-087B permanece sem envio real a fornecedor; o código trata consentimento
+  por sessão e falha fechada, mas não recebeu áudio, dado real ou credencial.
+- A Fase 4 local está aprovada e começa pela T-093, para comprovar acesso e
+  saída de sessão antes dos roteiros UAT e de prontidão operacional.
+- O próximo portão de ambiente real permanece separado: banco, migrations
+  aplicadas, deploy, produção e integrações externas exigem autorização
+  específica para a ação.
