@@ -111,6 +111,26 @@ export async function registrarContrato(formData: FormData): Promise<void> {
   revalidar();
 }
 
+/**
+ * Publicação é opt-in: o contrato nasce privado e este é o único caminho da
+ * tela financeira que altera a flag. A RLS ainda limita a linha ao workspace
+ * da gestão; o formulário nunca escolhe um mentorado nem qualquer dado do
+ * contrato.
+ */
+export async function alternarVisibilidadeContrato(formData: FormData): Promise<void> {
+  const contratoId = texto(formData, "contratoId");
+  const visivel = texto(formData, "visivel") === "on";
+  if (!idValido(contratoId)) { erro(INVALIDA); return; }
+  try {
+    const { error: e } = await criarSupabaseServer()
+      .from("contrato")
+      .update({ visivel_portal: visivel })
+      .eq("id", contratoId);
+    if (e) { erro(); return; }
+  } catch (ex) { if (falhaControle(ex)) throw ex; erro(); return; }
+  revalidar();
+}
+
 // Nomes explícitos mantidos como aliases da linguagem da tela/plano; todos
 // atravessam a mesma validação e não criam um segundo caminho de escrita.
 export const gerarCobrancasDaMatricula = gerarRecorrencia;

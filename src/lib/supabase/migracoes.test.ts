@@ -4157,4 +4157,19 @@ describe("0038–0040 — atendimento preserva acesso mínimo e projeção segur
     expect(sql).toMatch(/create policy "transcricoes gestao remove orphan" on storage\.objects for delete/i);
     expect(sql).not.toMatch(/\bto\s+anon\b|using\s*\(\s*true\s*\)/i);
   });
+
+  it("0042 isola conversa por mentorado e exige liberação explícita do contrato", () => {
+    const sql = semComentarios(lerMigracao("0042_conversa_privada_contrato_portal.sql"));
+    expect(lerMigracao("_exec_0042_conversa_privada_contrato_portal.sql")).toBe(
+      lerMigracao("0042_conversa_privada_contrato_portal.sql"),
+    );
+
+    expect(sql).toMatch(/create table if not exists public\.mensagem_mentoria[\s\S]*?mentorado_id uuid not null references public\.mentorado/i);
+    expect(sql).toMatch(/mentorado le apenas propria conversa[\s\S]*?mentorado_id = public\.mentorado_atual\(\)/i);
+    expect(sql).toMatch(/mentorado escreve propria conversa[\s\S]*?autor_id = auth\.uid\(\)[\s\S]*?direcao = 'mentorado_para_gestao'/i);
+    expect(sql).toMatch(/gestao escreve conversa privada[\s\S]*?direcao = 'gestao_para_mentorado'/i);
+    expect(sql).toMatch(/alter table public\.contrato add column if not exists visivel_portal boolean not null default false/i);
+    expect(sql).toMatch(/and c\.visivel_portal[\s\S]*?d\.visivel_portal and not d\.arquivado/i);
+    expect(sql).not.toMatch(/\bto\s+anon\b|using\s*\(\s*true\s*\)/i);
+  });
 });

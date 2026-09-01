@@ -37,6 +37,7 @@ vi.mock("@/lib/mentoria/acoes-portal", () => ({
   concluirTarefa: vi.fn(),
   reabrirTarefa: vi.fn(),
 }));
+vi.mock("@/lib/mentoria/acoes-mensagem-form", () => ({ enviarMensagemDoPortal: vi.fn() }));
 
 const { default: Portal } = await import("./page");
 
@@ -182,6 +183,8 @@ function portalConectado(parcial: Partial<PortalDados> = {}): PortalDados {
     // Vazia na fixture base: a linha do tempo entra na tela na Tarefa 20, e
     // quem a preenche é `lerPortal` (Tarefa 19), não esta fixture.
     linhaTempo: [],
+    mensagens: [],
+    contratos: [],
     ...parcial,
   };
 }
@@ -200,6 +203,8 @@ function portalDesconectado(): PortalDados {
     scores: [],
     conteudos: [],
     linhaTempo: [],
+    mensagens: [],
+    contratos: [],
   };
 }
 
@@ -217,6 +222,8 @@ function portalSemMentorado(): PortalDados {
     scores: [],
     conteudos: [],
     linhaTempo: [],
+    mensagens: [],
+    contratos: [],
   };
 }
 
@@ -679,5 +686,42 @@ describe("Portal — identificadores nunca chegam à marcação", () => {
     const html = await renderizarPortal();
 
     expect(semEmoji(html)).toBe(true);
+  });
+});
+
+describe("Portal — conversa individual e contrato", () => {
+  it("desenha apenas a projeção segura e oferece resposta sem destinatário no formulário", async () => {
+    lerPortalMock.mockResolvedValue(
+      portalConectado({
+        mensagens: [
+          {
+            id: "msg-1",
+            direcao: "gestao_para_mentorado",
+            texto: "O que você percebeu nessa semana?",
+            criadoEm: "2026-08-10T10:00:00Z",
+          },
+        ],
+        contratos: [
+          {
+            id: "contrato-1",
+            assinadoEm: "2026-08-01",
+            vigenciaInicio: "2026-08-01",
+            vigenciaFim: null,
+            status: "assinado",
+          },
+        ],
+      })
+    );
+
+    const html = await renderizarPortal();
+
+    expect(html).toContain("Conversa com seu mentor");
+    expect(html).toContain("O que você percebeu nessa semana?");
+    expect(html).toContain('name="texto"');
+    expect(html).not.toContain('name="mentoradoId"');
+    expect(html).toContain("Contratos liberados");
+    expect(html).toContain("Contrato assinado");
+    expect(html).not.toContain("valor_total");
+    expect(html).not.toContain("9999");
   });
 });

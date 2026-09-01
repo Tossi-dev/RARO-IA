@@ -54,7 +54,8 @@ type RespostaRpc = {
 function construirCliente(
   respostas: Record<string, RespostaTabela>,
   respostaRpc: RespostaRpc,
-  jogaExcecaoEm?: string
+  jogaExcecaoEm?: string,
+  respostasRpc: Record<string, RespostaRpc> = {}
 ): { from: ReturnType<typeof vi.fn>; rpc: ReturnType<typeof vi.fn>; selecoes: Record<string, unknown[]> } {
   const selecoes: Record<string, unknown[]> = {};
   const fromMock = vi.fn((tabela: string) => {
@@ -75,16 +76,23 @@ function construirCliente(
     };
     return builder;
   });
-  const rpcMock = vi.fn(() => Promise.resolve(respostaRpc));
+  // `mentorado_atual` é a identidade do portal; RPCs de projeção, como
+  // `contrato_do_portal`, têm resposta própria e fechada por padrão no
+  // dublê. Assim, acrescentar uma leitura pública não transforma os testes
+  // antigos em uma fonte acidental de dados.
+  const rpcMock = vi.fn((funcao: string) =>
+    Promise.resolve(funcao === "mentorado_atual" ? respostaRpc : (respostasRpc[funcao] ?? { data: [], error: null }))
+  );
   return { from: fromMock, rpc: rpcMock, selecoes };
 }
 
 function ligarCliente(
   respostas: Record<string, RespostaTabela>,
   respostaRpc: RespostaRpc,
-  jogaExcecaoEm?: string
+  jogaExcecaoEm?: string,
+  respostasRpc: Record<string, RespostaRpc> = {}
 ) {
-  const cliente = construirCliente(respostas, respostaRpc, jogaExcecaoEm);
+  const cliente = construirCliente(respostas, respostaRpc, jogaExcecaoEm, respostasRpc);
   criarSupabaseServerMock.mockReturnValue(cliente);
   return cliente;
 }
@@ -229,10 +237,38 @@ function tabelasVazias(): Record<string, RespostaTabela> {
     marco: { data: [], error: null },
     score_evolucao: { data: [], error: null },
     conteudo_liberado: { data: [], error: null },
+    mensagem_mentoria: { data: [], error: null },
   };
 }
 
 const AGORA = "2026-08-12T00:00:00Z";
+
+function linhaMensagem(parcial: Partial<Record<string, unknown>> = {}) {
+  return {
+    id: "msg-1",
+    direcao: "gestao_para_mentorado",
+    texto: "Que passo faria sentido experimentar esta semana?",
+    criado_em: "2026-08-10T10:00:00Z",
+    ...parcial,
+  };
+}
+
+function linhaContratoDoPortal(parcial: Partial<Record<string, unknown>> = {}) {
+  return {
+    id: "contrato-1",
+    mentorado_id: "ment-1",
+    matricula_id: "mat-1",
+    documento_id: "doc-1",
+    assinado_em: "2026-08-01",
+    vigencia_inicio: "2026-08-01",
+    vigencia_fim: null,
+    status: "assinado",
+    criado_em: "2026-08-01T10:00:00Z",
+    // Este campo representa exatamente o dado que a projeção SQL omite.
+    valor_total: 9999,
+    ...parcial,
+  };
+}
 
 // ============================================================
 // Sem Supabase configurado
@@ -674,6 +710,48 @@ describe("lerPortal — linhaTempo", () => {
     const portal = await lerPortal(AGORA);
 
     expect(portal.linhaTempo).toEqual([]);
+  });
+});
+
+describe("lerPortal — conversa e contrato privados", () => {
+  it("lê somente a conversa da própria ficha e a projeção de contrato liberada, sem valor financeiro", async () => {
+    ligarSupabase();
+    const cliente = ligarCliente(
+      {
+        mentorado: { data: linhaMentorado(), error: null },
+        matricula: { data: [], error: null },
+        sessao_do_portal: { data: [], error: null },
+        ...tabelasVazias(),
+        mensagem_mentoria: { data: [linhaMensagem()], error: null },
+      },
+      { data: "ment-1", error: null },
+      undefined,
+      { contrato_do_portal: { data: [linhaContratoDoPortal()], error: null } }
+    );
+
+    const portal = await lerPortal(AGORA);
+
+    expect(cliente.from).toHaveBeenCalledWith("mensagem_mentoria");
+    expect(cliente.rpc).toHaveBeenCalledWith("contrato_do_portal");
+    expect(portal.mensagens).toEqual([
+      {
+        id: "msg-1",
+        direcao: "gestao_para_mentorado",
+        texto: "Que passo faria sentido experimentar esta semana?",
+        criadoEm: "2026-08-10T10:00:00Z",
+      },
+    ]);
+    expect(portal.contratos).toEqual([
+      {
+        id: "contrato-1",
+        assinadoEm: "2026-08-01",
+        vigenciaInicio: "2026-08-01",
+        vigenciaFim: null,
+        status: "assinado",
+      },
+    ]);
+    expect(JSON.stringify(portal.contratos)).not.toContain("9999");
+    expect(JSON.stringify(portal.contratos)).not.toContain("valor_total");
   });
 });
 

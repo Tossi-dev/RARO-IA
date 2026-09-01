@@ -10,7 +10,7 @@ vi.mock("../supabase/server", () => ({ criarSupabaseServer: criarSupabaseServerM
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
-const { gerarRecorrencia, darBaixaCobranca, cancelarCobranca, registrarContrato } = await import("./acoes-cobranca");
+const { gerarRecorrencia, darBaixaCobranca, cancelarCobranca, registrarContrato, alternarVisibilidadeContrato } = await import("./acoes-cobranca");
 
 type Opcoes = { erroMovimento?: { code?: string } | null; erroCobranca?: { code?: string } | null; erroUpdate?: { code?: string } | null; erroRpc?: { code?: string } | null; documento?: unknown };
 function cliente(opcoes: Opcoes = {}) {
@@ -106,5 +106,14 @@ describe("ações de cobrança", () => {
     const c = ligar({ documento: { categoria: "contrato", ...documento } });
     await registrarContrato(fd({ mentoradoId: "ment-1", documentoId: "doc-1", valorTotal: "100" }));
     expect(c.from).not.toHaveBeenCalledWith("contrato");
+  });
+
+  it("publica o contrato somente por ato explícito e nunca apaga a linha", async () => {
+    const c = ligar();
+    await alternarVisibilidadeContrato(fd({ contratoId: "contrato-1", visivel: "on" }));
+    expect(c.from).toHaveBeenCalledWith("contrato");
+    expect(c.from("contrato").update).toHaveBeenCalledWith({ visivel_portal: true });
+    expect(c.from("contrato").delete).not.toHaveBeenCalled();
+    expect(revalidatePathMock).toHaveBeenCalledWith("/financeiro");
   });
 });

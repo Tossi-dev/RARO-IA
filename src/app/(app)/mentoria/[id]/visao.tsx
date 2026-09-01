@@ -25,6 +25,7 @@ import { Badge, Botao, Campo, Card, Input, PageHeader, ProgressBar, Select, Text
 import type { ListaDocumentos } from "@/lib/documentos/dados";
 import { agendarSessao, darBaixaNaSessao } from "@/lib/mentoria/acoes";
 import { gravarScoreSemanal } from "@/lib/mentoria/acoes-score";
+import { enviarMensagemDaFicha } from "@/lib/mentoria/acoes-mensagem-form";
 import { analisarSessao } from "@/lib/ia/acoes-analise";
 import {
   liberarNoPortalDaFicha,
@@ -846,6 +847,19 @@ export function FichaVisao({
 
       <div className="mt-4">
         <DocumentosDoMentorado mentoradoId={mentorado.id} lista={documentos} />
+      </div>
+
+      <div className="mt-4">
+        <Card titulo="Mensagem privada para o mentorado">
+          <p className="text-sm text-texto-2">
+            Registre uma pergunta ou devolutiva para este mentorado. O sistema guarda a mensagem na conversa privada; não envia WhatsApp, e-mail ou outro canal externo.
+          </p>
+          <form action={enviarMensagemDaFicha} className="mt-3 space-y-2">
+            <input type="hidden" name="mentoradoId" value={mentorado.id} />
+            <TextArea name="texto" rows={3} required maxLength={4000} placeholder="Ex.: O que você percebeu quando essa situação aconteceu?" />
+            <Botao tipo="fantasma">Registrar mensagem privada</Botao>
+          </form>
+        </Card>
       </div>
     </>
   );
