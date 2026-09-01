@@ -76,6 +76,16 @@ export interface EstadoDoOnboarding {
 }
 
 /**
+ * Texto para o profissional usar apenas após a pessoa escolher participar.
+ * Não é enviado, não registra contato e não promete resultado: a ação de
+ * comunicação, se um dia existir, terá contrato e autorização próprios.
+ */
+export function boasVindasDe(consentiu: boolean): string | null {
+  if (consentiu !== true) return null;
+  return "Rascunho interno: a pessoa autorizou esta conversa inicial. Agradeça a confiança e pergunte o que ela gostaria de priorizar nesta jornada.";
+}
+
+/**
  * O responsável de uma etapa. Qualquer coisa fora do enum vira `"mentor"`.
  *
  * O lado seguro aqui não é "esconder", é "não delegar": uma etapa com

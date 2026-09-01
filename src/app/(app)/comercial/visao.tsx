@@ -44,6 +44,7 @@ import {
 } from "@/lib/comercial/acoes-form";
 import type { OportunidadeLida, PipelineDoTime } from "@/lib/comercial/dados";
 import { fmtBRL } from "@/lib/format";
+import { RoteiroPerguntasComercial } from "./roteiro-perguntas";
 
 /** A taxa como texto. `null` é palavra, nunca "0%" — ver o cabeçalho. */
 function taxaEmTexto(taxa: number | null): string {
@@ -209,6 +210,10 @@ export function ComercialVisao({ pipeline, erro = "" }: { pipeline: PipelineDoTi
               ) : null}
             </Card>
           )}
+
+          <div className="mt-4">
+            <RoteiroPerguntasComercial />
+          </div>
 
           <div className="mt-4">
             {ativas.length === 0 ? (

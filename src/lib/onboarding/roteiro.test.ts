@@ -16,6 +16,7 @@
 import { describe, expect, it } from "vitest";
 import {
   estadoDoOnboarding,
+  boasVindasDe,
   responsavelDaEtapa,
   type EtapaDeOnboarding,
   type MarcaDeOnboarding,
@@ -51,6 +52,19 @@ describe("responsavelDaEtapa — fail-closed para o lado do time", () => {
     for (const valor of ["", "MENTOR", " mentorado ", "aluno", null, undefined, 42, ["mentor"], {}]) {
       expect([valor, responsavelDaEtapa(valor)]).toEqual([valor, "mentor"]);
     }
+  });
+});
+
+describe("boasVindasDe — consentimento antes de qualquer rascunho", () => {
+  it("sem consentimento não oferece mensagem nem coleta implícita", () => {
+    expect(boasVindasDe(false)).toBeNull();
+  });
+
+  it("com consentimento devolve somente um rascunho local, sem envio ou promessa", () => {
+    const texto = boasVindasDe(true) ?? "";
+    expect(texto).toContain("autorizou");
+    expect(texto.toLowerCase()).toMatch(/rascunho|interno/);
+    expect(texto.toLowerCase()).not.toMatch(/whatsapp|e-mail|enviado|garantimos/);
   });
 });
 

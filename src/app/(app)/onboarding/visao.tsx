@@ -31,7 +31,7 @@ import { Badge, Botao, Campo, Card, Input, PageHeader, Select, TextArea, Vazio }
 import { useState } from "react";
 import { arquivarEtapaDoForm, reordenarEtapaDoForm, salvarEtapaDoForm } from "@/lib/onboarding/acoes-form";
 import type { OnboardingDoMentorado } from "@/lib/onboarding/dados";
-import { responsavelDaEtapa, type EtapaDeOnboarding } from "@/lib/onboarding/roteiro";
+import { boasVindasDe, responsavelDaEtapa, type EtapaDeOnboarding } from "@/lib/onboarding/roteiro";
 
 const ROTULO_RESPONSAVEL: Record<string, string> = {
   mentor: "Do mentor",
@@ -65,6 +65,7 @@ export function OnboardingEstruturado() {
   const [consentidos, setConsentidos] = useState<Record<Bloco, boolean>>({ mapa: false, objetivo: false, meta: false });
   const [pulados, setPulados] = useState<Record<Bloco, boolean>>({ mapa: false, objetivo: false, meta: false });
   const [respostas, setRespostas] = useState<Respostas>({ mapa: "", objetivo: "", meta: "" });
+  const boasVindas = boasVindasDe(Object.values(consentidos).some(Boolean));
 
   function consentir(bloco: Bloco, valor: boolean) {
     const estado = transicionarBloco(
@@ -132,6 +133,11 @@ export function OnboardingEstruturado() {
       <p className="mb-4 text-sm text-texto-2">
         Responda somente o que fizer sentido. Cada parte é opcional, o consentimento é separado e você pode sair no meio.
       </p>
+      {boasVindas ? (
+        <p className="mb-4 rounded-xl border border-borda-sutil bg-fundo px-3 py-2 text-xs text-texto-2" data-boas-vindas="consentida">
+          {boasVindas}
+        </p>
+      ) : null}
       <div data-abandono-parcial="true" className="space-y-3">
         {bloco("mapa", "Mapa inicial", "O contexto que você autorizar para orientar o atendimento.", "mapa", "O que está acontecendo hoje?")}
         {bloco("objetivo", "Objetivo", "O resultado que você gostaria de construir primeiro.", "objetivo", "O que você quer alcançar?")}
