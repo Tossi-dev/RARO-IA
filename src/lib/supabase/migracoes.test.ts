@@ -4170,6 +4170,8 @@ describe("0038–0040 — atendimento preserva acesso mínimo e projeção segur
     expect(sql).toMatch(/gestao escreve conversa privada[\s\S]*?direcao = 'gestao_para_mentorado'/i);
     expect(sql).toMatch(/alter table public\.contrato add column if not exists visivel_portal boolean not null default false/i);
     expect(sql).toMatch(/and c\.visivel_portal[\s\S]*?d\.visivel_portal and not d\.arquivado/i);
+    expect(sql).toMatch(/revoke all on function public\.contrato_do_portal\(\) from anon/i);
+    expect(sql).toMatch(/grant execute on function public\.contrato_do_portal\(\) to authenticated/i);
     expect(sql).not.toMatch(/\bto\s+anon\b|using\s*\(\s*true\s*\)/i);
   });
 });

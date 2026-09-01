@@ -70,3 +70,9 @@ language sql security definer stable set search_path = public as $$
     and c.visivel_portal
     and (c.documento_id is null or (d.visivel_portal and not d.arquivado));
 $$;
+
+-- `create or replace` preserva grants no Postgres, mas declarar o portão
+-- novamente torna a intenção verificável e não depende desse detalhe.
+revoke all on function public.contrato_do_portal() from public;
+revoke all on function public.contrato_do_portal() from anon;
+grant execute on function public.contrato_do_portal() to authenticated;
