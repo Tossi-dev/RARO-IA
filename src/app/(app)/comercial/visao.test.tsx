@@ -309,3 +309,13 @@ describe("zero emoji", () => {
     expect(achados(render(pipeline({ parcial: true, etapas: [etapa()] })))).toEqual([]);
   });
 });
+
+describe("roteiro comercial interno", () => {
+  it("exige confirmação de consentimento e não oferece envio externo", () => {
+    const html = render(pipeline());
+    expect(html).toContain("Roteiro de descoberta");
+    expect(html).toContain("Confirmo que a pessoa autorizou");
+    expect(html).toContain("não envia mensagens");
+    expect(html.toLowerCase()).not.toMatch(/whatsapp|e-mail|compre agora/);
+  });
+});
