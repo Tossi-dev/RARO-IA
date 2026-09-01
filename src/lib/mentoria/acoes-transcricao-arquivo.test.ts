@@ -15,6 +15,7 @@ function cliente(respostas: Record<string, Resposta> = {}) {
   const upload = vi.fn<(caminho: string, arquivo: Blob, opcoes: { contentType: string; upsert: boolean }) => Promise<{ data: { path: string }; error: null }>>(
     () => Promise.resolve({ data: { path: "ok" }, error: null }),
   );
+  const remove = vi.fn(() => Promise.resolve({ data: [], error: null }));
   const from = vi.fn((tabela: string) => ({
     select: () => {
       const cadeia = {
@@ -27,8 +28,12 @@ function cliente(respostas: Record<string, Resposta> = {}) {
       chamadas.push({ tabela, valores });
       return Promise.resolve({ data: null, error: null });
     },
+    insert: (valores: Record<string, unknown>) => {
+      chamadas.push({ tabela, valores });
+      return Promise.resolve({ data: null, error: null });
+    },
   }));
-  return { from, storage: { from: vi.fn(() => ({ upload })) }, chamadas, upload };
+  return { from, storage: { from: vi.fn(() => ({ upload, remove })) }, chamadas, upload, remove };
 }
 
 function formulario(campos: Record<string, string | File> = {}): FormData {
@@ -86,5 +91,19 @@ describe("vincularAudioDaSessao", () => {
     expect(resultado.ok).toBe(false);
     expect(s.upload).not.toHaveBeenCalled();
     expect(s.chamadas).toEqual([]);
+  });
+
+  it("não substitui silenciosamente uma referência existente nem cria objeto órfão", async () => {
+    const s = cliente({
+      sessao: { data: { id: "ses-1", workspace_id: "ws-1", matricula_id: "mat-1" }, error: null },
+      matricula: { data: { id: "mat-1", mentorado_id: "ment-1" }, error: null },
+      sessao_transcricao_arquivo: { data: { caminho_storage: "ws-1/sessao/ses-1/anterior.mp3" }, error: null },
+    });
+    criarSupabaseServerMock.mockReturnValue(s);
+
+    const resultado = await vincularAudioDaSessao(formulario());
+
+    expect(resultado.ok).toBe(false);
+    expect(s.upload).not.toHaveBeenCalled();
   });
 });

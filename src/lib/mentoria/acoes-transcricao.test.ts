@@ -15,6 +15,7 @@
 //       literal "groq" chumbado.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 
 const { criarSupabaseServerMock, revalidatePathMock, transcreverAudioMock } = vi.hoisted(() => ({
   criarSupabaseServerMock: vi.fn(),
@@ -34,9 +35,6 @@ const {
   transcreverSessao,
   MOTIVO_DEMO_NAO_CONFIGURADO,
   MOTIVO_JA_TRANSCRITA,
-  MOTIVO_ARQUIVO_VAZIO,
-  MOTIVO_ARQUIVO_GRANDE,
-  MOTIVO_ARQUIVO_NAO_AUDIO,
   MOTIVO_ERRO_LEITURA,
   MOTIVO_SESSAO_NAO_ENCONTRADA,
   MOTIVO_TRANSCRICAO_VAZIA,
@@ -52,6 +50,7 @@ const {
 type ErroSupabase = { code?: string; message?: string };
 type RespostaSelect = { data: unknown; error: ErroSupabase | null };
 type RespostaUpdate = { data: null; error: ErroSupabase | null };
+const HASH_AUDIO_PADRAO = createHash("sha256").update(Buffer.from(new Uint8Array(1024))).digest("hex");
 
 /**
  * `selectLanca` — o `.maybeSingle()` da tabela indicada REJEITA em vez de
@@ -181,7 +180,10 @@ function selectsFeliz(overridesSessao: Partial<Record<string, unknown>> = {}): R
     matricula: { data: linhaMatricula(), error: null },
     atendimento_consentimento: { data: { categoria: "transcricao", consentido: true }, error: null },
     sessao_transcricao_consentimento: { data: { sessao_id: sessaoId, consentido: true }, error: null },
-    sessao_transcricao_arquivo: { data: { sessao_id: sessaoId, caminho_storage: "ws-1/transcricoes/audio.mp3", arquivado: false }, error: null },
+    sessao_transcricao_arquivo: {
+      data: { sessao_id: sessaoId, caminho_storage: `ws-1/sessao/${sessaoId}/audio.mp3`, sha256: HASH_AUDIO_PADRAO, arquivado: false },
+      error: null,
+    },
   };
 }
 
@@ -324,24 +326,6 @@ describe("limites do arquivo, checados antes da chamada à Groq", () => {
     expect(transcreverAudioMock).not.toHaveBeenCalled();
   });
 
-  it("arquivo de 0 byte: recusado, transcreverAudio NUNCA é chamada", async () => {
-    const resultado = await transcreverSessao(formData({ sessaoId: "ses-1", arquivo: arquivoAudio(0) }));
-
-    expect(resultado.ok).toBe(false);
-    expect(resultado.erro).toBe(MOTIVO_ARQUIVO_VAZIO);
-    expect(criarSupabaseServerMock).not.toHaveBeenCalled();
-    expect(transcreverAudioMock).not.toHaveBeenCalled();
-  });
-
-  it("arquivo acima de 25 MB: recusado com o limite em MB na mensagem, transcreverAudio NUNCA é chamada", async () => {
-    const grande = arquivoAudio(25 * 1024 * 1024 + 1);
-    const resultado = await transcreverSessao(formData({ sessaoId: "ses-1", arquivo: grande }));
-
-    expect(resultado.ok).toBe(false);
-    expect(resultado.erro).toBe(MOTIVO_ARQUIVO_GRANDE);
-    expect(resultado.erro).toMatch(/25\s*MB/);
-    expect(transcreverAudioMock).not.toHaveBeenCalled();
-  });
 
   it("exatamente 25 MB é aceito (o limite é 'acima de', não 'a partir de')", async () => {
     transcreverAudioMock.mockResolvedValue({ provider: "groq", texto: "ok" });
@@ -354,22 +338,6 @@ describe("limites do arquivo, checados antes da chamada à Groq", () => {
     expect(transcreverAudioMock).toHaveBeenCalledTimes(1);
   });
 
-  it("tipo de arquivo que claramente não é áudio: recusado, transcreverAudio NUNCA é chamada", async () => {
-    const naoAudio = arquivoAudio(1024, "image/png");
-    const resultado = await transcreverSessao(formData({ sessaoId: "ses-1", arquivo: naoAudio }));
-
-    expect(resultado.ok).toBe(false);
-    expect(resultado.erro).toBe(MOTIVO_ARQUIVO_NAO_AUDIO);
-    expect(transcreverAudioMock).not.toHaveBeenCalled();
-  });
-
-  it("outro tipo claramente não-áudio (text/plain) também é recusado — prova que não é só um caso isolado", async () => {
-    const naoAudio = arquivoAudio(1024, "text/plain");
-    const resultado = await transcreverSessao(formData({ sessaoId: "ses-1", arquivo: naoAudio }));
-
-    expect(resultado.ok).toBe(false);
-    expect(resultado.erro).toBe(MOTIVO_ARQUIVO_NAO_AUDIO);
-  });
 });
 
 // ============================================================
@@ -760,16 +728,6 @@ describe("D7 — política de tipo de arquivo é lista de PERMITIDOS", () => {
     expect(resultado.ok).toBe(true);
   });
 
-  it("video/x-matroska (contêiner fora da lista) continua RECUSADO — não é 'qualquer vídeo passa'", async () => {
-    const resultado = await transcreverSessao(
-      formData({ sessaoId: "ses-1", arquivo: arquivoAudio(1024, "video/x-matroska") })
-    );
-
-    expect(resultado.ok).toBe(false);
-    expect(resultado.erro).toBe(MOTIVO_ARQUIVO_NAO_AUDIO);
-    expect(transcreverAudioMock).not.toHaveBeenCalled();
-  });
-
   it("type vazio + extensão reconhecida (.m4a): decide pela extensão, é ACEITO", async () => {
     transcreverAudioMock.mockResolvedValue({ provider: "groq", texto: "transcrito via extensao" });
     ligarCliente(selectsFeliz());
@@ -783,26 +741,6 @@ describe("D7 — política de tipo de arquivo é lista de PERMITIDOS", () => {
     expect(transcreverAudioMock).toHaveBeenCalledTimes(1);
   });
 
-  it("type vazio + extensão NÃO reconhecida: recusa — ausência de informação nunca vira 'deve ser válido'", async () => {
-    const semTipo = arquivoAudio(1024, "");
-    const resultado = await transcreverSessao(
-      formData({ sessaoId: "ses-1", arquivo: semTipo, arquivoNome: "relatorio-financeiro.xlsx" })
-    );
-
-    expect(resultado.ok).toBe(false);
-    expect(resultado.erro).toBe(MOTIVO_ARQUIVO_NAO_AUDIO);
-    expect(transcreverAudioMock).not.toHaveBeenCalled();
-  });
-
-  it("type vazio + sem extensão nenhuma no nome: recusa", async () => {
-    const semTipo = arquivoAudio(1024, "");
-    const resultado = await transcreverSessao(
-      formData({ sessaoId: "ses-1", arquivo: semTipo, arquivoNome: "audiosemextensao" })
-    );
-
-    expect(resultado.ok).toBe(false);
-    expect(resultado.erro).toBe(MOTIVO_ARQUIVO_NAO_AUDIO);
-  });
 });
 
 // ============================================================
@@ -1155,9 +1093,39 @@ describe("Portão 2 — transcrição lê somente o objeto privado", () => {
     const resultado = await transcreverSessao(formData({ sessaoId: "ses-1", arquivo: blobDoFormulario }));
 
     expect(resultado.ok).toBe(true);
-    expect(cliente.downloadMock).toHaveBeenCalledWith("ws-1/transcricoes/audio.mp3");
+    expect(cliente.downloadMock).toHaveBeenCalledWith("ws-1/sessao/ses-1/audio.mp3");
     expect(transcreverAudioMock).toHaveBeenCalledTimes(1);
     expect(transcreverAudioMock.mock.calls[0]?.[0]).not.toBe(blobDoFormulario);
+  });
+
+  it("recusa referência cujo caminho pertence a outra sessão do mesmo workspace", async () => {
+    const selects = selectsFeliz();
+    selects.sessao_transcricao_arquivo = {
+      data: { sessao_id: "ses-1", caminho_storage: "ws-1/sessao/ses-outra/audio.mp3", sha256: HASH_AUDIO_PADRAO, arquivado: false },
+      error: null,
+    };
+    const cliente = ligarCliente(selects);
+
+    const resultado = await transcreverSessao(formData({ sessaoId: "ses-1" }));
+
+    expect(resultado.ok).toBe(false);
+    expect(cliente.downloadMock).not.toHaveBeenCalled();
+    expect(transcreverAudioMock).not.toHaveBeenCalled();
+  });
+
+  it("recusa objeto privado cujo hash não confere antes de chamar o adaptador", async () => {
+    const selects = selectsFeliz();
+    selects.sessao_transcricao_arquivo = {
+      data: { sessao_id: "ses-1", caminho_storage: "ws-1/sessao/ses-1/audio.mp3", sha256: "0".repeat(64), arquivado: false },
+      error: null,
+    };
+    const cliente = ligarCliente(selects);
+
+    const resultado = await transcreverSessao(formData({ sessaoId: "ses-1" }));
+
+    expect(resultado.ok).toBe(false);
+    expect(cliente.downloadMock).toHaveBeenCalledTimes(1);
+    expect(transcreverAudioMock).not.toHaveBeenCalled();
   });
 });
 

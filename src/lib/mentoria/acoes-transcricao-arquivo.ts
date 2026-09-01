@@ -14,6 +14,7 @@ const MOTIVO_SESSAO_INVALIDA = "Sessão inválida.";
 const MOTIVO_SESSAO_NAO_ENCONTRADA = "Sessão não encontrada.";
 const MOTIVO_ERRO_LEITURA = "Não foi possível carregar os dados da sessão agora. Tente novamente em instantes.";
 const MOTIVO_ERRO_ENVIO = "Não foi possível vincular o áudio privado agora. Tente novamente em instantes.";
+const MOTIVO_AUDIO_JA_VINCULADO = "Esta sessão já tem um áudio privado vinculado. Não substitua o registro sem arquivamento explícito.";
 
 export type ResultadoVinculoAudio = { ok: true } | { ok: false; erro: string };
 
@@ -106,6 +107,20 @@ export async function vincularAudioDaSessao(formData: FormData): Promise<Resulta
       return { ok: false, erro: MOTIVO_ERRO_ENVIO };
     }
 
+    // Não sobrescrevemos a referência única: trocar o caminho criaria um
+    // objeto anterior sem trilha. Arquivamento/substituição é fluxo próprio.
+    const { data: referenciaExistenteData, error: erroReferenciaExistente } = await s
+      .from("sessao_transcricao_arquivo")
+      .select("caminho_storage")
+      .eq("sessao_id", entrada.data.sessaoId)
+      .maybeSingle();
+    if (erroReferenciaExistente) {
+      avisar("referencia/existente", erroReferenciaExistente);
+      return { ok: false, erro: MOTIVO_ERRO_LEITURA };
+    }
+    const caminhoExistente = texto(linha(referenciaExistenteData)?.caminho_storage);
+    if (caminhoExistente !== "") return { ok: false, erro: MOTIVO_AUDIO_JA_VINCULADO };
+
     const caminho = caminhoPrivado(workspaceId, entrada.data.sessaoId, arquivo.nome);
     const { error: erroUpload } = await s.storage
       .from(BUCKET_TRANSCRICOES)
@@ -117,12 +132,14 @@ export async function vincularAudioDaSessao(formData: FormData): Promise<Resulta
 
     const { error: erroReferencia } = await s
       .from("sessao_transcricao_arquivo")
-      .upsert(
-        { ...base, caminho_storage: caminho, sha256: await sha256(arquivo.blob), mime: arquivo.blob.type, bytes: arquivo.blob.size, arquivado: false },
-        { onConflict: "workspace_id,sessao_id" },
-      );
+      .insert({ ...base, caminho_storage: caminho, sha256: await sha256(arquivo.blob), mime: arquivo.blob.type, bytes: arquivo.blob.size, arquivado: false });
     if (erroReferencia) {
       avisar("referencia", erroReferencia);
+      // Este é o único delete permitido no fluxo: o objeto acabou de ser
+      // criado nesta tentativa e não ganhou referência auditável. A chave é
+      // aleatória e exata; falhar ao limpar não mascara a falha original.
+      const { error: erroLimpeza } = await s.storage.from(BUCKET_TRANSCRICOES).remove([caminho]);
+      if (erroLimpeza) avisar("referencia/limpeza", erroLimpeza);
       return { ok: false, erro: MOTIVO_ERRO_ENVIO };
     }
     return { ok: true };

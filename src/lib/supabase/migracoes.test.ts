@@ -4151,8 +4151,10 @@ describe("0038–0040 — atendimento preserva acesso mínimo e projeção segur
     expect(sql).toMatch(/unique\s*\(workspace_id, sessao_id\)/i);
     expect(sql).toMatch(/create table if not exists public\.sessao_transcricao_arquivo[\s\S]*?sessao_id uuid not null references public\.sessao/i);
     expect(sql).toMatch(/caminho_storage text not null[\s\S]*?sha256 text not null/i);
+    expect(sql).toMatch(/caminho_storage like workspace_id::text \|\| '\/sessao\/' \|\| sessao_id::text \|\| '\/%'/i);
     expect(sql).toMatch(/insert into storage\.buckets \(id, name, public\)[\s\S]*?'transcricoes', 'transcricoes', false/i);
     expect(sql).toMatch(/bucket_id = 'transcricoes'[\s\S]*?storage\.foldername\(name\)\)\[1\] = public\.workspace_atual\(\)::text/is);
+    expect(sql).toMatch(/create policy "transcricoes gestao remove orphan" on storage\.objects for delete/i);
     expect(sql).not.toMatch(/\bto\s+anon\b|using\s*\(\s*true\s*\)/i);
   });
 });
