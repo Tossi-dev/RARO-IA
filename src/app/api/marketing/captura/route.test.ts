@@ -44,8 +44,8 @@ describe("POST /api/marketing/captura", () => {
 
   it("barra a segunda captura imediata do mesmo IP", async () => {
     limitarCaptura.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
-    const primeira = await POST(requisicao({ email: "lead@exemplo.com" }));
-    const segunda = await POST(requisicao({ email: "lead@exemplo.com" }));
+    const primeira = await POST(requisicao({ email: "lead@exemplo.com", consentimentoMarketing: true }));
+    const segunda = await POST(requisicao({ email: "lead@exemplo.com", consentimentoMarketing: true }));
 
     expect(primeira.status).toBe(201);
     expect(segunda.status).toBe(429);
@@ -54,7 +54,7 @@ describe("POST /api/marketing/captura", () => {
 
   it("falha fechada sem Redis e não persiste captura", async () => {
     limitarCaptura.mockResolvedValueOnce(null);
-    const resposta = await POST(requisicao({ email: "lead@exemplo.com" }));
+    const resposta = await POST(requisicao({ email: "lead@exemplo.com", consentimentoMarketing: true }));
 
     expect(resposta.status).toBe(503);
     expect(rpc).not.toHaveBeenCalled();
@@ -65,6 +65,7 @@ describe("POST /api/marketing/captura", () => {
       requisicao({
         nome: "Ada",
         email: "ada@exemplo.com",
+        consentimentoMarketing: true,
         pagina: "/diagnostico",
         utm_source: "Instagram",
       })
@@ -83,5 +84,15 @@ describe("POST /api/marketing/captura", () => {
       p_utm_term: "",
       p_pagina: "/diagnostico",
     });
+  });
+
+  it("sem consentimento ou com cancelamento não limita, não persiste e não inicia envio", async () => {
+    const semConsentimento = await POST(requisicao({ email: "lead@exemplo.com" }));
+    const cancelado = await POST(requisicao({ email: "lead@exemplo.com", consentimentoMarketing: true, cancelarMarketing: true }));
+
+    expect(semConsentimento.status).toBe(403);
+    expect(cancelado.status).toBe(204);
+    expect(limitarCaptura).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
   });
 });
