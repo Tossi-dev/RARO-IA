@@ -38,3 +38,12 @@ sintético foi persistido.
 ## Correção autorizada no loop
 
 A continuação autorizada cobre a migration `0043_corrigir_trigger_referencias_atendimento` e seu espelho executável. Ela substitui somente a função de validação já existente: separa os ramos de `atendimento_passo` e `atendimento_grafo_relacao`, preserva `security definer`, `search_path` fixo e as revogações. Não altera tabelas, RLS, permissões, dados reais ou Storage.
+
+## Execução autenticada
+
+A migration 0043 foi aplicada no MentorOS main e a criação atômica passou. A
+verificação pós-escrita confirmou: um programa, matrícula, sessão, metadado de
+documento arquivado/invisível, mapa, meta, passo, mensagem, contrato de valor
+zero e relação entre dois nós; os três consentimentos foram criados. Falta
+somente a visita manual pelas contas sintéticas no app local, pois as senhas
+nunca são lidas ou digitadas pelo agente.
