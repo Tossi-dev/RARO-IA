@@ -1082,6 +1082,7 @@ describe("agenda e transcrição na sessão", () => {
     expect(visaoGeral).toContain('name="arquivo"');
     expect(visaoGeral).toContain("Vincular áudio privado");
     expect(visaoGeral).toContain('name="confirmarConsentimento"');
+    expect(visaoGeral).toContain("Transcrever áudio vinculado");
     expect(visaoGeral).toContain("consentimento explícito");
     expect(visaoGeral).not.toContain('name="audio"');
   });

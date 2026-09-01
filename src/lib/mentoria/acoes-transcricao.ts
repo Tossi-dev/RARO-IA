@@ -92,8 +92,8 @@
 // registrada, não esquecimento.
 //
 // A SESSÃO VEM DO BANCO, NUNCA DO FORMULÁRIO. Esta ação lê do `formData`
-// SÓ TRÊS campos: `sessaoId`, `arquivo` (o áudio) e `substituir` (a flag de
-// sobrescrita). Qualquer `workspaceId`, `mentoradoId` ou outro campo de
+// somente `sessaoId` e `substituir` (a flag de sobrescrita). O áudio vem da
+// referência privada já vinculada à sessão. Qualquer `workspaceId`, `mentoradoId` ou outro campo de
 // identidade que o formulário tente mandar junto é ignorado — quem decide
 // se esta sessão pertence a este workspace é a política de RLS de
 // `public.sessao` (mesma disciplina do cabeçalho de `acoes.ts` e
@@ -200,6 +200,7 @@
 // sinalização que só ele sabe tratar. Ver `relancarSeForBailoutDoNext`.
 
 import { revalidatePath } from "next/cache";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { criarSupabaseServer } from "../supabase/server";
 import { transcreverAudio } from "../integracoes/stt";
@@ -244,6 +245,7 @@ const MOTIVO_ERRO_GRAVAR = "A transcrição foi gerada, mas não foi possível s
 const MOTIVO_ERRO_INESPERADO = "Não foi possível transcrever esta sessão agora. Tente novamente em instantes.";
 const MOTIVO_ERRO_TRANSCREVER = "Não foi possível transcrever este áudio agora. Tente novamente em instantes.";
 const MOTIVO_AUDIO_NAO_VINCULADO = "Vincule primeiro um áudio privado a esta sessão.";
+const MOTIVO_AUDIO_ALTERADO = "O áudio privado não passou na verificação de integridade. Vincule-o novamente antes de transcrever.";
 
 const MOTIVO_ARQUIVO_AUSENTE = "Selecione um arquivo de áudio para transcrever.";
 export const MOTIVO_ARQUIVO_VAZIO = "O arquivo de áudio está vazio.";
@@ -514,8 +516,17 @@ const TranscreverSchema = z.object({
   sessaoId: z.string().trim().min(1, MOTIVO_SESSAO_INVALIDA).max(100, MOTIVO_SESSAO_NAO_ENCONTRADA),
 });
 
+function caminhoPertenceASessao(caminho: string, workspaceId: unknown, sessaoId: string): boolean {
+  const workspace = typeof workspaceId === "string" ? workspaceId.trim() : "";
+  return workspace !== "" && caminho.startsWith(`${workspace}/sessao/${sessaoId}/`);
+}
+
+async function hashDoBlob(arquivo: Blob): Promise<string> {
+  return createHash("sha256").update(Buffer.from(await arquivo.arrayBuffer())).digest("hex");
+}
+
 export async function transcreverSessao(formData: FormData): Promise<ResultadoTranscricao> {
-  // ÚNICOS três campos lidos do formulário — ver cabeçalho deste arquivo.
+  // Campos de controle lidos do formulário — ver cabeçalho deste arquivo.
   // Qualquer `workspaceId`, `mentoradoId` ou outro campo de identidade é
   // ignorado: nem é lido aqui, quanto mais usado numa consulta.
   const resultadoValidacao = TranscreverSchema.safeParse({
@@ -529,14 +540,6 @@ export async function transcreverSessao(formData: FormData): Promise<ResultadoTr
   // "true", "sim", "on" ou qualquer outra coisa NÃO conta (decisão 5 do
   // plano: um único caminho, sem ambiguidade de formato).
   const substituir = String(formData.get("substituir") ?? "") === "1";
-
-  // Compatibilidade defensiva: a transcrição não usa mais este campo, mas um
-  // cliente que ainda o envie não pode usar um tipo inválido para alcançar o
-  // restante do fluxo. A ausência é aceita porque o objeto vem do Storage.
-  if (formData.has("arquivo")) {
-    const arquivoLegado = validarArquivo(formData.get("arquivo"));
-    if (!arquivoLegado.ok) return arquivoLegado;
-  }
 
   try {
     const s = criarSupabaseServer();
@@ -579,7 +582,7 @@ export async function transcreverSessao(formData: FormData): Promise<ResultadoTr
     // a referência privada criada pela ação de vínculo, no mesmo `sessaoId`.
     const { data: referenciaData, error: erroReferencia } = await s
       .from("sessao_transcricao_arquivo")
-      .select("sessao_id, caminho_storage, arquivado")
+      .select("sessao_id, caminho_storage, sha256, arquivado")
       .eq("sessao_id", sessaoId)
       .maybeSingle();
     if (erroReferencia) {
@@ -588,13 +591,22 @@ export async function transcreverSessao(formData: FormData): Promise<ResultadoTr
     }
     const referencia = comoRow(referenciaData);
     const caminhoStorage = typeof referencia?.caminho_storage === "string" ? referencia.caminho_storage.trim() : "";
-    if (referencia?.sessao_id !== sessaoId || referencia.arquivado === true || caminhoStorage === "") {
+    const hashEsperado = typeof referencia?.sha256 === "string" ? referencia.sha256.trim().toLowerCase() : "";
+    if (
+      referencia?.sessao_id !== sessaoId ||
+      referencia.arquivado === true ||
+      !caminhoPertenceASessao(caminhoStorage, sessaoRow.workspace_id, sessaoId) ||
+      !/^[a-f0-9]{64}$/.test(hashEsperado)
+    ) {
       return { ok: false, erro: MOTIVO_AUDIO_NAO_VINCULADO };
     }
     const { data: audioPrivado, error: erroDownload } = await s.storage.from("transcricoes").download(caminhoStorage);
     if (erroDownload || !(audioPrivado instanceof Blob)) {
-      avisar("referencia/download", erroDownload ?? "blob ausente");
+      avisar("referencia/download", erroDownload ? "storage" : "blob ausente");
       return { ok: false, erro: MOTIVO_ERRO_LEITURA };
+    }
+    if ((await hashDoBlob(audioPrivado)) !== hashEsperado) {
+      return { ok: false, erro: MOTIVO_AUDIO_ALTERADO };
     }
 
     // Sessão já transcrita + sem `substituir=1` → recusa AQUI, antes de

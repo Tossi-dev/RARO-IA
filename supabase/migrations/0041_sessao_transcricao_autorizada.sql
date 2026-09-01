@@ -26,7 +26,7 @@ create table if not exists public.sessao_transcricao_arquivo (
   arquivado boolean not null default false,
   unique (workspace_id, sessao_id),
   unique (caminho_storage),
-  check (caminho_storage like workspace_id::text || '/%')
+  check (caminho_storage like workspace_id::text || '/sessao/' || sessao_id::text || '/%')
 );
 
 create or replace function public.validar_sessao_transcricao_referencias()
@@ -67,3 +67,4 @@ insert into storage.buckets (id, name, public) values ('transcricoes', 'transcri
 create policy "transcricoes gestao le" on storage.objects for select to authenticated using (bucket_id = 'transcricoes' and (storage.foldername(name))[1] = public.workspace_atual()::text and public.papel_atual() in ('dono', 'gestor'));
 create policy "transcricoes gestao envia" on storage.objects for insert to authenticated with check (bucket_id = 'transcricoes' and (storage.foldername(name))[1] = public.workspace_atual()::text and public.papel_atual() in ('dono', 'gestor'));
 create policy "transcricoes gestao atualiza" on storage.objects for update to authenticated using (bucket_id = 'transcricoes' and (storage.foldername(name))[1] = public.workspace_atual()::text and public.papel_atual() in ('dono', 'gestor')) with check (bucket_id = 'transcricoes' and (storage.foldername(name))[1] = public.workspace_atual()::text and public.papel_atual() in ('dono', 'gestor'));
+create policy "transcricoes gestao remove orphan" on storage.objects for delete to authenticated using (bucket_id = 'transcricoes' and (storage.foldername(name))[1] = public.workspace_atual()::text and public.papel_atual() in ('dono', 'gestor'));

@@ -470,6 +470,14 @@ function AgendaETranscricaoDaSessao({
           </label>
           <Botao tipo="fantasma">Vincular áudio privado</Botao>
         </form>
+        <form action={transcreverSessaoDaFicha} className="space-y-2 border-t border-borda-sutil pt-2">
+          <input type="hidden" name="mentoradoId" value={mentoradoId} />
+          <input type="hidden" name="sessaoId" value={sessao.id} />
+          <p className="text-xs text-texto-2">
+            Depois do vínculo, envie somente o áudio privado registrado nesta sessão para transcrição. O resultado continua privado para revisão profissional.
+          </p>
+          <Botao tipo="fantasma">Transcrever áudio vinculado</Botao>
+        </form>
       </div>
 
       <div className="space-y-2 border-t border-borda-sutil pt-2">
