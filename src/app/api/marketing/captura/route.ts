@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { lerUtm } from "@/lib/marketing/utm";
 import { limitarCaptura } from "@/lib/marketing/rate-limit";
+import { decisaoDeContato } from "@/lib/marketing/consentimento";
 
 const CORPO_MAXIMO_BYTES = 200 * 1024;
 
@@ -51,6 +52,12 @@ export async function POST(requisicao: Request) {
   const email = texto(corpo.email, 254, true);
   const telefone = texto(corpo.telefone, 40);
   if (!email && !telefone) return NextResponse.json({ erro: "contato obrigatório" }, { status: 400 });
+
+  const decisao = decisaoDeContato(corpo.consentimentoMarketing === true, corpo.cancelarMarketing === true);
+  // Cancelar vence qualquer consentimento. Não há envio ativo e, por isso,
+  // não registramos nem limitamos uma captura que a pessoa acabou de negar.
+  if (corpo.cancelarMarketing === true) return new NextResponse(null, { status: 204 });
+  if (!decisao.podeCapturar) return NextResponse.json({ erro: "consentimento necessário" }, { status: 403 });
 
   const permitido = await limitarCaptura(ipDaRequisicao(requisicao));
   if (permitido === null) return NextResponse.json({ erro: "serviço indisponível" }, { status: 503 });
