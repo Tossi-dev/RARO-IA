@@ -12,6 +12,7 @@ out/
 *.key
 *.pem
 secret-*.txt
+*.tsbuildinfo
 
 # vercel
 .vercel/
