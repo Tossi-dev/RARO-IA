@@ -102,6 +102,25 @@ import type {
    adiante com `as Tipo`. */
 type Row = Record<string, any>;
 
+export type DirecaoMensagemDoPortal = "gestao_para_mentorado" | "mentorado_para_gestao";
+
+/** Projeção mínima da conversa: sem autor, workspace ou metadados internos. */
+export interface MensagemDoPortal {
+  id: string;
+  direcao: DirecaoMensagemDoPortal;
+  texto: string;
+  criadoEm: string;
+}
+
+/** A função SQL já omite valor_total; esta interface não tem como expô-lo. */
+export interface ContratoDoPortal {
+  id: string;
+  assinadoEm: string | null;
+  vigenciaInicio: string | null;
+  vigenciaFim: string | null;
+  status: "pendente" | "assinado" | "encerrado" | "cancelado";
+}
+
 // ============================================================
 // Contrato
 // ============================================================
@@ -126,6 +145,8 @@ export interface Portal {
   /** Ordem cronológica CRESCENTE — é série temporal, gráfico ao contrário mente. */
   scores: ScoreEvolucao[];
   conteudos: ConteudoLiberado[];
+  mensagens: MensagemDoPortal[];
+  contratos: ContratoDoPortal[];
 
   /**
    * A jornada do mentorado em ordem, já PASSADA PELO PORTÃO PÚBLICO.
@@ -168,6 +189,8 @@ function portalDesconectado(motivo: string): Portal {
     marcos: [],
     scores: [],
     conteudos: [],
+    mensagens: [],
+    contratos: [],
     linhaTempo: [],
   };
 }
@@ -189,6 +212,8 @@ function portalSemMentorado(): Portal {
     marcos: [],
     scores: [],
     conteudos: [],
+    mensagens: [],
+    contratos: [],
     linhaTempo: [],
   };
 }
@@ -252,6 +277,41 @@ function quandoOuLimite(iso: string, limiteQuandoInvalido: number): number {
   return Number.isFinite(t) ? t : limiteQuandoInvalido;
 }
 
+function textoSeguro(valor: unknown): string {
+  return typeof valor === "string" ? valor.trim() : "";
+}
+
+function textoSeguroOuNulo(valor: unknown): string | null {
+  const normalizado = textoSeguro(valor);
+  return normalizado === "" ? null : normalizado;
+}
+
+function mensagemDoPortal(linha: Row): MensagemDoPortal | null {
+  const direcao = textoSeguro(linha.direcao);
+  if (direcao !== "gestao_para_mentorado" && direcao !== "mentorado_para_gestao") return null;
+
+  const id = textoSeguro(linha.id);
+  const conteudo = textoSeguro(linha.texto);
+  const criadoEm = textoSeguro(linha.criado_em);
+  if (id === "" || conteudo === "" || criadoEm === "") return null;
+  return { id, direcao, texto: conteudo, criadoEm };
+}
+
+function contratoDoPortal(linha: Row): ContratoDoPortal | null {
+  const status = textoSeguro(linha.status);
+  if (status !== "pendente" && status !== "assinado" && status !== "encerrado" && status !== "cancelado") return null;
+
+  const id = textoSeguro(linha.id);
+  if (id === "") return null;
+  return {
+    id,
+    assinadoEm: textoSeguroOuNulo(linha.assinado_em),
+    vigenciaInicio: textoSeguroOuNulo(linha.vigencia_inicio),
+    vigenciaFim: textoSeguroOuNulo(linha.vigencia_fim),
+    status,
+  };
+}
+
 /**
  * Ordem das tarefas (regra 7 do enunciado): não concluídas primeiro; dentro
  * de cada grupo (concluída/não concluída), por prazo crescente, com prazo
@@ -303,14 +363,14 @@ export async function lerPortal(agoraIso: string): Promise<Portal> {
       return portalSemMentorado();
     }
 
-    // As sete consultas abaixo, em paralelo — escala pequena de propósito
+    // As nove leituras abaixo, em paralelo — escala pequena de propósito
     // (mesmo comentário de `dados.ts`: dezenas de linhas, não milhares).
     // Cada `.eq(..., meuId)` é o filtro de CONVENIÊNCIA descrito no topo do
     // arquivo: evita puxar dado de outros mentorados para jogar fora depois
     // em memória. Quem de fato impede vazamento é a política de RLS de
     // cada tabela (grupo 3 do 0007/0008), reavaliada pelo Postgres nesta
     // mesma consulta, com ou sem este `.eq`.
-    const [mentoradoRes, matriculasRes, sessoesRes, tarefasRes, marcosRes, scoresRes, conteudosRes] =
+    const [mentoradoRes, matriculasRes, sessoesRes, tarefasRes, marcosRes, scoresRes, conteudosRes, mensagensRes, contratosRes] =
       await Promise.all([
         s.from("mentorado").select("*").eq("id", meuId).maybeSingle(),
         s.from("matricula").select("*, programa(*)").eq("mentorado_id", meuId),
@@ -347,6 +407,17 @@ export async function lerPortal(agoraIso: string): Promise<Portal> {
         s.from("marco").select("*").eq("mentorado_id", meuId),
         s.from("score_evolucao").select("*").eq("mentorado_id", meuId),
         s.from("conteudo_liberado").select("*").eq("mentorado_id", meuId),
+        // Conversa individual: o filtro só economiza leitura; a RLS 0042 é
+        // a barreira que impede que uma identidade leia outra conversa.
+        s
+          .from("mensagem_mentoria")
+          .select("id, direcao, texto, criado_em")
+          .eq("mentorado_id", meuId)
+          .order("criado_em", { ascending: true }),
+        // Projeção security-definer: devolve somente contratos liberados e
+        // nunca `valor_total`. Não consultar `contrato` diretamente evita
+        // transformar um detalhe financeiro em dado do portal.
+        s.rpc("contrato_do_portal"),
       ]);
 
     const erro =
@@ -356,7 +427,9 @@ export async function lerPortal(agoraIso: string): Promise<Portal> {
       tarefasRes.error ??
       marcosRes.error ??
       scoresRes.error ??
-      conteudosRes.error;
+      conteudosRes.error ??
+      mensagensRes.error ??
+      contratosRes.error;
 
     if (erro) {
       avisar("lerPortal", erro);
@@ -407,6 +480,12 @@ export async function lerPortal(agoraIso: string): Promise<Portal> {
       .sort((a, b) => quandoOuLimite(a.semana, -Infinity) - quandoOuLimite(b.semana, -Infinity));
 
     const conteudos = ((conteudosRes.data ?? []) as Row[]).map(linhaParaConteudoLiberado);
+    const mensagens = ((mensagensRes.data ?? []) as Row[])
+      .map(mensagemDoPortal)
+      .filter((mensagem): mensagem is MensagemDoPortal => mensagem !== null);
+    const contratos = ((contratosRes.data ?? []) as Row[])
+      .map(contratoDoPortal)
+      .filter((contrato): contrato is ContratoDoPortal => contrato !== null);
 
     // A linha do tempo. Entram só as entidades que o portal já mostra em
     // outros cards -- e ainda assim tudo passa por `projetarParaPortal`.
@@ -433,6 +512,8 @@ export async function lerPortal(agoraIso: string): Promise<Portal> {
       marcos,
       scores,
       conteudos,
+      mensagens,
+      contratos,
       linhaTempo,
     };
   } catch (excecao) {

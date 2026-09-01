@@ -67,6 +67,7 @@ vi.mock("@/lib/mentoria/acoes-ficha", () => ({
 
 vi.mock("@/lib/mentoria/acoes-score", () => ({ gravarScoreSemanal: vi.fn() }));
 vi.mock("@/lib/ia/acoes-analise", () => ({ analisarSessao: vi.fn() }));
+vi.mock("@/lib/mentoria/acoes-mensagem-form", () => ({ enviarMensagemDaFicha: vi.fn() }));
 
 // Mesma razão, para o bloco de documentos que a ficha passou a montar
 // (Tarefa 12): `./documentos` só referencia as três Server Actions como

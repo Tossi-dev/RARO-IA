@@ -16,6 +16,7 @@ import Link from "next/link";
 import { Badge, Botao, Card, PageHeader, ProgressBar, Vazio, cx, type Tom } from "@/components/ui";
 import { sair } from "@/lib/actions";
 import { concluirTarefa, reabrirTarefa } from "@/lib/mentoria/acoes-portal";
+import { enviarMensagemDoPortal } from "@/lib/mentoria/acoes-mensagem-form";
 import type { MeuFeed } from "@/lib/feed/dados";
 import type { MeuOnboarding } from "@/lib/onboarding/dados";
 import type { Portal } from "@/lib/mentoria/portal";
@@ -269,6 +270,11 @@ export function PortalVisao({
   const programa = programaAtual(portal.matriculas);
   const variacao = portal.scores.length >= 2 ? variacaoScore(portal.scores) : null;
   const ultimoScore = portal.scores.length > 0 ? portal.scores[portal.scores.length - 1] : null;
+  // Compatibilidade temporária com as prévias antigas: o contrato atual
+  // sempre entrega os dois campos, mas uma prévia gravada antes da T-088 não
+  // pode derrubar a tela enquanto é atualizada.
+  const mensagens = portal.mensagens ?? [];
+  const contratos = portal.contratos ?? [];
 
   // MÉDIO 5 da auditoria — `erro` NUNCA é renderizado direto. Antes desta
   // correção, o texto cru da URL aparecia dentro do banner oficial do
@@ -396,6 +402,58 @@ export function PortalVisao({
             </ul>
           ) : (
             <Vazio>Nenhuma tarefa combinada por aqui, por enquanto.</Vazio>
+          )}
+        </Card>
+
+        <Card titulo="Conversa com seu mentor">
+          {mensagens.length ? (
+            <ul className="space-y-2">
+              {mensagens.map((mensagem) => (
+                <li key={mensagem.id} className="rounded-lg border border-borda-sutil bg-poco px-3 py-2.5 text-sm">
+                  <p className="text-xs font-medium text-texto-2">
+                    {mensagem.direcao === "gestao_para_mentorado" ? "Seu mentor" : "Você"}
+                    {dataHoraBr(mensagem.criadoEm) ? ` · ${dataHoraBr(mensagem.criadoEm)}` : ""}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-texto">{mensagem.texto}</p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Vazio>Ainda não há mensagens nesta conversa.</Vazio>
+          )}
+          <form action={enviarMensagemDoPortal} className="mt-3 space-y-2 border-t border-borda-sutil pt-3">
+            <label className="block text-sm font-medium" htmlFor="mensagem-portal">
+              Compartilhe sua reflexão
+            </label>
+            <textarea
+              id="mensagem-portal"
+              name="texto"
+              required
+              maxLength={4000}
+              rows={3}
+              className="w-full rounded-lg border border-borda bg-poco px-3 py-2 text-sm text-texto"
+              placeholder="Escreva o que percebeu ou uma pergunta para sua próxima sessão."
+            />
+            <Botao tipo="fantasma">Enviar mensagem</Botao>
+          </form>
+        </Card>
+
+        <Card titulo="Contratos liberados">
+          {contratos.length ? (
+            <ul className="space-y-2 text-sm">
+              {contratos.map((contrato) => (
+                <li key={contrato.id} className="rounded-lg border border-borda-sutil bg-poco px-3 py-2.5">
+                  <p className="font-medium">
+                    {contrato.status === "assinado" ? "Contrato assinado" : "Contrato"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-texto-2">
+                    {contrato.assinadoEm ? `Assinado em ${dataBr(contrato.assinadoEm)}` : "Data de assinatura não informada"}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Vazio>Nenhum contrato foi liberado para consulta no portal.</Vazio>
           )}
         </Card>
 

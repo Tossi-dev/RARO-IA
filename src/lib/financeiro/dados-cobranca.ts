@@ -33,6 +33,7 @@ export interface ContratoLido {
   valorTotal: number;
   valorTotalCentavos: number;
   status: string;
+  visivelPortal: boolean;
   criadoEm: string;
 }
 
@@ -95,7 +96,8 @@ function contratoDaLinha(r: Row): ContratoLido {
     id: String(r.id ?? ""), mentoradoId: String(r.mentorado_id ?? ""), matriculaId: (r.matricula_id as string | null) ?? null,
     documentoId: (r.documento_id as string | null) ?? null, assinadoEm: (r.assinado_em as string | null) ?? null,
     vigenciaInicio: (r.vigencia_inicio as string | null) ?? null, vigenciaFim: (r.vigencia_fim as string | null) ?? null,
-    valorTotal: valor, valorTotalCentavos: centavos(r.valor_total), status: String(r.status ?? ""), criadoEm: String(r.criado_em ?? ""),
+    valorTotal: valor, valorTotalCentavos: centavos(r.valor_total), status: String(r.status ?? ""),
+    visivelPortal: r.visivel_portal === true, criadoEm: String(r.criado_em ?? ""),
   };
 }
 
