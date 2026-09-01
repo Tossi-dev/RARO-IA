@@ -26,3 +26,9 @@ tracking, banco real, deploy, credenciais, dados reais ou integração externa.
 Sem banco real, produção, deploy, e-mail, landing externa, tracking,
 integração externa, segredos ou dados reais. Cada célula tem checkpoint antes
 de 50 minutos; dois pulsos sem delta pausam somente a tarefa.
+
+## Conclusão
+
+Concluída localmente em 2026-09-01: 14 testes focados e TypeScript sem
+emissões aprovados; revisão independente aprovou sem achados. O cancelamento
+encerra a captura antes de rate-limit ou persistência, e envio segue desativado.
