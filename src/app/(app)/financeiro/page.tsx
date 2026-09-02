@@ -93,7 +93,7 @@ export default async function Financeiro({
 
   return (
     <>
-      <PageHeader titulo="Financeiro" sub="Custos, projeção e comparativo entre períodos">
+      <PageHeader titulo="Visão financeira" sub="Acompanhe a sustentabilidade da operação sem perder o foco nas jornadas de mentoria.">
         <div className="flex gap-1">
           {anosDisponiveis.map((a) => (
             <Link
@@ -110,7 +110,7 @@ export default async function Financeiro({
         </div>
       </PageHeader>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div data-financeiro-workspace="true" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label={`Faturamento ${ano}`}
           valor={fmtBRL(totAno.faturamento)}
@@ -181,7 +181,7 @@ export default async function Financeiro({
       </div>
 
       {/* ---- Health score + insights ---- */}
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <Card titulo="Health score do negócio">
           {/* Sem fator com base não há nota: mostrar "0" ou "Crítico" aqui seria
               transformar falta de lançamento em diagnóstico de negócio doente. */}
@@ -233,7 +233,7 @@ export default async function Financeiro({
       </div>
 
       {/* ---- Orçado × realizado + metas + cenários ---- */}
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <Card titulo={`Orçado × realizado — ${ymLabel(periodoAtual)}`} className="lg:col-span-2">
           {orcado.length ? (
             <>
