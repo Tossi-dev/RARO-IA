@@ -41,9 +41,9 @@ export function PageHeader({
   children?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="font-display text-[28px] font-fino leading-tight tracking-tight">
+        <h1 className="font-display text-[clamp(28px,3vw,38px)] font-fino leading-[0.98] tracking-[-0.045em]">
           {titulo}
         </h1>
         {sub ? <p className="mt-1.5 text-sm text-texto-2">{sub}</p> : null}
@@ -67,7 +67,7 @@ export function Card({
   return (
     <section
       className={clsx(
-        "superficie rounded-2xl border p-5",
+        "superficie rounded-[28px] border p-5 md:p-6",
         className
       )}
     >
@@ -563,10 +563,11 @@ export function Botao({
     <button
       type={submit ? "submit" : "button"}
       className={clsx(
-        // Pílula, não retângulo: no kit ennvo todo botão é `border-radius: 9999px`.
+        // Ação precisa de contraste e leitura imediata; a pílula mantém o gesto
+        // de marca, mas a cor única evita gradiente decorativo em tela de trabalho.
         "trans inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all active:translate-y-px",
         tipo === "primario" &&
-          "bevel bg-gradient-to-b from-primaria-2 via-primaria to-primaria-press text-white shadow-[0_6px_18px_-6px_rgb(var(--primaria)/0.65)] hover:brightness-110",
+          "bg-primaria text-white shadow-[0_8px_20px_-10px_rgb(var(--primaria)/0.9)] hover:bg-primaria-hover",
         tipo === "fantasma" &&
           "border border-borda bg-transparent font-normal text-texto-2 hover:border-borda-forte hover:bg-eleva hover:text-texto",
         tipo === "perigo" &&
@@ -580,7 +581,7 @@ export function Botao({
 }
 
 const inputCls =
-  "trans w-full rounded-xl border border-borda-sutil bg-poco px-3.5 py-2.5 text-sm text-texto transition-colors placeholder:text-texto-3 hover:border-borda focus:border-primaria-2 focus:outline-none";
+  "trans w-full rounded-2xl border border-borda-sutil bg-poco px-3.5 py-2.5 text-sm text-texto transition-colors placeholder:text-texto-3 hover:border-borda focus:border-primaria-2 focus:outline-none";
 
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={clsx(inputCls, props.className)} />;
@@ -628,7 +629,7 @@ export function PainelForm({ titulo, children }: { titulo: string; children: Rea
 
 export function Vazio({ children }: { children: ReactNode }) {
   return (
-    <p className="rounded-xl border border-dashed border-borda px-4 py-10 text-center text-sm text-texto-3">
+    <p className="rounded-2xl border border-dashed border-borda px-4 py-10 text-center text-sm text-texto-3">
       {children}
     </p>
   );
