@@ -10,7 +10,7 @@ vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 vi.mock("@/lib/data", () => ({ supabaseConfigurado: supabaseConfiguradoMock }));
 vi.mock("@/lib/supabase/server", () => ({ criarSupabaseServer: criarSupabaseServerMock }));
 
-import { resolverAlerta } from "./page";
+import { resolverAlerta } from "./acoes";
 
 afterEach(() => vi.resetAllMocks());
 

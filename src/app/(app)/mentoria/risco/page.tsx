@@ -1,6 +1,6 @@
-import { revalidatePath } from "next/cache";
 import { supabaseConfigurado } from "@/lib/data";
 import { criarSupabaseServer } from "@/lib/supabase/server";
+import { resolverAlerta } from "./acoes";
 import { PainelRiscoVisao, type AlertaParaPainel, type AnaliseParaPainel } from "./visao";
 
 type Linha = Record<string, unknown>;
@@ -45,20 +45,6 @@ async function lerPainel(): Promise<{ alertas: AlertaParaPainel[]; analises: Ana
     return { alertas, analises, motivo: "" };
   } catch {
     return { alertas: [], analises: [], motivo: "Não foi possível carregar o painel agora. Tente novamente em instantes." };
-  }
-}
-
-export async function resolverAlerta(formData: FormData): Promise<void> {
-  "use server";
-  const alertaId = texto(formData.get("alertaId"));
-  if (!alertaId || !supabaseConfigurado()) return;
-  try {
-    const supabase = criarSupabaseServer();
-    const { error } = await supabase.from("alerta_risco").update({ resolvido: true, resolvido_em: new Date().toISOString() }).eq("id", alertaId).eq("resolvido", false);
-    if (error) return;
-    revalidatePath("/mentoria/risco");
-  } catch {
-    return;
   }
 }
 
