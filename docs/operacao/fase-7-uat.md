@@ -44,6 +44,16 @@
 - A saída e a autenticação dos três perfis restantes dependem de troca manual
   de conta; senhas não são lidas ou digitadas pelo agente.
 
+### Comercial sintético — interrompido por isolamento insuficiente
+
+- A sessão foi confirmada no domínio sintético `audit.invalid`.
+- A primeira tela autenticada apresentou contatos sem marcador `[AUDIT]` ou
+  `T-102`, portanto potencialmente não sintéticos.
+- A inspeção foi interrompida imediatamente, sem abrir fichas, executar ações
+  ou registrar qualquer nome, telefone, e-mail ou identificador.
+- A T-112 só pode continuar depois de existir uma projeção/ambiente que devolva
+  exclusivamente massa sintética para essa conta, comprovada por teste.
+
 ## Regra de parada
 
 Interromper se aparecer dado não sintético, acesso cruzado, segredo, pagamento,
