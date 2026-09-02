@@ -145,11 +145,11 @@ export default async function CommandCenter() {
   return (
     <>
       <PageHeader
-        titulo="Command Center"
+        titulo="Indicadores do negócio"
         sub={`${janela.rotulo} · lente: ${rotuloFonte} · ${textoSaude}`}
       />
 
-      <div className="space-y-5">
+      <div data-indicadores-workspace="true" className="space-y-6">
         {/* A ordem das seções é a ordem das perguntas do dono:
               1. o que foi vendido virou quanto de dinheiro?
               2. estamos no ritmo da meta?

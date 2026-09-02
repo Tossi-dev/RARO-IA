@@ -234,7 +234,7 @@ export default async function Crm({
 
   return (
     <>
-      <PageHeader titulo="Central de Clientes" sub="Pipeline por estágio — do lead à recorrência">
+      <PageHeader titulo="Clientes e relacionamentos" sub="Priorize conversas, acompanhe cada etapa e mantenha o contexto de quem está do outro lado.">
         <div className="flex gap-1 rounded-lg border border-borda p-0.5">
           {(["kanban", "lista"] as const).map((v) => (
             <Link
@@ -264,7 +264,7 @@ export default async function Crm({
       {/* A fila vem ANTES dos números. A pergunta que o dono faz ao abrir esta
           tela é "com quem eu falo agora", não "quantos alunos eu tenho" — e a
           ordem da tela é a resposta a essa pergunta. */}
-      <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_280px]">
+      <div data-crm-workspace="true" className="mb-5 grid gap-4 lg:grid-cols-[1fr_280px]">
         <CrmFila itens={fila} />
         <CrmWhatsapp
           inicial={agente}
