@@ -28,8 +28,8 @@ export function CarteiraVisao({ carteira, agoraIso }: { carteira: Carteira; agor
   return (
     <>
       <PageHeader
-        titulo="Mentoria"
-        sub="A carteira de mentorados — progresso, sessões e quem está sem contato"
+        titulo="Carteira de mentorados"
+        sub="Acompanhe o ritmo de cada pessoa, perceba quem pede atenção e chegue à próxima conversa com contexto."
       />
 
       {/* Estado 1: sem Supabase configurado, ou a leitura falhou. Uma frase
@@ -56,7 +56,8 @@ export function CarteiraVisao({ carteira, agoraIso }: { carteira: Carteira; agor
         // PESSOAS (rotuloContagemMentorados), não matrículas — ver MÉDIO 3
         // em textos.ts: "Mentorados" tem que responder à pergunta que a
         // palavra faz, não ao número de linhas da tabela.
-        <Card titulo={`Mentorados em programa (${rotuloContagemMentorados(carteira.linhas)})`}>
+        <Card titulo={`Mentorados em programa (${rotuloContagemMentorados(carteira.linhas)})`} className="overflow-hidden">
+          <p className="-mt-1 mb-5 max-w-2xl text-sm leading-relaxed text-texto-2">A prioridade aqui é continuidade: próximo encontro, progresso no programa e um aviso claro quando a conversa ficou distante.</p>
           <Tabela>
             <thead>
               <tr>
@@ -109,7 +110,7 @@ export function CarteiraVisao({ carteira, agoraIso }: { carteira: Carteira; agor
                         </span>
                       </Link>
                       {/* Dourado é acento de atenção aqui, nunca fundo. */}
-                      {alerta ? <p className="mt-0.5 text-xs text-dourado">{alerta}</p> : null}
+                      {alerta ? <p className="mt-1 inline-flex rounded-full border border-dourado/30 bg-dourado/10 px-2 py-0.5 text-xs text-dourado">{alerta}</p> : null}
                     </Td>
                     <Td className="text-texto-2">{linha.programa?.nome ?? "—"}</Td>
                     <Td>

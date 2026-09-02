@@ -2,11 +2,11 @@ import { Card, Vazio } from "@/components/ui";
 import type { AtendimentoLido } from "@/lib/mentoria/dados-atendimento";
 
 export function MapaAtendimento({ atendimento }: { atendimento: AtendimentoLido }) {
-  if (!atendimento.conectado) return <Card titulo="Mapa de acompanhamento"><p className="text-sm text-texto-2">Não foi possível carregar os dados de atendimento agora. Tente novamente em instantes.</p></Card>;
-  if (!atendimento.encontrado) return <Card titulo="Mapa de acompanhamento"><Vazio>Não encontramos uma ficha de atendimento para este mentorado.</Vazio></Card>;
+  if (!atendimento.conectado) return <Card titulo="Mapa de atendimento"><p className="text-sm text-texto-2">Não foi possível carregar os dados de atendimento agora. Tente novamente em instantes.</p></Card>;
+  if (!atendimento.encontrado) return <Card titulo="Mapa de atendimento"><Vazio>Não encontramos uma ficha de atendimento para este mentorado.</Vazio></Card>;
   const autorizado = atendimento.consentimentos.some((c) => c.categoria === "mapa" && c.consentido === true);
-  if (!autorizado) return <Card titulo="Mapa de acompanhamento"><p className="text-sm text-texto-2">O mapa não está disponível porque o consentimento para atendimento está ausente.</p></Card>;
-  return <Card titulo="Mapa de acompanhamento" className="overflow-hidden">
+  if (!autorizado) return <Card titulo="Mapa de atendimento"><p className="text-sm text-texto-2">O mapa não está disponível porque o consentimento para atendimento está ausente.</p></Card>;
+  return <Card titulo="Mapa de atendimento" className="overflow-hidden">
     <p className="-mt-1 mb-5 max-w-2xl text-sm leading-relaxed text-texto-2">Uma leitura organizada pelo que a pessoa trouxe. Use como contexto para perguntas, não como diagnóstico ou roteiro fechado.</p>
     {atendimento.mapa.length ? <div data-acompanhamento="mapa" className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       {atendimento.mapa.map((item, index) => <article key={item.id ?? `${item.dimensao}-${index}`} className="rounded-[22px] border border-borda-sutil bg-poco/70 p-4 transition-colors hover:border-primaria/45">
