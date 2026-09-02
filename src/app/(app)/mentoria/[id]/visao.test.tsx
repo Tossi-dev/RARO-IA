@@ -1088,6 +1088,19 @@ describe("agenda e transcrição na sessão", () => {
     expect(visaoGeral).not.toContain('name="audio"');
   });
 
+  it("deixa o upload de áudio para a Server Action configurar, sem encType manual", () => {
+    const { visaoGeral } = paineis(render(fichaComSessao({}), historico(), undefined, documentos(), true));
+    const formularioDoAudio = Array.from(
+      visaoGeral.matchAll(/<form([^>]*)>([\s\S]*?)<\/form>/g)
+    ).find((formulario) => formulario[2].includes("Vincular áudio privado"));
+
+    expect(formularioDoAudio, "o formulário de vínculo de áudio deve existir").not.toBeNull();
+    expect(formularioDoAudio![1]).not.toMatch(/\bencType=/i);
+    expect(formularioDoAudio![1]).not.toMatch(/\bmethod=/i);
+    expect(formularioDoAudio![2]).toContain('name="arquivo"');
+    expect(formularioDoAudio![2]).toContain('name="confirmarConsentimento"');
+  });
+
   it("o bloco novo não trouxe emoji nenhum", () => {
     const html = render(fichaComSessao({ gravacaoLiberada: true, turmaId: "t-1", matriculaId: null }), historico(), undefined, documentos(), true);
 

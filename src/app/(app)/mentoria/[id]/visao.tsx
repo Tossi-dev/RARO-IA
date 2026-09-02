@@ -456,7 +456,7 @@ function AgendaETranscricaoDaSessao({
             <Botao tipo="fantasma">Salvar transcrição manual</Botao>
           </div>
         </form>
-        <form action={vincularAudioDaFicha} encType="multipart/form-data" className="space-y-2 border-t border-borda-sutil pt-2">
+        <form action={vincularAudioDaFicha} className="space-y-2 border-t border-borda-sutil pt-2">
           <input type="hidden" name="mentoradoId" value={mentoradoId} />
           <input type="hidden" name="sessaoId" value={sessao.id} />
           <Campo label="Áudio da sessão autorizado">

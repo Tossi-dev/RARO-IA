@@ -65,12 +65,12 @@
      painel-2, eleva) não vieram prontos da marca — foram calculados na MESMA
      matiz (~224°, escada HSL) para não misturar cinza neutro do roxo antigo
      com o fundo azul: um cinza "puro" em cima de navy lê como sujeira. */
-  --fundo: 10 15 30; /* #0a0f1e  página          */
-  --superficie-1: 16 24 45; /* barra lateral, mesma matiz do fundo, um degrau acima */
-  --painel: 22 32 60; /* card / popover  */
-  --painel-2: 30 41 72; /* campo apagado   */
-  --eleva: 40 52 88; /* botão secundário */
-  --poco: 13 27 62; /* #0d1b3e  segundo navy da marca — usado no poço (input);
+  --fundo: 12 14 18; /* #0c0e12 · profundidade de trabalho */
+  --superficie-1: 16 20 28; /* navegação e barra de contexto */
+  --painel: 21 26 36; /* cartão / popover */
+  --painel-2: 28 34 46; /* campo e superfície elevada */
+  --eleva: 37 45 60; /* ação secundária */
+  --poco: 15 19 27; /* poço de leitura e campo de entrada;
      aqui ele é mais claro que --fundo, não mais escuro (mesma inversão que já
      existia no roxo: a sensação de "afundado" vem do bevel/sombra, não de ser
      o tom mais escuro da escada) */
@@ -94,10 +94,10 @@
   --texto-4: 71 85 105; /* #475569 */
 
   /* marca — um azul, três intensidades (era roxo) */
-  --primaria: 37 99 235; /* #2563eb  base   */
-  --primaria-2: 59 130 246; /* #3b82f6  claro  */
-  --primaria-hover: 59 130 246; /* #3b82f6 */
-  --primaria-press: 29 78 216; /* #1d4ed8  escuro */
+  --primaria: 0 113 227; /* #0071e3 · ação única */
+  --primaria-2: 22 131 255; /* #1683ff · foco/hover */
+  --primaria-hover: 22 131 255;
+  --primaria-press: 0 91 181; /* #005bb5 */
 
   /* dourado — ACENTO, nunca área. Só texto, borda, ícone e barra fina: dourado
      de fundo grande num painel financeiro é lido como alerta, não como luxo.
@@ -134,16 +134,16 @@
      --vidro, --aurora*, --selecao, --anel-foco e --barra-rolagem citavam o
      roxo antigo em rgb escrito à mão (não em var()) — o Tailwind não alcança
      esses valores, então trocar só o token --primaria não bastava aqui. */
-  --vidro: rgba(16, 24, 45, 0.68); /* mesmo tom de --superficie-1 */
+  --vidro: rgba(16, 20, 28, 0.82); /* mesma família da superfície de navegação */
   --bevel: rgba(255, 255, 255, 0.16); /* a luz na aresta de cima */
   --contorno: rgba(255, 255, 255, 0.04); /* fio do card: quase invisível no escuro */
   --bevel-baixo: rgba(0, 0, 0, 0.35); /* a sombra por dentro da base */
   --sheen: rgba(255, 255, 255, 0.05);
-  --aurora: rgba(37, 99, 235, 0.16); /* --primaria */
-  --aurora-2: rgba(59, 130, 246, 0.1); /* --primaria-2 */
-  --selecao: rgba(37, 99, 235, 0.35);
-  --anel-foco: rgba(59, 130, 246, 0.6);
-  --barra-rolagem: rgba(37, 99, 235, 0.55);
+  --aurora: rgba(0, 113, 227, 0.18); /* --primaria */
+  --aurora-2: rgba(22, 131, 255, 0.09); /* --primaria-2 */
+  --selecao: rgba(0, 113, 227, 0.35);
+  --anel-foco: rgba(22, 131, 255, 0.72);
+  --barra-rolagem: rgba(22, 131, 255, 0.55);
   --skeleton-a: rgba(255, 255, 255, 0.03);
   --skeleton-b: rgba(255, 255, 255, 0.09);
 }
@@ -344,8 +344,8 @@ details.painel-form > summary::-webkit-details-marker {
    classe do Tailwind espalhada por 25 telas. --- */
 .superficie {
   background-color: rgb(var(--painel));
-  background-image: linear-gradient(180deg, var(--sheen), transparent 40%);
-  border-color: var(--contorno);
+  background-image: linear-gradient(180deg, rgb(var(--painel-2) / 0.35), transparent 42%);
+  border-color: var(--borda-sutil);
   box-shadow:
     inset 0 1px 0 var(--bevel),
     inset 0 -1px 0 var(--bevel-baixo),
@@ -363,17 +363,10 @@ details.painel-form > summary::-webkit-details-marker {
 }
 .pilula[data-ativo="true"] {
   color: #fcfcfc;
-  background-image: linear-gradient(
-    180deg,
-    rgb(var(--primaria-2)),
-    rgb(var(--primaria)) 55%,
-    rgb(var(--primaria-press))
-  );
+  background: rgb(var(--primaria));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
-    0 4px 10px -2px rgb(var(--primaria) / 0.5),
-    0 14px 28px -12px rgb(var(--primaria) / 0.55);
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 8px 20px -12px rgb(var(--primaria) / 0.75);
 }
 .pilula[data-ativo="true"]:hover {
   filter: brightness(1.06);
@@ -388,8 +381,8 @@ details.painel-form > summary::-webkit-details-marker {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(60rem 40rem at 12% -12%, var(--aurora), transparent 70%),
-    radial-gradient(52rem 36rem at 92% -8%, var(--aurora-2), transparent 70%);
+    radial-gradient(58rem 38rem at 18% -18%, var(--aurora), transparent 72%),
+    radial-gradient(48rem 34rem at 90% -10%, var(--aurora-2), transparent 70%);
 }
 
 /* --- glow aurora atrás de um número herói --- */
