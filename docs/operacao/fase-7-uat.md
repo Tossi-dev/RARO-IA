@@ -30,6 +30,20 @@
 | Profissional | carteira, ficha, sessão, mapa, metas, grafo e saída | ação concluída e estado visual, sem conteúdo privado |
 | Mentorado | portal, trilha, metas, mensagem e saída | somente projeção permitida ao próprio perfil |
 
+## Execução da T-112
+
+### Gestor sintético — aprovado parcialmente
+
+- A sessão ativa foi identificada apenas pelo domínio sintético `audit.invalid`.
+- `/`, `/painel`, `/mentoria`, `/mentoria/risco`, `/crm` e `/financeiro`
+  carregaram sem 404 ou erro inesperado.
+- A carteira exibiu exclusivamente marcadores `[AUDIT]` e `T-102 · Programa
+  sintético`; nenhum e-mail fora do domínio sintético foi encontrado.
+- A ficha sintética abriu mapa de atendimento, plano de ação, meta T-102,
+  consentimento e histórico de sessões sem expor o identificador na evidência.
+- A saída e a autenticação dos três perfis restantes dependem de troca manual
+  de conta; senhas não são lidas ou digitadas pelo agente.
+
 ## Regra de parada
 
 Interromper se aparecer dado não sintético, acesso cruzado, segredo, pagamento,
