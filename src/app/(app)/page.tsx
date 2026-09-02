@@ -69,7 +69,10 @@ export default async function Inicio() {
 
   return (
     <>
-      <PageHeader titulo="Início" sub="Cada área do sistema, num ícone — como um app." />
+      <PageHeader
+        titulo="Seu espaço de trabalho"
+        sub="Conduza cada conversa, acompanhe cada jornada e mantenha a operação por perto."
+      />
 
       {apps.length === 0 && appsSistema.length === 0 ? (
         // B2.7, caso "grade vazia": um `appsDoPapel` que devolvesse nada não
@@ -102,8 +105,8 @@ export default async function Inicio() {
               seção vazia sem propósito. */}
           {appsSistema.length > 0 && (
             <>
-              <p className="mb-3 mt-9 text-[11px] font-medium uppercase tracking-wider text-texto-3">
-                Sistema
+              <p className="mb-3 mt-10 text-[11px] font-medium uppercase tracking-[0.16em] text-texto-3">
+                Administração e conexões
               </p>
               <Springboard apps={appsSistema} badges={{}} />
             </>

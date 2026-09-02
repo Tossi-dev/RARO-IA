@@ -173,7 +173,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           desktop, o mesmo caminho existe por três portas — a tela inicial em
           "/", a marca da topbar que leva até ela, e o ⌘K, que acha qualquer
           tela pelo nome. */}
-      <div className="mx-auto max-w-[1600px]">
+      <div className="mx-auto w-full max-w-[1440px]">
         <div className="min-w-0 flex-1">
           <Topbar
             modo={modo}
@@ -218,7 +218,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               soma o home indicator do iPhone por cima disso. No desktop
               (`md:p-7`) não existe barra de abas, então o padding volta ao
               valor de sempre nos quatro lados. */}
-          <main className="px-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] pt-4 md:p-7">
+          <main className="px-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] pt-7 md:px-8 md:pb-8 md:pt-10">
             {children}
           </main>
           <BarraAbas pendencias={avisos.reunioesHoje.length + avisos.tarefas.length} />

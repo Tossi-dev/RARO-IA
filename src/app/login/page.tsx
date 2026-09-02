@@ -21,14 +21,24 @@ export default function LoginPage({
   const temLogin = supabaseConfigurado();
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 text-center">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-12 sm:p-8">
+      <div aria-hidden className="absolute inset-0 bg-[radial-gradient(48rem_34rem_at_14%_18%,rgb(var(--primaria)/0.2),transparent_68%)]" />
+      <div className="relative w-full max-w-[34rem]">
+        <div className="mb-10">
           <Marca />
+          <p className="mt-10 text-[11px] font-semibold uppercase tracking-[0.16em] text-primaria-2">
+            Ambiente de mentoria
+          </p>
+          <h1 className="mt-4 max-w-[10ch] font-display text-[clamp(36px,5vw,56px)] font-fino leading-[0.96] tracking-[-0.055em] text-texto">
+            Entre para conduzir melhores conversas.
+          </h1>
+          <p className="mt-4 max-w-md text-[17px] leading-relaxed text-texto-2">
+            Acesse sua conta para continuar o acompanhamento de cada cliente com clareza.
+          </p>
         </div>
 
         {demo ? (
-          <Card>
+          <Card className="!p-5 sm:!p-7">
             <p className="text-sm text-texto-2">
               O app está em <strong className="text-ouro">modo demonstração</strong> — o login é
               ativado automaticamente quando o Supabase for conectado (veja{" "}
@@ -36,13 +46,13 @@ export default function LoginPage({
             </p>
             <Link
               href="/"
-              className="mt-4 block rounded-lg bg-primaria px-3 py-2 text-center text-sm font-medium text-white hover:bg-primaria-2"
+              className="mt-5 block rounded-full bg-primaria px-4 py-2.5 text-center text-sm font-medium text-white transition-colors hover:bg-primaria-hover"
             >
               Entrar na demonstração
             </Link>
           </Card>
         ) : !temLogin ? (
-          <Card>
+          <Card className="!p-5 sm:!p-7">
             <p className="text-sm text-texto-2">
               {modo === "planilha" ? (
                 <>
@@ -63,14 +73,14 @@ export default function LoginPage({
             </p>
             <Link
               href="/"
-              className="mt-4 block rounded-lg bg-primaria px-3 py-2 text-center text-sm font-medium text-white hover:bg-primaria-2"
+              className="mt-5 block rounded-full bg-primaria px-4 py-2.5 text-center text-sm font-medium text-white transition-colors hover:bg-primaria-hover"
             >
               Entrar
             </Link>
           </Card>
         ) : (
-          <Card>
-            <form action={entrar} className="space-y-3">
+          <Card className="!p-5 sm:!p-7">
+            <form action={entrar} className="space-y-4">
               <Campo label="E-mail">
                 <Input name="email" type="email" required autoComplete="email" placeholder="voce@exemplo.com" />
               </Campo>

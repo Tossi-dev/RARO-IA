@@ -12,6 +12,7 @@
 
 import {
   ArrowLeftRight,
+  ArrowUpRight,
   CalendarDays,
   Clapperboard,
   FileText,
@@ -64,7 +65,7 @@ const ICONES: Record<NomeIcone, LucideIcon> = {
 };
 
 /** Um item da grade — app de primeiro nível ou sub-app dentro de uma pasta. */
-type ItemGrade = Pick<AppCatalogo, "id" | "nome" | "href" | "icone" | "cor"> & {
+type ItemGrade = Pick<AppCatalogo, "id" | "nome" | "href" | "icone" | "cor" | "frase"> & {
   subApps?: SubApp[];
 };
 
@@ -84,6 +85,11 @@ function sombraDaCor(hex: string): string {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, 0.45)`;
 }
 
+function corComAlpha(hex: string, alpha: number): string {
+  const n = parseInt(hex.replace("#", ""), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
 /**
  * O "squircle": quadrado de canto bem arredondado (~23% do lado — a
  * aproximação honesta em CSS puro, sem clip-path de curva importada),
@@ -93,10 +99,12 @@ function sombraDaCor(hex: string): string {
 function Squircle({ cor, children }: { cor: string; children: ReactNode }) {
   return (
     <div
-      className="flex h-14 w-14 items-center justify-center rounded-[23%] sm:h-16 sm:w-16"
+      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border sm:h-14 sm:w-14"
       style={{
-        backgroundImage: `linear-gradient(180deg, ${cor}, ${escurecer(cor, 0.22)})`,
-        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 0 rgba(0,0,0,0.22), 0 10px 18px -8px ${sombraDaCor(cor)}`,
+        backgroundColor: corComAlpha(cor, 0.1),
+        borderColor: corComAlpha(cor, 0.52),
+        boxShadow: `0 12px 24px -18px ${sombraDaCor(cor)}`,
+        color: cor,
       }}
     >
       {children}
@@ -128,9 +136,9 @@ function MiniGradePasta({ subApps }: { subApps: SubApp[] }) {
           <div
             key={s.id}
             className="flex items-center justify-center rounded-[30%]"
-            style={{ backgroundImage: `linear-gradient(180deg, ${s.cor}, ${escurecer(s.cor, 0.22)})` }}
+            style={{ backgroundColor: corComAlpha(s.cor, 0.9), color: "white" }}
           >
-            <Icone size={9} aria-hidden strokeWidth={1.5} className="text-white/90" />
+            <Icone size={9} aria-hidden strokeWidth={1.5} className="text-current/90" />
           </div>
         );
       })}
@@ -142,9 +150,11 @@ function MiniGradePasta({ subApps }: { subApps: SubApp[] }) {
 function ConteudoIcone({
   item,
   badge,
+  compacto = false,
 }: {
   item: ItemGrade;
   badge?: number | null;
+  compacto?: boolean;
 }) {
   const Icone = ICONES[item.icone];
   const ehPasta = (item.subApps?.length ?? 0) > 0;
@@ -155,26 +165,29 @@ function ConteudoIcone({
           {ehPasta ? (
             <MiniGradePasta subApps={item.subApps!} />
           ) : (
-            <Icone size={26} aria-hidden strokeWidth={1.5} className="text-white" />
+            <Icone size={compacto ? 20 : 22} aria-hidden strokeWidth={1.5} className="text-current" />
           )}
         </Squircle>
         <BadgeContador n={badge} />
       </span>
-      {/* Duas linhas, e NÃO `truncate`: "Central de Clientes" e "Conteúdo &
-          Redes" saíam como "Central de ..." — nome de app cortado obriga o
-          usuário a adivinhar qual ícone é qual, que é o oposto do que uma
-          área de trabalho existe para fazer. Altura fixa em duas linhas para
-          os ícones da grade continuarem alinhados entre si. */}
-      <span className="flex h-[30px] w-full max-w-[92px] items-start justify-center text-center text-[12px] leading-[15px] text-texto-2 group-hover:text-texto">
-        {item.nome}
+      <span className="min-w-0 flex-1">
+        <span className="block text-[16px] font-medium tracking-[-0.025em] text-texto group-hover:text-white">
+          {item.nome}
+        </span>
+        {!compacto ? (
+          <span className="mt-1 block text-[13px] leading-snug text-texto-3 group-hover:text-texto-2">
+            {item.frase}
+          </span>
+        ) : null}
       </span>
+      {!compacto ? <ArrowUpRight size={18} aria-hidden strokeWidth={1.5} className="shrink-0 text-primaria-2" /> : null}
     </>
   );
 }
 
-/** Encolhe para 0,96 em 120ms ao apertar, levanta 2px no hover — nada gira, nada pisca. */
+/** Uma superfície por módulo: o destino é o foco, não o ícone sozinho. */
 const CLASSE_TOQUE =
-  "group flex flex-col items-center gap-2 rounded-2xl p-1.5 text-center transition-transform duration-[120ms] ease-out hover:-translate-y-0.5 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primaria-2 focus-visible:ring-offset-2 focus-visible:ring-offset-fundo";
+  "group superficie flex min-h-[144px] items-center gap-4 rounded-[28px] border p-5 text-left transition-[border-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-primaria/55 hover:shadow-e2 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primaria-2 focus-visible:ring-offset-2 focus-visible:ring-offset-fundo";
 
 function TileApp({
   app,
@@ -196,6 +209,7 @@ function TileApp({
         aria-haspopup="dialog"
         aria-expanded={pastaAberta}
         onClick={onAbrirPasta}
+        data-workspace-module={app.id}
         className={CLASSE_TOQUE}
       >
         <ConteudoIcone item={app} badge={badge} />
@@ -204,7 +218,7 @@ function TileApp({
   }
 
   return (
-    <Link href={app.href} className={CLASSE_TOQUE}>
+    <Link href={app.href} data-workspace-module={app.id} className={CLASSE_TOQUE}>
       <ConteudoIcone item={app} badge={badge} />
     </Link>
   );
@@ -290,10 +304,10 @@ function PainelPasta({ app, onFechar }: { app: AppCatalogo; onFechar: () => void
             <X size={16} aria-hidden strokeWidth={1.5} />
           </button>
         </div>
-        <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4">
+        <div className="grid gap-2">
           {subApps.map((sub) => (
-            <Link key={sub.id} href={sub.href} onClick={onFechar} className={CLASSE_TOQUE}>
-              <ConteudoIcone item={sub} />
+            <Link key={sub.id} href={sub.href} onClick={onFechar} className="group flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors hover:bg-eleva">
+              <ConteudoIcone item={sub} compacto />
             </Link>
           ))}
         </div>
@@ -303,8 +317,9 @@ function PainelPasta({ app, onFechar }: { app: AppCatalogo; onFechar: () => void
 }
 
 /**
- * A grade: 3 colunas no celular, 4 no tablet, 6 no desktop — o fundo aurora
- * que já existe (`.aurora`, ligado no layout de (app)) faz de papel de parede.
+ * A grade usa uma superfície por destino em vez de ícones isolados. O fundo
+ * aurora do layout sustenta o espaço negativo; os módulos explicam onde a
+ * pessoa vai antes do clique.
  * `badges`: mapa id-do-app → contador; um app sem entrada, ou com valor que
  * `badgeValido` rejeita, simplesmente não desenha badge nenhum.
  *
@@ -330,7 +345,7 @@ export function Springboard({
     <>
       <div
         className={cx(
-          "grid grid-cols-3 gap-x-3 gap-y-5 py-1 sm:grid-cols-4 sm:gap-x-6 sm:gap-y-7 sm:py-2 lg:grid-cols-6"
+          "grid gap-3 py-1 md:grid-cols-2 md:gap-4 xl:grid-cols-3 xl:gap-5"
         )}
       >
         {apps.map((app) => (
