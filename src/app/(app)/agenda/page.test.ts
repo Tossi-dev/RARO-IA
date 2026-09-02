@@ -39,6 +39,11 @@ function normalizar(caminho: string): string {
 const agenda = normalizar(CAMINHO_AGENDA);
 
 describe("tela /agenda — não promete mais 'somente leitura'", () => {
+  it("declara a superfície de agenda para a interface de acompanhamento", () => {
+    expect(agenda).toContain('data-agenda-workspace="true"');
+    expect(agenda).toContain('data-agenda-event="true"');
+  });
+
   it("nenhuma das frases falsas da versão anterior sobreviveu", () => {
     expect(agenda).not.toContain("somente leitura");
     expect(agenda).not.toContain("não consegue criar");

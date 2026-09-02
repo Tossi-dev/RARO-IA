@@ -46,6 +46,7 @@ function Compromisso({ e, compacto = false }: { e: EventoAgenda; compacto?: bool
       // reunião. A borda fica só à esquerda, como no Google Agenda — é o que
       // deixa a coluna do dia legível com quatro compromissos empilhados.
       <div
+        data-agenda-event="true"
         className={cx(
           "trans rounded-r-md border-l-2 py-1 pl-2 pr-1 text-[11px] leading-tight",
           e.cancelado
@@ -64,8 +65,9 @@ function Compromisso({ e, compacto = false }: { e: EventoAgenda; compacto?: bool
 
   return (
     <div
+      data-agenda-event="true"
       className={cx(
-        "trans flex gap-4 rounded-xl border border-borda-sutil bg-painel-2 p-4 transition-colors hover:border-borda",
+        "trans flex gap-4 rounded-[22px] border border-borda-sutil bg-poco/70 p-4 transition-colors hover:border-primaria/45",
         e.cancelado && "opacity-60"
       )}
     >
@@ -142,7 +144,7 @@ export default async function AgendaPage({
   const total = eventos.length;
 
   const navegacao = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div data-agenda-workspace="true" className="flex flex-wrap items-center gap-2">
       <div className="flex items-center gap-1 rounded-full border border-borda-sutil bg-poco p-0.5">
         {VISOES.map((v) => (
           <Link
@@ -295,8 +297,8 @@ export default async function AgendaPage({
   return (
     <>
       <PageHeader
-        titulo="Agenda"
-        sub={`${janela.rotulo} · ${total === 0 ? "nenhum compromisso" : `${total} compromisso(s)`}`}
+        titulo="Agenda de sessões"
+        sub={`${janela.rotulo} · ${total === 0 ? "nenhum compromisso" : `${total} compromisso(s)`} · mantenha a próxima conversa por perto`}
       >
         {navegacao}
       </PageHeader>
@@ -307,7 +309,7 @@ export default async function AgendaPage({
           coisa que pertence a tela que ela afeta. Antes este botao existia,
           mas em 11px cinza no rodape da pagina -- ou seja, nao existia. */}
       {viaGoogle ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-borda-sutil bg-poco px-4 py-3">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[22px] border border-borda-sutil bg-poco/70 px-4 py-3">
           {/* A negativa de escrita que ficava nesta linha saiu pelo mesmo
               motivo do card de consentimento: a conexão pelo Google passou a
               escrever. O que a frase diz agora é o que o código de fato
@@ -338,7 +340,7 @@ export default async function AgendaPage({
 
       {/* ------------------------------------------------------------ DIA */}
       {visao === "dia" && (
-        <Card titulo={`${rotuloDiaCurto(ref)}, ${numeroDoDia(ref)}`}>
+        <Card titulo={`${rotuloDiaCurto(ref)}, ${numeroDoDia(ref)}`} className="overflow-hidden">
           {porDia[ref]?.length ? (
             <div className="space-y-2.5">
               {porDia[ref].map((e, i) => (
@@ -360,7 +362,7 @@ export default async function AgendaPage({
             return (
               <Card
                 key={d}
-                className={cx("min-h-[150px] !p-3", eHoje && "!border-primaria/60")}
+                className={cx("min-h-[150px] !rounded-[22px] !p-3", eHoje && "!border-primaria/60")}
               >
                 <Link href={href("dia", d)} className="mb-2.5 block">
                   <p className="text-[11px] uppercase tracking-wider text-texto-3">
@@ -392,7 +394,7 @@ export default async function AgendaPage({
 
       {/* ------------------------------------------------------------ MÊS */}
       {visao === "mes" && (
-        <Card className="!p-3">
+        <Card className="overflow-hidden !p-3">
           <div className="mb-2 grid grid-cols-7 gap-1.5">
             {["dom", "seg", "ter", "qua", "qui", "sex", "sáb"].map((d) => (
               <p
@@ -415,7 +417,7 @@ export default async function AgendaPage({
                   key={d}
                   href={href("dia", d)}
                   className={cx(
-                    "trans min-h-[96px] rounded-xl border p-2 transition-colors hover:border-borda",
+                    "trans min-h-[96px] rounded-2xl border p-2 transition-colors hover:border-primaria/50",
                     eHoje ? "border-primaria/50 bg-primaria/5" : "border-borda-sutil",
                     doMes ? "bg-painel-2" : "bg-transparent opacity-45"
                   )}

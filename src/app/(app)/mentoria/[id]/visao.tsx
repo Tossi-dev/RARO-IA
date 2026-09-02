@@ -407,9 +407,9 @@ function AgendaETranscricaoDaSessao({
   const emTurma = sessao.turmaId !== null;
 
   return (
-    <div className="mt-2 space-y-3 rounded-lg border border-borda-sutil bg-poco px-3 py-2.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-texto-2">Agenda</span>
+    <div data-sessao-privada="true" className="mt-3 space-y-4 rounded-[22px] border border-borda-sutil bg-poco/70 p-4">
+      <div className="flex flex-wrap items-center gap-2 border-b border-borda-sutil pb-3">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.13em] text-texto-3">Agenda</span>
         <Badge tom={tomAgenda}>{agenda.rotulo}</Badge>
         {agenda.degradado ? (
           // Link, e não botão de formulário: `.ics` é arquivo, e baixar arquivo
@@ -430,9 +430,9 @@ function AgendaETranscricaoDaSessao({
         )}
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-texto-2">Transcrição</span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.13em] text-texto-3">Transcrição privada</span>
           {/* O ESTADO da transcrição, nunca o texto dela. */}
           <span className="text-xs text-texto-2">
             {sessao.transcritaEm
@@ -456,7 +456,7 @@ function AgendaETranscricaoDaSessao({
             <Botao tipo="fantasma">Salvar transcrição manual</Botao>
           </div>
         </form>
-        <form action={vincularAudioDaFicha} className="space-y-2 border-t border-borda-sutil pt-2">
+        <form action={vincularAudioDaFicha} className="space-y-2 border-t border-borda-sutil pt-3">
           <input type="hidden" name="mentoradoId" value={mentoradoId} />
           <input type="hidden" name="sessaoId" value={sessao.id} />
           <Campo label="Áudio da sessão autorizado">
@@ -471,7 +471,7 @@ function AgendaETranscricaoDaSessao({
           </label>
           <Botao tipo="fantasma">Vincular áudio privado</Botao>
         </form>
-        <form action={transcreverSessaoDaFicha} className="space-y-2 border-t border-borda-sutil pt-2">
+        <form action={transcreverSessaoDaFicha} className="space-y-2 border-t border-borda-sutil pt-3">
           <input type="hidden" name="mentoradoId" value={mentoradoId} />
           <input type="hidden" name="sessaoId" value={sessao.id} />
           <p className="text-xs text-texto-2">
@@ -481,8 +481,8 @@ function AgendaETranscricaoDaSessao({
         </form>
       </div>
 
-      <div className="space-y-2 border-t border-borda-sutil pt-2">
-        <span className="text-xs font-medium text-texto-2">O que o mentorado vê no portal</span>
+      <div className="space-y-2 border-t border-borda-sutil pt-3">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.13em] text-texto-3">O que o mentorado vê no portal</span>
 
         <div>
           <form action={liberarNoPortalDaFicha}>
