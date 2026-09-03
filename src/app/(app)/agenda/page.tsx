@@ -29,6 +29,7 @@ import {
   lerAgendaGoogle,
 } from "@/lib/integracoes/google-agenda";
 import type { EventoAgenda } from "@/lib/integracoes/ics";
+import { contaUatSinteticaAtual } from "@/lib/uat/isolamento";
 
 export const dynamic = "force-dynamic";
 
@@ -126,12 +127,13 @@ export default async function AgendaPage({
   const ref = isoValido(searchParams.d);
   const hoje = hojeISO();
   const janela = janelaAgenda(visao, ref);
+  const uatSintetico = await contaUatSinteticaAtual();
 
   // Duas portas para a mesma agenda. O login do Google manda quando existe:
   // ele desdobra as repetições do lado do Google e não depende de ninguém
   // copiar URL nenhuma. O iCal continua valendo como alternativa.
-  const viaGoogle = googleConectado();
-  const viaIcs = agendaConfigurada();
+  const viaGoogle = !uatSintetico && googleConectado();
+  const viaIcs = !uatSintetico && agendaConfigurada();
   const conectada = viaGoogle || viaIcs;
 
   const leituraGoogle = viaGoogle ? await lerAgendaGoogle(janela.de, janela.ate) : null;

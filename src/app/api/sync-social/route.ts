@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { supabaseConfigurado } from "@/lib/data";
 import { algumaRedeConfigurada, sincronizarRedes } from "@/lib/integracoes/social";
 import { criarSupabaseServer } from "@/lib/supabase/server";
+import { contaUatSinteticaAtual } from "@/lib/uat/isolamento";
 
 export const maxDuration = 60;
 
@@ -18,6 +19,10 @@ function autorizado(req: Request): boolean {
 }
 
 export async function GET(req: Request) {
+  const cronAutenticado = Boolean(process.env.CRON_SECRET) && autorizado(req);
+  if (!cronAutenticado && (await contaUatSinteticaAtual())) {
+    return NextResponse.json({ erro: "não autorizado" }, { status: 403 });
+  }
   if (!autorizado(req)) {
     return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   }

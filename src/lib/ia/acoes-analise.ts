@@ -3,8 +3,10 @@
 import { gerarTexto } from "../integracoes/ia";
 import { criarSupabaseServer } from "../supabase/server";
 import { lerResposta, montarPrompt } from "./analise-sessao";
+import { contaUatSinteticaAtual } from "../uat/isolamento";
 
 export async function analisarSessao(formData: FormData): Promise<void> {
+  if (await contaUatSinteticaAtual()) return;
   const mentoradoId = String(formData.get("mentoradoId") ?? "").trim();
   const sessaoId = String(formData.get("sessaoId") ?? "").trim();
   const nome = String(formData.get("nome") ?? "").trim();

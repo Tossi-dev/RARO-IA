@@ -15,6 +15,7 @@ import { sheetsConfigurado, sheetsEscritaConfigurada, sheetsId } from "@/lib/she
 import { lerAbas } from "@/lib/sheets/ler";
 import { avisosDeMapeamento } from "@/lib/sheets/mapear";
 import type { StatusIntegracao, WebhookEvento } from "@/lib/types";
+import { contaUatSinteticaAtual } from "@/lib/uat/isolamento";
 
 export const dynamic = "force-dynamic";
 
@@ -66,17 +67,17 @@ function idResumido(id: string): string {
 }
 
 export default async function Integracoes() {
+  const uatSintetico = await contaUatSinteticaAtual();
   const db = getDB();
-  const [eventos, matriculas, produtos] = await Promise.all([
-    db.listEventosWebhook(),
-    db.listMatriculas(),
-    db.listProdutos(),
-  ]);
+  const podeLerProvider = !uatSintetico || modoDados() === "supabase";
+  const [eventos, matriculas, produtos] = podeLerProvider
+    ? await Promise.all([db.listEventosWebhook(), db.listMatriculas(), db.listProdutos()])
+    : [[], [], []];
 
   // Leitura REAL da planilha, aba por aba (só quando há id configurado).
   // `lerAbas` nunca lança: aba inexistente, planilha fechada ou Google fora do ar
   // voltam como erro dentro do resultado — e o erro aparece na tela, não some.
-  const leituras = sheetsConfigurado() ? await lerAbas(ABAS.map((a) => a.nome)) : null;
+  const leituras = !uatSintetico && sheetsConfigurado() ? await lerAbas(ABAS.map((a) => a.nome)) : null;
   const abas = ABAS.map((a) => {
     const r = leituras?.[a.nome];
     return {
@@ -106,7 +107,7 @@ export default async function Integracoes() {
   const planilhaEhABase = modoDados() === "planilha";
   const avisosConversao = planilhaEhABase ? avisosDeMapeamento() : [];
 
-  const conexoes: Conexao[] = [
+  const conexoesConfiguradas: Conexao[] = [
     {
       id: "supabase",
       nome: "Supabase (banco de dados)",
@@ -217,6 +218,22 @@ export default async function Integracoes() {
       passo: "Cadastro em developers.tiktok.com + TIKTOK_ACCESS_TOKEN.",
     },
   ];
+
+  const conexoes: Conexao[] = uatSintetico
+    ? conexoesConfiguradas.map((conexao) =>
+        conexao.id === "supabase"
+          ? conexao
+          : {
+              ...conexao,
+              conectado: false,
+              detalhe: "Bloqueada neste login de homologação para impedir leitura, envio ou cobrança em serviço externo.",
+              passo: "Use uma conta não sintética somente fora da homologação.",
+              pendencia: undefined,
+              selo: "Isolada no UAT",
+              seloTom: "cinza",
+            }
+      )
+    : conexoesConfiguradas;
 
   const ativas = conexoes.filter((c) => c.conectado).length;
   // Nomes das duas listas, para a memória de cálculo dizer QUAIS estão de pé.

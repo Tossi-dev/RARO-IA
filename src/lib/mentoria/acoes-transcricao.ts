@@ -204,6 +204,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { criarSupabaseServer } from "../supabase/server";
 import { transcreverAudio } from "../integracoes/stt";
+import { contaUatSinteticaAtual } from "../uat/isolamento";
 
 /** Linha crua do PostgREST — cada campo é lido explicitamente abaixo, nunca repassado com `as Tipo`. */
 type Row = Record<string, unknown>;
@@ -237,6 +238,7 @@ export interface ResultadoTranscricao {
 // ============================================================
 
 export const MOTIVO_SESSAO_INVALIDA = "Informe a sessão que deseja transcrever.";
+export const MOTIVO_UAT_SEM_INTEGRACAO = "A homologação sintética não envia áudio a fornecedores externos.";
 export const MOTIVO_SESSAO_NAO_ENCONTRADA = "Sessão não encontrada.";
 export const MOTIVO_ERRO_LEITURA = "Não foi possível carregar os dados da sessão agora. Tente novamente em instantes.";
 export const MOTIVO_SEM_CONSENTIMENTO_TRANSCRICAO =
@@ -526,6 +528,7 @@ async function hashDoBlob(arquivo: Blob): Promise<string> {
 }
 
 export async function transcreverSessao(formData: FormData): Promise<ResultadoTranscricao> {
+  if (await contaUatSinteticaAtual()) return { ok: false, erro: MOTIVO_UAT_SEM_INTEGRACAO };
   // Campos de controle lidos do formulário — ver cabeçalho deste arquivo.
   // Qualquer `workspaceId`, `mentoradoId` ou outro campo de identidade é
   // ignorado: nem é lido aqui, quanto mais usado numa consulta.

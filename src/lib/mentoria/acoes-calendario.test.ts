@@ -36,6 +36,7 @@ const {
   cancelarEventoDaSessaoMock,
   googleConectadoMock,
   googleAppConfiguradoMock,
+  contaUatMock,
 } = vi.hoisted(() => ({
   criarSupabaseServerMock: vi.fn(),
   revalidatePathMock: vi.fn(),
@@ -44,6 +45,7 @@ const {
   cancelarEventoDaSessaoMock: vi.fn(),
   googleConectadoMock: vi.fn(),
   googleAppConfiguradoMock: vi.fn(),
+  contaUatMock: vi.fn(() => Promise.resolve(false)),
 }));
 
 vi.mock("../supabase/server", () => ({
@@ -59,12 +61,26 @@ vi.mock("../integracoes/google-agenda", () => ({
   googleConectado: googleConectadoMock,
   googleAppConfigurado: googleAppConfiguradoMock,
 }));
+vi.mock("../uat/isolamento", () => ({ contaUatSinteticaAtual: contaUatMock }));
 
-const { sincronizarSessaoNaAgenda, MOTIVO_SEM_CONEXAO_GOOGLE, MOTIVO_APP_NAO_CONFIGURADO } = await import(
+const { sincronizarSessaoNaAgenda, MOTIVO_SEM_CONEXAO_GOOGLE, MOTIVO_APP_NAO_CONFIGURADO, MOTIVO_UAT_SEM_GOOGLE } = await import(
   "./acoes-calendario"
 );
 const { eventoDaSessao } = await import("./calendario");
 const { analisarICS } = await import("../integracoes/ics");
+
+describe("isolamento UAT sintético", () => {
+  it("recusa antes do banco e de qualquer operação no Google", async () => {
+    contaUatMock.mockResolvedValue(true);
+    const formData = new FormData();
+    formData.set("sessaoId", "11111111-1111-4111-8111-111111111111");
+    await expect(sincronizarSessaoNaAgenda(formData)).resolves.toEqual({ ok: false, erro: MOTIVO_UAT_SEM_GOOGLE });
+    expect(criarSupabaseServerMock).not.toHaveBeenCalled();
+    expect(criarEventoDaSessaoMock).not.toHaveBeenCalled();
+    expect(atualizarEventoDaSessaoMock).not.toHaveBeenCalled();
+    expect(cancelarEventoDaSessaoMock).not.toHaveBeenCalled();
+  });
+});
 
 // ============================================================
 // Dublê do cliente Supabase — encadeia `.select()/.eq()/.maybeSingle()` e

@@ -7,10 +7,14 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { COOKIE_GOOGLE, trocarCodigoPorTokens } from "@/lib/integracoes/google-agenda";
+import { contaUatSinteticaAtual } from "@/lib/uat/isolamento";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  if (await contaUatSinteticaAtual()) {
+    return NextResponse.json({ erro: "não autorizado" }, { status: 403 });
+  }
   const url = req.nextUrl;
   const paraAgenda = (params: string) => NextResponse.redirect(new URL(`/agenda${params}`, req.url));
 

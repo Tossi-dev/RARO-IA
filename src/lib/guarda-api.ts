@@ -23,6 +23,7 @@ import { createServerClient } from "@supabase/ssr";
 import { ambienteAtual, COOKIE_ACESSO, modoAcesso, seloConfere } from "@/lib/acesso";
 import { iaConfigurada } from "@/lib/integracoes/ia";
 import { sttConfigurado } from "@/lib/integracoes/stt";
+import { emailEhUatSintetico } from "@/lib/uat/isolamento";
 
 function recusa(status: number): Response {
   // Corpo curto e genérico de propósito: nunca dizer QUAL checagem falhou
@@ -62,10 +63,10 @@ function lerCookie(req: Request, nome: string): string | undefined {
 }
 
 /** Existe sessão Supabase válida para os cookies desta requisição? */
-async function temSessaoSupabase(req: Request): Promise<boolean> {
+async function usuarioDaSessaoSupabase(req: Request): Promise<{ autenticado: boolean; uatSintetico: boolean }> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return false; // modoAcesso() já garante isto; defesa dupla, não confiança cega.
+  if (!url || !key) return { autenticado: false, uatSintetico: false }; // defesa dupla.
 
   const supabase = createServerClient(url, key, {
     cookies: {
@@ -83,7 +84,7 @@ async function temSessaoSupabase(req: Request): Promise<boolean> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return Boolean(user);
+  return { autenticado: Boolean(user), uatSintetico: emailEhUatSintetico(user?.email) };
 }
 
 // --- freio de uso ---------------------------------------------------------
@@ -137,7 +138,11 @@ export async function guardarApi(req: Request): Promise<Response | null> {
 
   switch (modo) {
     case "supabase":
-      return (await temSessaoSupabase(req)) ? null : recusa(401);
+      {
+        const usuario = await usuarioDaSessaoSupabase(req);
+        if (usuario.uatSintetico) return recusa(403);
+        return usuario.autenticado ? null : recusa(401);
+      }
 
     case "senha": {
       const cookie = lerCookie(req, COOKIE_ACESSO);

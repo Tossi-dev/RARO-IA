@@ -17,10 +17,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 
-const { criarSupabaseServerMock, revalidatePathMock, transcreverAudioMock } = vi.hoisted(() => ({
+const { criarSupabaseServerMock, revalidatePathMock, transcreverAudioMock, contaUatMock } = vi.hoisted(() => ({
   criarSupabaseServerMock: vi.fn(),
   revalidatePathMock: vi.fn(),
   transcreverAudioMock: vi.fn(),
+  contaUatMock: vi.fn(() => Promise.resolve(false)),
 }));
 
 vi.mock("../supabase/server", () => ({
@@ -30,6 +31,7 @@ vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 vi.mock("../integracoes/stt", () => ({
   transcreverAudio: transcreverAudioMock,
 }));
+vi.mock("../uat/isolamento", () => ({ contaUatSinteticaAtual: contaUatMock }));
 
 const {
   transcreverSessao,
@@ -39,6 +41,7 @@ const {
   MOTIVO_SESSAO_NAO_ENCONTRADA,
   MOTIVO_TRANSCRICAO_VAZIA,
   MOTIVO_SESSAO_INVALIDA,
+  MOTIVO_UAT_SEM_INTEGRACAO,
 } = await import("./acoes-transcricao");
 
 // ============================================================
@@ -123,6 +126,21 @@ function construirCliente(selects: Record<string, RespostaSelect>, opcoes: Opcoe
     downloadMock,
   };
 }
+
+describe("isolamento UAT sintético", () => {
+  it("recusa antes de banco, storage ou fornecedor", async () => {
+    contaUatMock.mockResolvedValue(true);
+    const formData = new FormData();
+    formData.set("sessaoId", "11111111-1111-4111-8111-111111111111");
+
+    await expect(transcreverSessao(formData)).resolves.toEqual({
+      ok: false,
+      erro: MOTIVO_UAT_SEM_INTEGRACAO,
+    });
+    expect(criarSupabaseServerMock).not.toHaveBeenCalled();
+    expect(transcreverAudioMock).not.toHaveBeenCalled();
+  });
+});
 
 function ligarCliente(selects: Record<string, RespostaSelect>, opcoes: OpcoesCliente = {}) {
   const cliente = construirCliente(selects, opcoes);

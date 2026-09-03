@@ -7,10 +7,14 @@
 import { randomBytes } from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { googleAppConfigurado, urlDeConsentimento } from "@/lib/integracoes/google-agenda";
+import { contaUatSinteticaAtual } from "@/lib/uat/isolamento";
 
 export const dynamic = "force-dynamic";
 
-export function GET(req: NextRequest) {
+export async function GET(req: NextRequest) {
+  if (await contaUatSinteticaAtual()) {
+    return NextResponse.json({ erro: "não autorizado" }, { status: 403 });
+  }
   if (!googleAppConfigurado()) {
     return NextResponse.redirect(new URL("/agenda?erro=sem-credenciais", req.url));
   }
