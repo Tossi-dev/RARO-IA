@@ -2,7 +2,7 @@
 schema_version: 3
 projeto: RARO IA
 missao_id: fase-7-t112-isolamento-sintetico-2026-09-02
-estado: em_execucao_local
+estado: concluido
 autorizacao: continuação local autorizada pelo Tossi em 2026-09-02
 pulso_maximo: 10min
 ---
@@ -27,7 +27,14 @@ executado no MentorOS main por este contrato.
   adicional, perfil inconsistente, UUID incompatível ou qualquer dado de
   negócio já associado ao workspace sintético.
 - Teste focado, TypeScript, diff check e revisão independente aprovados.
-- A aplicação real permanece atrás de autorização explícita sobre o SQL final.
+- A aplicação real exigia autorização explícita sobre o SQL final.
+
+## Encerramento
+
+Tossi autorizou explicitamente a aplicação em 2026-09-02. O SQL aprovado foi
+executado no MentorOS main e a consulta agregada de conferência confirmou um
+workspace, três perfis sintéticos e zero objetos de Storage. A T-112A termina
+sem recriar a massa sintética anterior.
 
 <!-- LOOP-CONTRACT:START
 {
