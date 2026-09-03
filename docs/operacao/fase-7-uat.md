@@ -128,3 +128,14 @@ teste antes da correção.
   fechada antes do fornecedor.
 - Validação: 3 arquivos focados, 56/56 testes aprovados e TypeScript limpo.
 - Revisão independente: **APROVADO**.
+
+## Execução da T-115
+
+### Defeito reproduzido do formulário de anexo — aprovado
+
+- O aviso React da UAT foi reproduzido e protegido por teste RED.
+- O `encType` manual foi removido; a Server Action continua responsável pelo
+  multipart e o campo de arquivo permaneceu intacto.
+- 4 arquivos focados, 73/73 testes aprovados e TypeScript limpo.
+- Após recarregar a ficha, nenhuma nova ocorrência do aviso apareceu.
+- Revisão independente: **APROVADO**.

@@ -123,6 +123,14 @@ function glifosForaDoPermitido(html: string): string[] {
 // ============================================================
 
 describe("formulário de anexo — publicar é ato explícito", () => {
+  it("deixa o React definir o multipart da Server Action sem encType manual", () => {
+    const html = render();
+
+    expect(html).not.toContain('encType="multipart/form-data"');
+    expect(html).not.toContain('enctype="multipart/form-data"');
+    expect(html).toContain('name="arquivo"');
+  });
+
   it("o interruptor 'visível no portal' nasce DESMARCADO", () => {
     const html = render();
     const tag = tagDoInterruptor(html);
