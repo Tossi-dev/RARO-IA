@@ -131,12 +131,17 @@ teste antes da correção.
 
 ## Execução da T-116
 
-### Gate final — pausado no build
+### Gate final — aprovado
 
 - Suíte completa: 162 arquivos e 3.375/3.375 testes aprovados.
 - TypeScript limpo.
-- O build otimizado ficou sem delta por mais de dois pulsos e foi interrompido
-  pela política de liveness. A Fase 7 ainda não está declarada pronta.
+- O primeiro build ficou sem delta por mais de dois pulsos porque `next dev`
+  usava o mesmo diretório `.next`. Encerrado somente o servidor local desta
+  cópia, o build foi repetido e aprovado, com 46 páginas estáticas geradas.
+- Auditorias de acesso, RLS, consentimento e falha fechada fazem parte da suíte
+  completa aprovada. Nenhum deploy foi executado.
+- Revisão independente: **APROVADO**. A prontidão é técnica e local; produção
+  continua fora do escopo desta fase.
 
 ## Execução da T-115
 
