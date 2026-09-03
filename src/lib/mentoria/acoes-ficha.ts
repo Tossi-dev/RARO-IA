@@ -24,7 +24,7 @@ import { sincronizarSessaoNaAgenda } from "./acoes-calendario";
 import { liberarConteudo, revogarConteudo } from "./acoes-conteudo-liberado";
 import { liberarNoPortal } from "./acoes-liberacao";
 import { transcreverSessao } from "./acoes-transcricao";
-import { vincularAudioDaSessao } from "./acoes-transcricao-arquivo";
+import { revogarAudioDaSessao, vincularAudioDaSessao } from "./acoes-transcricao-arquivo";
 import { registrarTranscricaoManual } from "./acoes-transcricao-manual";
 
 const MOTIVO_TRANSCRICAO_ENTRADA_AUSENTE = "Informe uma transcrição manual ou selecione o áudio da sessão.";
@@ -77,6 +77,12 @@ export async function vincularAudioDaFicha(formData: FormData): Promise<void> {
     ? await vincularAudioDaSessao(formData)
     : { ok: false, erro: MOTIVO_TRANSCRICAO_ENTRADA_AUSENTE };
   if (!resultado.ok) voltarComErro(caminhoFicha(formData), resultado.erro ?? "Não foi possível vincular o áudio.");
+}
+
+/** Revoga consentimento e referência sem apagar o áudio privado auditável. */
+export async function revogarAudioDaFicha(formData: FormData): Promise<void> {
+  const resultado = await revogarAudioDaSessao(formData);
+  if (!resultado.ok) voltarComErro(caminhoFicha(formData), resultado.erro);
 }
 
 /**

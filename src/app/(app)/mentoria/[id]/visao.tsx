@@ -29,6 +29,7 @@ import { enviarMensagemDaFicha } from "@/lib/mentoria/acoes-mensagem-form";
 import { analisarSessao } from "@/lib/ia/acoes-analise";
 import {
   liberarNoPortalDaFicha,
+  revogarAudioDaFicha,
   sincronizarSessaoDaFicha,
   transcreverSessaoDaFicha,
   vincularAudioDaFicha,
@@ -478,6 +479,14 @@ function AgendaETranscricaoDaSessao({
             Depois do vínculo, envie somente o áudio privado registrado nesta sessão para transcrição. O resultado continua privado para revisão profissional.
           </p>
           <Botao tipo="fantasma">Transcrever áudio vinculado</Botao>
+        </form>
+        <form action={revogarAudioDaFicha} className="space-y-2 border-t border-borda-sutil pt-3">
+          <input type="hidden" name="mentoradoId" value={mentoradoId} />
+          <input type="hidden" name="sessaoId" value={sessao.id} />
+          <p className="text-xs text-texto-2">
+            Revogar impede novos envios e arquiva a referência. O áudio privado permanece retido para auditoria.
+          </p>
+          <Botao tipo="fantasma">Revogar autorização do áudio</Botao>
         </form>
       </div>
 

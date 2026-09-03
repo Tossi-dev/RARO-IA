@@ -6,7 +6,7 @@ const { criarSupabaseServerMock } = vi.hoisted(() => ({
 
 vi.mock("../supabase/server", () => ({ criarSupabaseServer: criarSupabaseServerMock }));
 
-const { vincularAudioDaSessao, MOTIVO_CONSENTIMENTO_NAO_CONFIRMADO } = await import("./acoes-transcricao-arquivo");
+const { vincularAudioDaSessao, revogarAudioDaSessao, MOTIVO_CONSENTIMENTO_NAO_CONFIRMADO } = await import("./acoes-transcricao-arquivo");
 
 type Resposta = { data: unknown; error: { code?: string } | null };
 
@@ -31,6 +31,10 @@ function cliente(respostas: Record<string, Resposta> = {}) {
     insert: (valores: Record<string, unknown>) => {
       chamadas.push({ tabela, valores });
       return Promise.resolve({ data: null, error: null });
+    },
+    update: (valores: Record<string, unknown>) => {
+      chamadas.push({ tabela, valores });
+      return { eq: () => Promise.resolve({ data: null, error: null }) };
     },
   }));
   return { from, storage: { from: vi.fn(() => ({ upload, remove })) }, chamadas, upload, remove };
@@ -105,5 +109,32 @@ describe("vincularAudioDaSessao", () => {
 
     expect(resultado.ok).toBe(false);
     expect(s.upload).not.toHaveBeenCalled();
+  });
+});
+
+describe("revogarAudioDaSessao", () => {
+  it("revoga o consentimento e arquiva a referência sem apagar o objeto privado", async () => {
+    const s = cliente({
+      sessao: { data: { id: "ses-1", workspace_id: "ws-1", matricula_id: "mat-1" }, error: null },
+    });
+    criarSupabaseServerMock.mockReturnValue(s);
+
+    const resultado = await revogarAudioDaSessao(formulario());
+
+    expect(resultado).toEqual({ ok: true });
+    expect(s.chamadas).toContainEqual({ tabela: "sessao_transcricao_consentimento", valores: { consentido: false } });
+    expect(s.chamadas).toContainEqual({ tabela: "sessao_transcricao_arquivo", valores: { arquivado: true } });
+    expect(s.remove).not.toHaveBeenCalled();
+  });
+
+  it("sem sessão acessível falha fechada sem alterar consentimento ou referência", async () => {
+    const s = cliente({ sessao: { data: null, error: null } });
+    criarSupabaseServerMock.mockReturnValue(s);
+
+    const resultado = await revogarAudioDaSessao(formulario());
+
+    expect(resultado.ok).toBe(false);
+    expect(s.chamadas).toEqual([]);
+    expect(s.remove).not.toHaveBeenCalled();
   });
 });

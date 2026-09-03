@@ -63,6 +63,7 @@ vi.mock("@/lib/mentoria/acoes-ficha", () => ({
   liberarNoPortalDaFicha: vi.fn(),
   liberarConteudoDaFicha: vi.fn(),
   revogarConteudoDaFicha: vi.fn(),
+  revogarAudioDaFicha: vi.fn(),
 }));
 
 vi.mock("@/lib/mentoria/acoes-score", () => ({ gravarScoreSemanal: vi.fn() }));
@@ -1084,6 +1085,8 @@ describe("agenda e transcrição na sessão", () => {
     expect(visaoGeral).toContain("Vincular áudio privado");
     expect(visaoGeral).toContain('name="confirmarConsentimento"');
     expect(visaoGeral).toContain("Transcrever áudio vinculado");
+    expect(visaoGeral).toContain("Revogar autorização do áudio");
+    expect(visaoGeral).toContain("permanece retido para auditoria");
     expect(visaoGeral).toContain("consentimento explícito");
     expect(visaoGeral).not.toContain('name="audio"');
   });

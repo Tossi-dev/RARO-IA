@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const sincronizarMock = vi.fn();
 const transcreverMock = vi.fn();
 const vincularAudioMock = vi.fn();
+const revogarAudioMock = vi.fn();
 const transcricaoManualMock = vi.fn();
 const redirectMock = vi.fn((destino: string) => {
   throw new Error(`REDIRECT:${destino}`);
@@ -19,11 +20,11 @@ const redirectMock = vi.fn((destino: string) => {
 
 vi.mock("./acoes-calendario", () => ({ sincronizarSessaoNaAgenda: sincronizarMock }));
 vi.mock("./acoes-transcricao", () => ({ transcreverSessao: transcreverMock }));
-vi.mock("./acoes-transcricao-arquivo", () => ({ vincularAudioDaSessao: vincularAudioMock }));
+vi.mock("./acoes-transcricao-arquivo", () => ({ vincularAudioDaSessao: vincularAudioMock, revogarAudioDaSessao: revogarAudioMock }));
 vi.mock("./acoes-transcricao-manual", () => ({ registrarTranscricaoManual: transcricaoManualMock }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
-const { sincronizarSessaoDaFicha, transcreverSessaoDaFicha, vincularAudioDaFicha } = await import("./acoes-ficha");
+const { sincronizarSessaoDaFicha, transcreverSessaoDaFicha, vincularAudioDaFicha, revogarAudioDaFicha } = await import("./acoes-ficha");
 
 function formulario(campos: Record<string, string>): FormData {
   const f = new FormData();
@@ -120,5 +121,15 @@ describe("transcreverSessaoDaFicha", () => {
     expect(transcreverMock).not.toHaveBeenCalled();
     expect(vincularAudioMock).toHaveBeenCalledWith(f);
     expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("repassa a revogação e preserva o motivo de falha", async () => {
+    revogarAudioMock.mockResolvedValue({ ok: false, erro: "Não foi possível revogar." });
+    const f = formulario({ mentoradoId: "ment-2", sessaoId: "ses-9" });
+
+    const destino = await destinoDoRedirect(revogarAudioDaFicha(f));
+
+    expect(revogarAudioMock).toHaveBeenCalledWith(f);
+    expect(destino).toBe(`/mentoria/ment-2?erro=${encodeURIComponent("Não foi possível revogar.")}`);
   });
 });
