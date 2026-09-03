@@ -85,7 +85,7 @@
 
 ## Execução da T-113
 
-### Jornada sintética completa — em revisão
+### Jornada sintética completa — aprovada
 
 - A sessão ativa foi confirmada como `rls-audit-gestor@audit.invalid` antes da
   inspeção; a carteira apresentou exatamente um mentorado `[AUDIT] T-112`.
@@ -104,6 +104,8 @@
 - Achado não bloqueante reservado para a T-115: o servidor de desenvolvimento
   avisou que um formulário com função em `action` também declara `method` ou
   `encType`, atributos que o React substitui automaticamente.
+- Revisão independente: **APROVADO**; 53/53 testes e TypeScript foram
+  reexecutados com sucesso, sem mudanças no worktree.
 
 ## Regra de parada
 
