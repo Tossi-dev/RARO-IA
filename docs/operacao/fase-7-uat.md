@@ -113,3 +113,18 @@ Interromper se aparecer dado não sintético, acesso cruzado, segredo, pagamento
 ação de produção fora da UAT sintética autorizada no MentorOS main ou
 necessidade de migration/RLS. Defeito local reproduzível segue para T-115 com
 teste antes da correção.
+
+## Execução da T-114
+
+### Transcrição sintética ponta a ponta — aprovada
+
+- Portão 2 autorizado antes da chamada externa.
+- Áudio gerado por voz sintética, sem dados reais, vinculado à sessão `[AUDIT]`
+  em armazenamento privado com consentimento explícito.
+- Uma transcrição foi gerada pelo fornecedor e permaneceu privada; a liberação
+  ao portal continuou desligada.
+- A revogação agora é operacional: desliga o consentimento e arquiva a
+  referência sem apagar o objeto. Uma nova tentativa após revogar falhou
+  fechada antes do fornecedor.
+- Validação: 3 arquivos focados, 56/56 testes aprovados e TypeScript limpo.
+- Revisão independente: **APROVADO**.

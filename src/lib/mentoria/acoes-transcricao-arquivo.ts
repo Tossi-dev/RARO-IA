@@ -14,6 +14,7 @@ const MOTIVO_SESSAO_INVALIDA = "Sessão inválida.";
 const MOTIVO_SESSAO_NAO_ENCONTRADA = "Sessão não encontrada.";
 const MOTIVO_ERRO_LEITURA = "Não foi possível carregar os dados da sessão agora. Tente novamente em instantes.";
 const MOTIVO_ERRO_ENVIO = "Não foi possível vincular o áudio privado agora. Tente novamente em instantes.";
+const MOTIVO_ERRO_REVOGACAO = "Não foi possível revogar o áudio privado agora. Tente novamente em instantes.";
 const MOTIVO_AUDIO_JA_VINCULADO = "Esta sessão já tem um áudio privado vinculado. Não substitua o registro sem arquivamento explícito.";
 
 export type ResultadoVinculoAudio = { ok: true } | { ok: false; erro: string };
@@ -146,5 +147,51 @@ export async function vincularAudioDaSessao(formData: FormData): Promise<Resulta
   } catch (erro) {
     avisar("vincular", erro);
     return { ok: false, erro: MOTIVO_ERRO_ENVIO };
+  }
+}
+
+/**
+ * Revoga o consentimento da sessão e arquiva sua referência de áudio.
+ * O objeto privado não é apagado: a retenção continua auditável, enquanto
+ * novas transcrições falham fechadas pelo consentimento e pelo arquivamento.
+ */
+export async function revogarAudioDaSessao(formData: FormData): Promise<ResultadoVinculoAudio> {
+  const sessaoId = String(formData.get("sessaoId") ?? "").trim();
+  if (sessaoId === "" || sessaoId.length > 100) return { ok: false, erro: MOTIVO_SESSAO_INVALIDA };
+
+  try {
+    const s = criarSupabaseServer();
+    const { data: sessaoData, error: erroSessao } = await s
+      .from("sessao")
+      .select("id")
+      .eq("id", sessaoId)
+      .maybeSingle();
+    if (erroSessao) {
+      avisar("revogar/sessao", erroSessao);
+      return { ok: false, erro: MOTIVO_ERRO_LEITURA };
+    }
+    if (texto(linha(sessaoData)?.id) !== sessaoId) return { ok: false, erro: MOTIVO_SESSAO_NAO_ENCONTRADA };
+
+    const { error: erroConsentimento } = await s
+      .from("sessao_transcricao_consentimento")
+      .update({ consentido: false })
+      .eq("sessao_id", sessaoId);
+    if (erroConsentimento) {
+      avisar("revogar/consentimento", erroConsentimento);
+      return { ok: false, erro: MOTIVO_ERRO_REVOGACAO };
+    }
+
+    const { error: erroReferencia } = await s
+      .from("sessao_transcricao_arquivo")
+      .update({ arquivado: true })
+      .eq("sessao_id", sessaoId);
+    if (erroReferencia) {
+      avisar("revogar/referencia", erroReferencia);
+      return { ok: false, erro: MOTIVO_ERRO_REVOGACAO };
+    }
+    return { ok: true };
+  } catch (erro) {
+    avisar("revogar", erro);
+    return { ok: false, erro: MOTIVO_ERRO_REVOGACAO };
   }
 }
