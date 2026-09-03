@@ -32,7 +32,7 @@
 
 ## Execução da T-112
 
-### Gestor sintético — aprovado parcialmente
+### Gestor sintético — aprovado
 
 - A sessão ativa foi identificada apenas pelo domínio sintético `audit.invalid`.
 - `/`, `/painel`, `/mentoria`, `/mentoria/risco`, `/crm` e `/financeiro`
@@ -41,8 +41,10 @@
   sintético`; nenhum e-mail fora do domínio sintético foi encontrado.
 - A ficha sintética abriu mapa de atendimento, plano de ação, meta T-102,
   consentimento e histórico de sessões sem expor o identificador na evidência.
-- A saída e a autenticação dos três perfis restantes dependem de troca manual
-  de conta; senhas não são lidas ou digitadas pelo agente.
+- A mesma identidade de gestor executou a jornada profissional de carteira,
+  ficha, sessão, mapa, metas e grafo. O produto não possui um quarto papel
+  `profissional`: essa é uma jornada operacional dos papéis `dono`/`gestor`.
+- A troca de conta foi concluída sem leitura ou registro de senha.
 
 ### Comercial sintético — isolamento corrigido e comprovado
 
@@ -55,6 +57,30 @@
   vendas e indicadores zerados, sem e-mail fora de `audit.invalid`.
 - O logout concluiu em `/login`, sem sessão sintética remanescente. Não houve
   abertura de ficha, escrita comercial, oportunidade ou proposta criada.
+
+### Mentorado sintético — aprovado
+
+- A sessão ativa foi confirmada como `rls-audit-mentorado@audit.invalid` antes
+  da inspeção; nenhum e-mail fora de `audit.invalid` apareceu nas telas.
+- `/portal` apresentou somente o programa, a matrícula, a sessão, a mensagem e
+  o contrato de valor zero marcados com `[AUDIT] T-112`, sem 404 ou erro.
+- Meta e passo privados da ficha profissional não foram projetados no portal;
+  o estado de tarefas permaneceu vazio, preservando o recorte consentido.
+- `/portal/trilha` carregou o estado vazio correto, pois nenhuma trilha foi
+  liberada para essa matrícula sintética. Nenhuma aula ou conteúdo alheio foi
+  exibido.
+- A caixa de mensagem foi apenas inspecionada; nada foi enviado ou alterado.
+  O logout concluiu em `/login`, sem sessão sintética remanescente.
+
+### Resultado funcional da T-112 — validação técnica pendente
+
+- As três identidades sintéticas cobrem os quatro percursos do contrato:
+  gestor e profissional são jornadas da identidade `gestor`; comercial e
+  mentorado usam seus papéis próprios.
+- Todos os percursos funcionais previstos foram percorridos sem escrita de
+  negócio, segredo ou exposição de conteúdo não sintético. A T-112 ainda não
+  está tecnicamente aprovada: Vitest e TypeScript precisam terminar com saída
+  verificável antes de liberar a T-113.
 
 ## Regra de parada
 
