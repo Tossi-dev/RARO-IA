@@ -51,8 +51,10 @@
 - A sessão comercial foi novamente confirmada apenas pelo domínio `audit.invalid`.
 - `/crm` carregou com estado vazio: base total 0, alunos ativos 0 e nenhum item
   de carteira. Nenhum identificador ou conteúdo externo à massa sintética apareceu.
-- A sessão foi preservada; não houve abertura de ficha, escrita comercial ou saída,
-  para não exigir que senha sintética seja entregue ao agente.
+- `/comercial` mostrou o funil vazio, sem etapa configurada; `/painel` mostrou
+  vendas e indicadores zerados, sem e-mail fora de `audit.invalid`.
+- O logout concluiu em `/login`, sem sessão sintética remanescente. Não houve
+  abertura de ficha, escrita comercial, oportunidade ou proposta criada.
 
 ## Regra de parada
 
