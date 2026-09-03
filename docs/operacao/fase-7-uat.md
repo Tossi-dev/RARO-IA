@@ -129,6 +129,15 @@ teste antes da correção.
 - Validação: 3 arquivos focados, 56/56 testes aprovados e TypeScript limpo.
 - Revisão independente: **APROVADO**.
 
+## Execução da T-116
+
+### Gate final — pausado no build
+
+- Suíte completa: 162 arquivos e 3.375/3.375 testes aprovados.
+- TypeScript limpo.
+- O build otimizado ficou sem delta por mais de dois pulsos e foi interrompido
+  pela política de liveness. A Fase 7 ainda não está declarada pronta.
+
 ## Execução da T-115
 
 ### Defeito reproduzido do formulário de anexo — aprovado
