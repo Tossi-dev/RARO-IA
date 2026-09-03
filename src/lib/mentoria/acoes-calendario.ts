@@ -102,6 +102,7 @@ import {
   criarEventoDaSessao,
 } from "../integracoes/google-agenda-escrita";
 import { googleAppConfigurado, googleConectado } from "../integracoes/google-agenda";
+import { contaUatSinteticaAtual } from "../uat/isolamento";
 import { montarIcs } from "../integracoes/ics";
 
 /** Linha crua do PostgREST — cada campo é lido explicitamente abaixo, nunca repassado com `as Tipo`. */
@@ -165,6 +166,8 @@ export const MOTIVO_SEM_CONEXAO_GOOGLE =
   "A agenda do Google não está conectada. Baixe o convite abaixo e importe-o manualmente, ou entre com o Google (Integrações → Agenda) para sincronizar de verdade.";
 export const MOTIVO_APP_NAO_CONFIGURADO =
   "Este ambiente ainda não está configurado para falar com o Google. Baixe o convite abaixo e importe-o manualmente.";
+export const MOTIVO_UAT_SEM_GOOGLE =
+  "A homologação sintética não cria, altera ou cancela eventos em agendas externas.";
 
 function avisar(operacao: string, erro: { code?: string; message?: string }): void {
   console.warn(`[mentoria/acoes-calendario] ${operacao} falhou`, erro.code, erro.message);
@@ -382,6 +385,7 @@ export async function conviteDaSessao(sessaoIdCru: string): Promise<ResultadoSin
 }
 
 export async function sincronizarSessaoNaAgenda(formData: FormData): Promise<ResultadoSincronizacao> {
+  if (await contaUatSinteticaAtual()) return { ok: false, erro: MOTIVO_UAT_SEM_GOOGLE };
   // ÚNICO campo lido do formulário. Qualquer `workspaceId`, `mentoradoId`
   // ou outro campo de identidade que o formulário tente mandar junto é
   // ignorado — nem é lido aqui, quanto mais usado numa consulta. Ver o

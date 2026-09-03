@@ -4,6 +4,7 @@ import { gerarTexto } from "../integracoes/ia";
 import { transcreverAudio } from "../integracoes/stt";
 import { criarSupabaseServer } from "../supabase/server";
 import { lerResposta, montarPrompt } from "./analise-call";
+import { contaUatSinteticaAtual } from "../uat/isolamento";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -13,6 +14,7 @@ function texto(formData: FormData, campo: string): string {
 
 /** Ação humana: só persiste análise real, legível e atribuída a quem clicou. */
 export async function analisarCall(formData: FormData): Promise<void> {
+  if (await contaUatSinteticaAtual()) return;
   const oportunidadeId = texto(formData, "oportunidadeId");
   if (!UUID.test(oportunidadeId)) return;
 

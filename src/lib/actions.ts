@@ -22,6 +22,7 @@ import { COOKIE_TEMA } from "./tema";
 import { criarEventoGoogle } from "./integracoes/calendar";
 import { resumirTranscricao } from "./integracoes/ia";
 import { criarSupabaseServer } from "./supabase/server";
+import { contaUatSinteticaAtual } from "./uat/isolamento";
 
 const tudo = () => revalidatePath("/", "layout");
 
@@ -633,12 +634,14 @@ export async function marcarReuniao(formData: FormData) {
   // cria no Google Calendar quando as credenciais existem (senão segue local)
   let googleEventId = "";
   let link = "";
-  try {
-    const ev = await criarEventoGoogle({ titulo: r.titulo, inicio, fim, descricao: r.comQuem });
-    googleEventId = ev.googleEventId;
-    link = ev.link;
-  } catch {
-    // falha no Google não impede o registro local
+  if (!(await contaUatSinteticaAtual())) {
+    try {
+      const ev = await criarEventoGoogle({ titulo: r.titulo, inicio, fim, descricao: r.comQuem });
+      googleEventId = ev.googleEventId;
+      link = ev.link;
+    } catch {
+      // falha no Google não impede o registro local
+    }
   }
   const db = getDB();
   await db.addReuniao({
@@ -671,10 +674,12 @@ const TranscricaoManualSchema = z.object({
 export async function salvarTranscricaoManual(formData: FormData) {
   const { reuniaoId, texto } = TranscricaoManualSchema.parse(Object.fromEntries(formData));
   let resumo = "";
-  try {
-    resumo = (await resumirTranscricao(texto)).texto;
-  } catch {
-    resumo = "";
+  if (!(await contaUatSinteticaAtual())) {
+    try {
+      resumo = (await resumirTranscricao(texto)).texto;
+    } catch {
+      resumo = "";
+    }
   }
   await getDB().addTranscricao({ reuniaoId, origem: "manual", texto, resumo });
   tudo();

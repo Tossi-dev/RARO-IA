@@ -9,8 +9,15 @@
 // outro e o teste do freio (chamada 21) ficaria dependente da ordem de
 // execução dos demais.
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { COOKIE_ACESSO, selo } from "@/lib/acesso";
+
+const { getUserMock } = vi.hoisted(() => ({ getUserMock: vi.fn() }));
+
+vi.mock("@supabase/ssr", () => ({
+  createServerClient: () => ({ auth: { getUser: getUserMock } }),
+}));
+
 import { guardarApi } from "./guarda-api";
 
 const VARS = [
@@ -29,6 +36,7 @@ function limparAmbiente() {
 }
 
 afterEach(limparAmbiente);
+beforeEach(() => getUserMock.mockReset());
 
 function req(opts: { cookie?: string; ip?: string } = {}): Request {
   const headers = new Headers();
@@ -76,6 +84,29 @@ describe("guardarApi — modo trancado", () => {
     const r = await guardarApi(req({ ip: "203.0.113.13" }));
     expect(r).not.toBeNull();
     expect(r!.status).toBe(401);
+  });
+});
+
+describe("guardarApi — isolamento UAT", () => {
+  it("recusa crédito externo para sessão audit.invalid", async () => {
+    limparAmbiente();
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://projeto.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-teste";
+    getUserMock.mockResolvedValue({ data: { user: { email: "gestor@audit.invalid" } } });
+
+    const r = await guardarApi(req({ ip: "203.0.113.17" }));
+
+    expect(r?.status).toBe(403);
+    expect(await corpo(r!)).toEqual({ erro: "não autorizado" });
+  });
+
+  it("mantém a API disponível para sessão autenticada não sintética", async () => {
+    limparAmbiente();
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://projeto.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-teste";
+    getUserMock.mockResolvedValue({ data: { user: { email: "gestor@empresa.com" } } });
+
+    await expect(guardarApi(req({ ip: "203.0.113.18" }))).resolves.toBeNull();
   });
 });
 
