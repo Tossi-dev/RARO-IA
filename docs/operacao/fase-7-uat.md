@@ -44,15 +44,15 @@
 - A saída e a autenticação dos três perfis restantes dependem de troca manual
   de conta; senhas não são lidas ou digitadas pelo agente.
 
-### Comercial sintético — interrompido por isolamento insuficiente
+### Comercial sintético — isolamento corrigido e comprovado
 
-- A sessão foi confirmada no domínio sintético `audit.invalid`.
-- A primeira tela autenticada apresentou contatos sem marcador `[AUDIT]` ou
-  `T-102`, portanto potencialmente não sintéticos.
-- A inspeção foi interrompida imediatamente, sem abrir fichas, executar ações
-  ou registrar qualquer nome, telefone, e-mail ou identificador.
-- A T-112 só pode continuar depois de existir uma projeção/ambiente que devolva
-  exclusivamente massa sintética para essa conta, comprovada por teste.
+- O bloqueio original levou à criação do workspace sintético isolado T-112 e à
+  recriação transacional da massa mínima nele.
+- A sessão comercial foi novamente confirmada apenas pelo domínio `audit.invalid`.
+- `/crm` carregou com estado vazio: base total 0, alunos ativos 0 e nenhum item
+  de carteira. Nenhum identificador ou conteúdo externo à massa sintética apareceu.
+- A sessão foi preservada; não houve abertura de ficha, escrita comercial ou saída,
+  para não exigir que senha sintética seja entregue ao agente.
 
 ## Regra de parada
 
