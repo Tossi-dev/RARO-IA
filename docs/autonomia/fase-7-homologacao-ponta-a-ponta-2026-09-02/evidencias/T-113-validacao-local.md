@@ -20,6 +20,10 @@ Data UTC: 2026-09-03T13:40:15Z
 
 ## Próxima célula
 
-Percorrer a mesma jornada no MentorOS main usando exclusivamente a identidade
-gestora e a massa `[AUDIT]` do workspace sintético T-112. A senha permanece
-fora do agente; a UAT depende de login manual local.
+Concluída em 2026-09-03T14:43:36Z. A identidade gestora abriu somente a ficha
+`[AUDIT] T-112`; contexto, perguntas, mapa, meta, plano e relação foram
+inspecionados sem escrita. Nenhum e-mail externo a `audit.invalid` apareceu e o
+logout terminou em `/login`.
+
+Um aviso de desenvolvimento sobre `method` ou `encType` em formulário com
+função `action` foi preservado como achado não bloqueante para a T-115.
