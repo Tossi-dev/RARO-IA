@@ -72,15 +72,16 @@
 - A caixa de mensagem foi apenas inspecionada; nada foi enviado ou alterado.
   O logout concluiu em `/login`, sem sessão sintética remanescente.
 
-### Resultado funcional da T-112 — validação técnica pendente
+### Resultado da T-112 — aprovado
 
 - As três identidades sintéticas cobrem os quatro percursos do contrato:
   gestor e profissional são jornadas da identidade `gestor`; comercial e
   mentorado usam seus papéis próprios.
 - Todos os percursos funcionais previstos foram percorridos sem escrita de
-  negócio, segredo ou exposição de conteúdo não sintético. A T-112 ainda não
-  está tecnicamente aprovada: Vitest e TypeScript precisam terminar com saída
-  verificável antes de liberar a T-113.
+  negócio, segredo ou exposição de conteúdo não sintético.
+- A repetição isolada da validação terminou com 42/42 testes focados aprovados
+  e TypeScript sem erros. A T-112 está liberada para revisão independente e
+  para a sequência contratada somente após parecer aprovador.
 
 ## Regra de parada
 
