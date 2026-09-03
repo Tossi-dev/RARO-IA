@@ -108,11 +108,9 @@ function FormularioDeAnexo({ mentoradoId }: { mentoradoId: string }) {
       <summary className="trans list-none cursor-pointer text-xs font-medium text-primaria-2 [&::-webkit-details-marker]:hidden">
         + Anexar arquivo
       </summary>
-      {/* `encType` escrito à mão: o Next já monta o envio certo para uma
-          Server Action, mas sem ele o formulário deixa de funcionar no
-          caminho sem JavaScript — e aí o arquivo chegaria como nome, não
-          como conteúdo. */}
-      <form action={anexarDocumento} encType="multipart/form-data" className="mt-3 grid gap-3 sm:grid-cols-2">
+      {/* A Server Action define automaticamente o enctype multipart. Declarar
+          esse atributo manualmente faz o React sobrescrevê-lo e emitir aviso. */}
+      <form action={anexarDocumento} className="mt-3 grid gap-3 sm:grid-cols-2">
         <input type="hidden" name="mentoradoId" value={mentoradoId} />
 
         <Campo label={`Arquivo (até ${LIMITE_EM_MB})`} className="sm:col-span-2">
