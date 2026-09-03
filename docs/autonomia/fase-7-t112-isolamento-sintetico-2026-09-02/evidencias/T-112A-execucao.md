@@ -27,4 +27,9 @@ separada deverá recriar massa mínima no workspace isolado.
 - Contrato v3: `VALID`.
 - `git diff --check`: aprovado.
 - Revisão independente: `APROVADO` após três achados corrigidos.
-- Nenhum SQL foi executado no MentorOS main.
+- SQL aprovado aplicado no MentorOS main após autorização explícita.
+- Resultado do editor: `Success. No rows returned`.
+- Verificação agregada somente leitura: `workspace_ok=1`,
+  `perfis_no_workspace=3`, `perfis_sinteticos=3` e `objetos_storage=0`.
+- A massa T-102 anterior não foi movida nem recriada.
+- Revisão independente do fechamento documental: `APROVADO`.
