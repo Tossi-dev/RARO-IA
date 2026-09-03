@@ -83,6 +83,28 @@
   e TypeScript sem erros. A T-112 está liberada para revisão independente e
   para a sequência contratada somente após parecer aprovador.
 
+## Execução da T-113
+
+### Jornada sintética completa — em revisão
+
+- A sessão ativa foi confirmada como `rls-audit-gestor@audit.invalid` antes da
+  inspeção; a carteira apresentou exatamente um mentorado `[AUDIT] T-112`.
+- A ficha sintética apresentou contexto de sessão, mapa consentido, perguntas
+  abertas, meta, passo, plano de ação e relação no grafo, sempre vinculados ao
+  mesmo mentorado sintético.
+- A linguagem da interface mantém o caminho com o cliente: perguntas são
+  sugestões editáveis, o mapa não é diagnóstico e o plano registra o que a
+  pessoa escolheu experimentar.
+- A ausência de consentimento para reflexão permaneceu fechada e explicada; a
+  transcrição automática permaneceu indisponível sem áudio e sem confirmação.
+- Nenhum e-mail fora de `audit.invalid` foi encontrado. Nenhuma ação de salvar,
+  converter, calcular, vincular, transcrever, liberar ou enviar foi executada.
+- O logout concluiu em `/login`, sem sessão gestora remanescente.
+- Validação local: 7 arquivos e 53 testes focados aprovados; TypeScript limpo.
+- Achado não bloqueante reservado para a T-115: o servidor de desenvolvimento
+  avisou que um formulário com função em `action` também declara `method` ou
+  `encType`, atributos que o React substitui automaticamente.
+
 ## Regra de parada
 
 Interromper se aparecer dado não sintético, acesso cruzado, segredo, pagamento,
