@@ -24,16 +24,21 @@ Esta matriz é o retrato da passagem UAT original. Ela não representa o estado 
 | Mentorado | Agenda | FALHA | A rota é permitida, porém oferecia conexão Google/iCal à conta sintética apesar do isolamento UAT. Corrigido em código e em testes locais na T-119; reteste UAT pelo navegador pendente. |
 | Comercial | Início, CRM, negociações e painel | PASSA | As rotas carregaram na sessão `rls-audit-comercial@audit.invalid`. |
 | Comercial | Financeiro, integrações, mentoria, trilhas e portal | PASSA | Todas terminaram em `/sem-acesso`. |
-| Comercial | Começar, tour, marketing, agenda e conteúdo | BLOQUEADA | Login confirmado; validação funcional detalhada pendente porque o servidor local foi encerrado antes da segunda passagem. |
+| Comercial | Começar e tour | PASSA | As duas rotas carregaram com a sessão comercial e apresentaram apenas a base sintética vazia. |
+| Comercial | Agenda | PASSA | A rota permitida exibiu `Agenda isolada na homologação`, sem controles Google ou iCal. |
+| Comercial | Conteúdo | FALHA | A rota carregou sem registros, mas instruiu configurar tokens externos e afirmou que os dados eram de demonstração, mensagem inadequada para uma conta UAT isolada. |
+| Comercial | Marketing | FALHA | A rota abriu, porém `lerDadosMarketing` tentou consultar uma relação ausente e degradou para `Não foi possível carregar o marketing agora` (`PGRST205`). |
 | Comercial | Criar lead `[AUDIT]` | BLOQUEADA | Nenhuma submissão foi feita; a tentativa anterior não conseguiu focar o campo. |
 
 ## Defeitos reproduzidos para T-119
 
-1. A agenda oferecia conexão Google/iCal à conta sintética mentorado. Como o isolamento depende da conta e não do papel, a exposição ao comercial era uma inferência estática; a passagem comercial não chegou a validar essa tela.
+1. A agenda oferecia conexão Google/iCal à conta sintética mentorado. O reteste comercial pós-T-119 confirmou a degradação isolada, sem controles externos.
 2. A página de Integrações comunicava uma leitura inexistente (`29/29`) durante o isolamento UAT e mostrava metadado da planilha.
 3. Escritas sintéticas de gestor em aviso, trilha e lead são recusadas por RLS (`42501`). A correção de política exige gate separado; esta missão não altera migrations ou RLS.
 4. A criação de lead propaga falha de RLS como HTTP 500, sem retorno amigável ao usuário.
 5. O bloqueio de `/mentoria` para mentorado renderiza a tela correta, mas conserva a URL proibida.
+6. Conteúdo instrui a conta sintética a configurar tokens Meta/TikTok e chama a base vazia de demonstração.
+7. Marketing tenta consultar o Supabase na conta UAT e falha com `PGRST205`, em vez de degradar para uma visão sintética isolada.
 
 ## Estado local após a T-119
 
@@ -44,6 +49,7 @@ Esta matriz é o retrato da passagem UAT original. Ela não representa o estado 
 
 ## Limitações da execução
 
-- O preenchimento automatizado do formulário comercial falhou antes de qualquer escrita. A função fica pendente, não aprovada.
+- O preenchimento automatizado do formulário comercial falhou antes de qualquer escrita. A função fica bloqueada, não aprovada.
 - O aviso e a trilha não puderam ser verificados pelo mentorado porque as tentativas de criação pelo gestor foram recusadas e não deixaram registros.
 - Correções de RLS permanecem fora do escopo e não serão contornadas no código cliente.
+- A compilação não estava travada: o `next build` continuava produzindo delta no arquivo de trace apesar do silêncio no terminal e concluiu 46/46 páginas. O reteste foi executado em `next start`, que ficou pronto em 1,6 s.
