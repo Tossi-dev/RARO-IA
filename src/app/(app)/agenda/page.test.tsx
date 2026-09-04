@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
 
 const { lerAgendaGoogleMock, lerAgendaIcsMock, contaUatMock } = vi.hoisted(() => ({
   lerAgendaGoogleMock: vi.fn(),
@@ -31,5 +32,13 @@ describe("Agenda em UAT sintético", () => {
     expect(contaUatMock).toHaveBeenCalledOnce();
     expect(lerAgendaGoogleMock).not.toHaveBeenCalled();
     expect(lerAgendaIcsMock).not.toHaveBeenCalled();
+  });
+
+  it("não oferece conexão Google ou iCal à conta sintética", async () => {
+    const html = renderToStaticMarkup(await AgendaPage({ searchParams: {} }));
+
+    expect(html).toContain("Agenda isolada na homologação");
+    expect(html).not.toContain("Conectar com o Google");
+    expect(html).not.toContain("Endereço secreto no formato iCal");
   });
 });

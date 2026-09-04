@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
 
 const { lerAbasMock, contaUatMock, listEventosMock, listMatriculasMock, listProdutosMock, modoDadosMock } = vi.hoisted(() => ({
   lerAbasMock: vi.fn(),
@@ -53,5 +54,14 @@ describe("Integrações em UAT sintético", () => {
     expect(listMatriculasMock).not.toHaveBeenCalled();
     expect(listProdutosMock).not.toHaveBeenCalled();
     expect(lerAbasMock).not.toHaveBeenCalled();
+  });
+
+  it("não finge sincronização nem revela metadado da planilha no UAT", async () => {
+    const html = renderToStaticMarkup(await Integracoes());
+
+    expect(html).toContain("Diagnóstico da planilha isolado no UAT");
+    expect(html).not.toContain("Abas de entrada sincronizadas");
+    expect(html).not.toContain("planil…lida");
+    expect(html).not.toContain("Leitura ao vivo da planilha");
   });
 });
