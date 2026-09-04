@@ -129,6 +129,21 @@ export default async function AgendaPage({
   const janela = janelaAgenda(visao, ref);
   const uatSintetico = await contaUatSinteticaAtual();
 
+  if (uatSintetico) {
+    return (
+      <>
+        <PageHeader titulo="Agenda" sub="Homologação funcional em ambiente isolado" />
+        <Card titulo="Agenda isolada na homologação">
+          <p className="text-sm leading-relaxed text-texto-2">
+            Esta conta sintética não lê calendários externos e não oferece conexão com Google ou
+            iCal. Use uma conta não sintética somente quando houver consentimento explícito para a
+            integração.
+          </p>
+        </Card>
+      </>
+    );
+  }
+
   // Duas portas para a mesma agenda. O login do Google manda quando existe:
   // ele desdobra as repetições do lado do Google e não depende de ninguém
   // copiar URL nenhuma. O iCal continua valendo como alternativa.

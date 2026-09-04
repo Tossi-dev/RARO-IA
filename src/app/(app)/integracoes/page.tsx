@@ -447,7 +447,16 @@ export default async function Integracoes() {
           ambiente: aqui a página bate na planilha de verdade, aba por aba,
           e mostra o que voltou — inclusive o que não voltou.
           --------------------------------------------------------------- */}
-      {sheetsConfigurado() ? (
+      {uatSintetico ? (
+        <div className="mt-4">
+          <Card titulo="Diagnóstico da planilha isolado no UAT">
+            <p className="text-sm leading-relaxed text-texto-2">
+              Esta conta sintética não consulta a planilha configurada, não calcula indicadores de
+              sincronização e não exibe o identificador do arquivo externo.
+            </p>
+          </Card>
+        </div>
+      ) : sheetsConfigurado() ? (
         <div className="mt-4 space-y-4">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <Stat
