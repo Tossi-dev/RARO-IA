@@ -7,50 +7,20 @@
 
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { Carteira } from "@/lib/mentoria/dados";
-import { CarteiraVisao } from "./visao";
+import { CarteiraVisao, type CarteiraVisual } from "./visao";
 
-function carteiraComUmaLinha(): Carteira {
+function carteiraComUmaLinha(): CarteiraVisual {
   return {
     conectado: true,
     motivo: "",
     linhas: [
       {
-        mentorado: {
-          id: "ment-1",
-          workspaceId: "ws-1",
-          alunoId: null,
-          perfilId: "perfil-1",
-          nome: "Carlos Menezes",
-          telefone: "",
-          email: "",
-          origem: "",
-          status: "ativo",
-          criadoEm: "2026-01-01T00:00:00Z",
-        },
-        matricula: {
-          id: "mat-1",
-          workspaceId: "ws-1",
-          mentoradoId: "ment-1",
-          programaId: "prog-1",
-          turmaId: null,
-          inicio: "2026-01-01",
-          fimPrevisto: null,
-          status: "ativa",
-          sessoesPrevistas: 8,
-          criadoEm: "2026-01-01T00:00:00Z",
-        },
-        programa: {
-          id: "prog-1",
-          workspaceId: "ws-1",
-          nome: "Impulso",
-          formato: "individual",
-          totalSessoes: 8,
-          preco: 500,
-          ativo: true,
-          criadoEm: "2026-01-01T00:00:00Z",
-        },
-        progresso: { realizadas: 3, previstas: 8, rotulo: "sessão 3 de 8", percentual: 37, excedeu: false },
+        id: "mat-1",
+        mentorado: { id: "ment-1", nome: "Carlos Menezes", email: "" },
+        matricula: { id: "mat-1" },
+        programa: { nome: "Impulso" },
+        status: "ativa",
+        progresso: { rotulo: "sessão 3 de 8", percentual: 37 },
         proxima: null,
         ultimaRealizada: null,
         silencio: null,
@@ -59,8 +29,8 @@ function carteiraComUmaLinha(): Carteira {
   };
 }
 
-describe("CarteiraVisao — defeito visual 4: o nome do mentorado precisa parecer um link", () => {
-  it("o nome é um <a> para a ficha, com a cor de link do app (primaria-2) e uma seta discreta", () => {
+describe("CarteiraVisao — carteira operacional", () => {
+  it("oferece uma ação inequívoca para abrir a ficha do mentorado", () => {
     const html = renderToStaticMarkup(
       <CarteiraVisao carteira={carteiraComUmaLinha()} agoraIso="2026-08-13T12:00:00Z" />
     );
@@ -71,20 +41,64 @@ describe("CarteiraVisao — defeito visual 4: o nome do mentorado precisa parece
     // isso o link inteiro (não a ordem dos atributos) é o que a asserção
     // prende.
     expect(html).toMatch(
-      /<a class="[^"]*text-primaria-2[^"]*"[^>]*href="\/mentoria\/ment-1"/
+      /<a class="[^"]*text-\[#3b8cff\][^"]*"[^>]*href="\/mentoria\/ment-1">Abrir ficha<\/a>/
     );
-    // seta discreta (a mesma que `sidebar.tsx` já usa), nunca emoji.
-    expect(html).toContain("→");
   });
 
   // A LINHA inteira responde ao hover, não só o texto do nome — sem isso a
   // única pista de "isto é clicável" ficava restrita a passar o mouse
   // exatamente em cima das letras do nome.
-  it("a linha (<tr>) tem uma classe de hover — não só o link", () => {
+  it("a ação de ficha mostra resposta visual ao hover", () => {
     const html = renderToStaticMarkup(
       <CarteiraVisao carteira={carteiraComUmaLinha()} agoraIso="2026-08-13T12:00:00Z" />
     );
 
-    expect(html).toMatch(/<tr[^>]*class="[^"]*hover:bg-eleva[^"]*"/);
+    expect(html).toMatch(/<a class="[^"]*hover:bg-\[#1769ff\]\/10[^"]*"[^>]*>Abrir ficha<\/a>/);
+  });
+
+  it("adota o contrato visual aprovado da carteira sem trocar dados reais por exemplos", () => {
+    const html = renderToStaticMarkup(
+      <CarteiraVisao carteira={carteiraComUmaLinha()} agoraIso="2026-08-13T12:00:00Z" />
+    );
+
+    expect(html).toContain('data-mentoria-visual="referencia-aprovada"');
+    expect(html).toContain("Carteira de mentorados");
+    expect(html).toContain("Mentorados ativos");
+    expect(html).toContain("Sessões nesta semana");
+    expect(html).toContain("Precisam de atenção");
+    expect(html).toContain("Jornadas em andamento");
+    expect(html).toContain("Prioridades de atendimento");
+    expect(html).toContain("Próximos atendimentos");
+    expect(html).toContain("Carlos Menezes");
+    expect(html).not.toContain("Mariana Ribeiro");
+  });
+
+  it("mantém as ações da referência ligadas às rotas reais do produto", () => {
+    const html = renderToStaticMarkup(
+      <CarteiraVisao carteira={carteiraComUmaLinha()} agoraIso="2026-08-13T12:00:00Z" />
+    );
+
+    expect(html).toContain('href="/crm"');
+    expect(html).toContain('href="/mentoria/ment-1"');
+    expect(html).toContain('href="/agenda"');
+  });
+
+  it("não transforma indisponibilidade em indicadores zerados", () => {
+    const html = renderToStaticMarkup(
+      <CarteiraVisao carteira={{ conectado: false, motivo: "Leitura indisponível", linhas: [] }} agoraIso="2026-08-13T12:00:00Z" />
+    );
+    expect(html).toContain("Leitura indisponível");
+    expect(html).not.toContain("Carteira em dia");
+    expect(html).not.toContain("Nenhum próximo atendimento marcado");
+  });
+
+  it("preserva progresso desconhecido e o status real da matrícula", () => {
+    const carteira = carteiraComUmaLinha();
+    carteira.linhas[0].progresso = { percentual: null, rotulo: "progresso sem denominador" };
+    carteira.linhas[0].status = "concluida";
+    const html = renderToStaticMarkup(<CarteiraVisao carteira={carteira} agoraIso="2026-08-13T12:00:00Z" />);
+    expect(html).toContain("Progresso ainda não mensurável");
+    expect(html).not.toContain("Progresso 0%");
+    expect(html).toContain("Concluída");
   });
 });
