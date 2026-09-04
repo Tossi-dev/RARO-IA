@@ -20,7 +20,7 @@
 // produto/curso/lançamento e a participação dele na empresa. A lista vem do
 // servidor por prop — este componente é "use client" e não lê banco.
 
-import { Bell, LogOut, Plus, Search } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Menu, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -34,6 +34,7 @@ import type { FiltroFonte } from "@/lib/filtros";
 import { RANGES } from "@/lib/filtros";
 import type { Densidade } from "@/lib/densidade";
 import type { Tema } from "@/lib/tema";
+import type { Papel } from "@/lib/papeis";
 import { EVENTO_ABRIR_AVISOS } from "./avisos-dock";
 import { DensidadeToggle } from "./densidade-toggle";
 import { Marca } from "./sidebar";
@@ -141,6 +142,7 @@ export function Topbar({
   pendencias,
   fonteDoDado,
   apps,
+  papel,
   children,
 }: {
   modo: ModoDados;
@@ -171,6 +173,7 @@ export function Topbar({
    * pela mesma fonte de verdade.
    */
   apps: AppCatalogo[];
+  papel: Papel;
   /** Bloco vindo do servidor — hoje, o formulário de sair da conta. */
   children?: React.ReactNode;
 }) {
@@ -193,6 +196,31 @@ export function Topbar({
   // já filtrada — mesma pergunta que decide o tile de Financeiro na tela
   // inicial, feita aqui pela MESMA lista, não por um `rotaPermitida` novo.
   const podeRegistrar = apps.some((a) => a.href === "/financeiro" || a.href.startsWith("/financeiro/"));
+
+  if (pathname !== "/") {
+    const nome = usuario ? usuario.split("@")[0].replace(/[._-]+/g, " ") : "Mentor";
+    const nomeExibicao = nome.replace(/\b\w/g, (letra) => letra.toUpperCase());
+    const tituloInterno = pathname === "/painel" ? "Visão geral" : (nomeDoLugar ?? "MentorOS");
+    const rotuloPapel: Record<Papel, string> = { dono: "Dono", gestor: "Gestor", comercial: "Comercial", mentorado: "Mentorado", afiliado: "Afiliado", aluno: "Aluno" };
+    return <header className="sticky top-0 z-40 hidden h-[66px] items-center border-b border-white/[0.08] bg-[#030917]/90 px-7 backdrop-blur-xl md:flex">
+      <div className="flex items-center gap-6"><button type="button" onClick={() => window.dispatchEvent(new CustomEvent("raro:abrir-paleta"))} aria-label="Abrir navegação rápida" className="text-[#dce2f1] transition-colors hover:text-white"><Menu size={22} strokeWidth={1.6} aria-hidden /></button><span className="text-[15px] font-semibold text-white">{tituloInterno}</span></div>
+      <div className="ml-auto flex items-center gap-5">
+        <button onClick={() => window.dispatchEvent(new CustomEvent("raro:abrir-paleta"))} aria-label="Buscar" className="text-[#dce2f1] transition-colors hover:text-white"><Search size={21} strokeWidth={1.6} aria-hidden /></button>
+        <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(EVENTO_ABRIR_AVISOS))} aria-label={pendencias > 0 ? `Quadro de avisos · ${pendencias} pendências` : "Quadro de avisos"} className="relative text-[#dce2f1] transition-colors hover:text-white"><Bell size={21} strokeWidth={1.6} aria-hidden />{pendencias > 0 && <span className="absolute -right-2 -top-2 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-[#1769ff] px-1 text-[10px] font-semibold text-white">{pendencias}</span>}</button>
+        <span className="h-7 w-px bg-white/[0.09]" aria-hidden />
+        <MenuUsuario usuario={usuario} fonteDoDado={fonteDoDado}>{children}</MenuUsuario>
+        <div className="hidden min-w-32 lg:block"><p className="truncate text-sm font-semibold capitalize text-white">{nomeExibicao}</p><p className="text-xs text-[#8f99ad]">{rotuloPapel[papel]}</p></div>
+        <details className="group relative">
+          <summary aria-label="Abrir controles do painel" className="flex h-8 w-8 cursor-pointer list-none items-center justify-center text-[#cbd2e2] [&::-webkit-details-marker]:hidden"><ChevronDown size={17} className="transition-transform group-open:rotate-180" aria-hidden /></summary>
+          <div className="absolute right-0 top-10 z-50 flex w-[280px] flex-col gap-3 rounded-xl border border-[#273247] bg-[#07111f] p-4 shadow-2xl">
+            <label className="flex flex-col gap-1.5 text-xs text-[#8f99ad]">Fonte de renda<select value={fonte} onChange={(e) => aplicar(e.target.value, rangeDias)} aria-label="Filtrar por fonte de renda" className={CLASSE_CONTROLE}><option value="todos">Todas as fontes</option>{produtos.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></label>
+            <label className="flex flex-col gap-1.5 text-xs text-[#8f99ad]">Período<select value={rangeDias} onChange={(e) => aplicar(fonte, Number(e.target.value))} className={CLASSE_CONTROLE} aria-label="Período global">{RANGES.map((r) => <option key={r.dias} value={r.dias}>{r.rotulo}</option>)}</select></label>
+            <div className="flex flex-wrap items-center gap-2 border-t border-[#273247] pt-3"><TemaToggle tema={tema} /><DensidadeToggle densidade={densidade} />{simulacao ? <BotaoSairSimulacao compacto /> : <BotaoSimulacao compacto />}{podeRegistrar && <Link href="/financeiro" title="Registrar venda / despesa" className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1769ff] text-white"><Plus size={16} aria-hidden /></Link>}{selo && <span className="text-xs text-aviso">{selo}</span>}</div>
+          </div>
+        </details>
+      </div>
+    </header>;
+  }
 
   // `hidden md:flex`: no celular quem manda é <MenuMobile />. Esconder AQUI, e
   // não numa div em volta, é de propósito — `sticky` dentro de um wrapper da

@@ -71,8 +71,15 @@ function ativo(pathname: string, href: string) {
  *  logado (`gruposNavPorPapel`, em src/lib/nav-lateral.ts, chamada em
  *  src/app/(app)/layout.tsx). Este componente só desenha; não decide o que
  *  aparece. */
-export function SidebarNav({ grupos }: { grupos: GrupoNavLateral[] }) {
+export function SidebarNav({ grupos, modoPainel = false }: { grupos: GrupoNavLateral[]; modoPainel?: boolean }) {
   const pathname = usePathname();
+  if (modoPainel) {
+    const ordem = ["/painel", "/mentoria", "/crm", "/trilhas", "/agenda", "/comercial", "/financeiro"];
+    const rotulos: Record<string, string> = { "/painel": "Visão geral", "/mentoria": "Atendimentos", "/crm": "Clientes", "/trilhas": "Jornada", "/agenda": "Agenda", "/comercial": "Equipe", "/financeiro": "Operação" };
+    const itens = grupos.flatMap((grupo) => grupo.itens);
+    const menu = ordem.map((href) => itens.find((item) => item.href === href)).filter((item): item is NonNullable<typeof item> => Boolean(item));
+    return <nav className="flex flex-col gap-1">{menu.map(({ href, icone }) => { const on = ativo(pathname, href); const Icone = ICONES[icone]; return <Link key={href} href={href} aria-current={on ? "page" : undefined} className={cx("flex min-h-12 items-center gap-3 rounded-lg px-4 text-[14px] transition-colors", on ? "bg-gradient-to-r from-[#104fd1] to-[#0d43b3] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]" : "text-[#d6dbea] hover:bg-white/[0.04] hover:text-white")}><Icone size={20} strokeWidth={1.6} aria-hidden />{rotulos[href]}</Link>; })}</nav>;
+  }
   return (
     <nav className="flex flex-col gap-4">
       {grupos.map((g) => (

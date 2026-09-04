@@ -1,4 +1,5 @@
 import { AvisosDock } from "@/components/avisos-dock";
+import { AppFrame } from "@/components/app-frame";
 import { BarraAbas } from "@/components/barra-abas";
 import type { ItemPalette } from "@/components/command-palette";
 import { CommandPalette } from "@/components/command-palette";
@@ -173,9 +174,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           desktop, o mesmo caminho existe por três portas — a tela inicial em
           "/", a marca da topbar que leva até ela, e o ⌘K, que acha qualquer
           tela pelo nome. */}
-      <div className="mx-auto w-full max-w-[1440px]">
-        <div className="min-w-0 flex-1">
-          <Topbar
+      <AppFrame grupos={gruposDaGaveta} topbar={<Topbar
             modo={modo}
             usuario={usuario}
             fonte={filtro.fonte}
@@ -187,14 +186,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             pendencias={avisos.reunioesHoje.length + avisos.tarefas.length}
             fonteDoDado={avisoDaFonte(modo, usuario, simulacao)}
             apps={appsDaTopbar}
+            papel={papel}
           >
             {temAuth && (
               <form action={sair}>
                 <button className="text-texto-2 transition-colors hover:text-texto">Sair</button>
               </form>
             )}
-          </Topbar>
-          <MenuMobile
+          </Topbar>} menuMobile={<MenuMobile
             tema={tema}
             densidade={densidade}
             simulacao={simulacao}
@@ -211,19 +210,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 </button>
               </form>
             )}
-          </MenuMobile>
-          {/* O padding-bottom extra no celular é espaço reservado para a barra
-              de abas fixa (barra-abas.tsx) não tampar o fim do conteúdo — 4,75rem
-              cobre a altura da barra com folga, e o `env(safe-area-inset-bottom)`
-              soma o home indicator do iPhone por cima disso. No desktop
-              (`md:p-7`) não existe barra de abas, então o padding volta ao
-              valor de sempre nos quatro lados. */}
-          <main className="px-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] pt-7 md:px-8 md:pb-8 md:pt-10">
-            {children}
-          </main>
-          <BarraAbas pendencias={avisos.reunioesHoje.length + avisos.tarefas.length} />
-        </div>
-      </div>
+          </MenuMobile>} barraAbas={<BarraAbas pendencias={avisos.reunioesHoje.length + avisos.tarefas.length} />}>
+        {children}
+      </AppFrame>
     </div>
   );
 }
