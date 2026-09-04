@@ -11,7 +11,7 @@ Esta matriz é o retrato da passagem UAT original. Ela não representa o estado 
 | Perfil | Função | Resultado T-118 | Evidência |
 | --- | --- | --- | --- |
 | Gestor | Navegação pelas áreas operacionais | PASSA | Início, painel, tour, agenda, mentoria, trilhas, avisos, onboarding, financeiro, CRM, comercial, conteúdo, começar, extrato e integrações carregaram. |
-| Gestor | Isolamento de integrações externas | FALHA | A leitura externa foi suprimida, mas a tela comunicava `29/29` abas sincronizadas e mostrava o identificador abreviado da planilha. Corrigido em código e em testes locais na T-119; reteste UAT pelo navegador pendente. |
+| Gestor | Isolamento de integrações externas | FALHA | A leitura externa foi suprimida, mas a tela comunicava `29/29` abas sincronizadas e mostrava o identificador abreviado da planilha. Corrigido em código e em testes locais na T-119; reteste UAT da sessão gestora pelo navegador pendente. |
 | Gestor | Publicar aviso `[AUDIT]` | BLOQUEADA | Gravação recusada pelo banco com código `42501`; nenhum aviso foi criado. |
 | Gestor | Criar trilha `[AUDIT]` | BLOQUEADA | Gravação recusada pelo banco com código `42501`; nenhuma trilha foi criada. |
 | Gestor | Criar lead `[AUDIT]` | BLOQUEADA | RLS recusou `INSERT` em `alunos`; a interface devolveu erro HTTP 500 em vez de mensagem orientativa. |
@@ -21,7 +21,7 @@ Esta matriz é o retrato da passagem UAT original. Ela não representa o estado 
 | Mentorado | Financeiro, CRM, integrações, comercial e trilhas administrativas | PASSA | As rotas terminaram na tela `Esta área não é sua`. |
 | Mentorado | Mentoria administrativa | FALHA | O conteúdo foi bloqueado, mas a URL permaneceu `/mentoria` em vez de `/sem-acesso`. |
 | Mentorado | Conteúdo e Começar | PASSA | As rotas carregaram conforme a política explícita em `src/lib/papeis.ts`; o acesso não é tratado como defeito. |
-| Mentorado | Agenda | FALHA | A rota é permitida, porém oferecia conexão Google/iCal à conta sintética apesar do isolamento UAT. Corrigido em código e em testes locais na T-119; reteste UAT pelo navegador pendente. |
+| Mentorado | Agenda | FALHA | A rota é permitida, porém oferecia conexão Google/iCal à conta sintética apesar do isolamento UAT. Corrigido em código e em testes locais na T-119; reteste UAT da sessão mentorada pelo navegador pendente. |
 | Comercial | Início, CRM, negociações e painel | PASSA | As rotas carregaram na sessão `rls-audit-comercial@audit.invalid`. |
 | Comercial | Financeiro, integrações, mentoria, trilhas e portal | PASSA | Todas terminaram em `/sem-acesso`. |
 | Comercial | Começar e tour | PASSA | As duas rotas carregaram com a sessão comercial e apresentaram apenas a base sintética vazia. |
@@ -42,8 +42,8 @@ Esta matriz é o retrato da passagem UAT original. Ela não representa o estado 
 
 ## Estado local após a T-119
 
-- **CORRIGIDO LOCALMENTE — Agenda sintética:** a página agora encerra antes de qualquer leitura ou controle externo e mostra `Agenda isolada na homologação`. O teste confirma ausência de `Conectar com o Google` e `Endereço secreto no formato iCal`. Reteste UAT pelo navegador pendente.
-- **CORRIGIDO LOCALMENTE — diagnóstico de planilha:** a página agora mostra `Diagnóstico da planilha isolado no UAT`, sem `29/29`, identificador ou tabela de leitura ao vivo. Reteste UAT pelo navegador pendente.
+- **CORRIGIDO E RETESTADO NO COMERCIAL — Agenda sintética:** a página encerra antes de qualquer leitura ou controle externo e mostra `Agenda isolada na homologação`. O navegador comercial e o teste local confirmaram ausência de Google/iCal; falta repetir apenas na sessão mentorada.
+- **CORRIGIDO LOCALMENTE — diagnóstico de planilha:** a página mostra `Diagnóstico da planilha isolado no UAT`, sem `29/29`, identificador ou tabela de leitura ao vivo. Falta repetir pelo navegador apenas na sessão gestora, pois o perfil comercial não pode abrir Integrações.
 - **Evidência:** 70/70 testes relevantes passaram, incluindo papéis, isolamento UAT, Agenda e Integrações; `npx tsc --noEmit` concluiu com código 0.
 - **Não resolvido:** recusas RLS, mensagem HTTP 500 do CRM e inconsistência de URL de `/mentoria` continuam registradas. Nenhuma policy ou migration foi alterada.
 

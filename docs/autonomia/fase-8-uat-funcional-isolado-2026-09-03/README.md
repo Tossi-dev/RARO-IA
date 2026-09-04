@@ -3,7 +3,7 @@
 Contrato aprovado em 03/09/2026 para testar as jornadas de gestor, mentorado e comercial somente com contas `@audit.invalid` e massa `[AUDIT]`.
 
 - T-117: isolamento server-side de integrações externas — aprovado.
-- T-118: homologação função por função — matriz concluída com funções bloqueadas e dois novos defeitos locais reproduzidos no perfil comercial.
+- T-118: homologação função por função — matriz concluída e aprovada pela revisão independente, com funções bloqueadas e dois novos defeitos locais reproduzidos no perfil comercial.
 - T-119: dois defeitos de isolamento visual reproduzidos foram corrigidos localmente; revisão independente aprovada.
 
 Relatório operacional: `docs/operacao/fase-8-uat-funcional.md`.
