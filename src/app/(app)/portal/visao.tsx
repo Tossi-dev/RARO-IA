@@ -267,7 +267,8 @@ export function PortalVisao({
 
   const { mentorado } = portal;
   const primeiroNome = saudacao(mentorado.nome);
-  const programa = programaAtual(portal.matriculas);
+  const matriculaAtual = portal.matriculas.find(({ matricula }) => matricula.status === "ativa") ?? portal.matriculas[0] ?? null;
+  const programa = matriculaAtual?.programa?.nome ?? programaAtual(portal.matriculas);
   const variacao = portal.scores.length >= 2 ? variacaoScore(portal.scores) : null;
   const ultimoScore = portal.scores.length > 0 ? portal.scores[portal.scores.length - 1] : null;
   // Compatibilidade temporária com as prévias antigas: o contrato atual
@@ -285,11 +286,17 @@ export function PortalVisao({
   const mensagemErro = mensagemDeErro(erro);
 
   return (
-    <>
+    <div data-portal-visual="referencia-aprovada">
       <PageHeader
         titulo={primeiroNome ? `Olá, ${primeiroNome}` : "Olá"}
         sub={programa ? `Programa ${programa}` : undefined}
-      />
+      >
+        {matriculaAtual ? (
+          <Badge tom={TOM_STATUS_MATRICULA[matriculaAtual.matricula.status]}>
+            Matrícula {LABEL_STATUS_MATRICULA[matriculaAtual.matricula.status].toLocaleLowerCase("pt-BR")}
+          </Badge>
+        ) : null}
+      </PageHeader>
 
       {/* Erro de `concluirTarefa`/`reabrirTarefa` (validação ou banco) volta
           aqui, em `?erro=` — mensagem já humana, sem detalhe técnico (ver
@@ -312,8 +319,10 @@ export function PortalVisao({
             quando não há etapa ativa — ver `./primeiros-passos.tsx`. */}
         {onboarding ? <PrimeirosPassos onboarding={onboarding} /> : null}
 
+        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+
         {/* 2) O progresso — um bloco por matrícula. */}
-        <Card titulo="Progresso">
+        <Card titulo="Seu progresso" className="xl:col-start-1 xl:row-start-1">
           {portal.matriculas.length ? (
             <ul className="space-y-4">
               {portal.matriculas.map(({ matricula, programa: prog, progresso }) => (
@@ -338,8 +347,21 @@ export function PortalVisao({
           )}
         </Card>
 
+        <Card titulo="Sua jornada" className="xl:col-start-2 xl:row-start-1">
+          {matriculaAtual ? (
+            <>
+              <p className="text-sm font-medium text-texto">{programa ? `Programa ${programa}` : "Programa sem nome informado"}</p>
+              <p className="mt-3 text-xs leading-relaxed text-texto-2">Pergunta para reflexão</p>
+              <p className="mt-2 rounded-xl border border-primaria/35 bg-primaria/5 px-3 py-3 text-sm leading-relaxed text-texto">O que você percebe hoje que ainda não conseguia enxergar no começo desta jornada?</p>
+              <p className="mt-3 text-xs leading-relaxed text-texto-3">Seu mentor faz perguntas; você constrói o próprio caminho.</p>
+            </>
+          ) : (
+            <Vazio>Nenhuma jornada vinculada à sua conta no momento.</Vazio>
+          )}
+        </Card>
+
         {/* 3) A próxima sessão, em destaque. */}
-        <Card titulo="Próxima sessão">
+        <Card titulo="Próxima sessão" className="xl:col-start-1 xl:row-start-2">
           {portal.proxima ? (
             <div>
               <p className="font-display text-2xl font-fino leading-tight tracking-tight text-texto">
@@ -358,6 +380,9 @@ export function PortalVisao({
                   </span>
                 </Badge>
               ) : null}
+              <a href="#tarefas-da-semana" className="mt-4 inline-flex rounded-full border border-borda px-4 py-2 text-sm text-primaria-2 hover:border-primaria/60">
+                Ver preparação
+              </a>
             </div>
           ) : (
             <Vazio>
@@ -367,8 +392,26 @@ export function PortalVisao({
           )}
         </Card>
 
+        {/* Evolução fica ao lado da próxima sessão também na ordem de leitura. */}
+        <Card titulo="Evolução" className="xl:col-start-2 xl:row-start-2">
+          {variacao ? (
+            <p className="flex items-center gap-2">
+              <Badge tom={TOM_VARIACAO[variacao.glifo]}>{variacao.texto}</Badge>
+              <span className="text-xs text-texto-2">desde o começo do acompanhamento</span>
+            </p>
+          ) : ultimoScore ? (
+            <div>
+              <p className="font-display text-2xl font-fino leading-tight tracking-tight text-texto">{ultimoScore.score}</p>
+              <p className="mt-1 text-xs text-texto-2">Última medição registrada</p>
+            </div>
+          ) : (
+            <Vazio>Ainda não há histórico de evolução por aqui.</Vazio>
+          )}
+        </Card>
+
         {/* 4) Tarefas — em aberto primeiro (já é a ordem de `portal.tarefas`). */}
-        <Card titulo="Tarefas">
+        <Card titulo="Tarefas desta semana" className="xl:col-start-1 xl:row-start-3">
+          <span id="tarefas-da-semana" className="sr-only">Tarefas desta semana</span>
           {portal.tarefas.length ? (
             <ul className="space-y-2">
               {portal.tarefas.map((tarefa) => {
@@ -405,7 +448,7 @@ export function PortalVisao({
           )}
         </Card>
 
-        <Card titulo="Conversa com seu mentor">
+        <Card titulo="Conversa com seu mentor" className="xl:col-start-2 xl:row-start-3">
           {mensagens.length ? (
             <ul className="space-y-2">
               {mensagens.map((mensagem) => (
@@ -438,7 +481,7 @@ export function PortalVisao({
           </form>
         </Card>
 
-        <Card titulo="Contratos liberados">
+        <Card titulo="Contratos liberados" className="xl:col-span-2 xl:row-start-4">
           {contratos.length ? (
             <ul className="space-y-2 text-sm">
               {contratos.map((contrato) => (
@@ -457,32 +500,13 @@ export function PortalVisao({
           )}
         </Card>
 
-        {/* 5) Evolução — variação só com 2+ pontos; com 1, só o último valor; com 0, nada de número. */}
-        <Card titulo="Evolução do score">
-          {variacao ? (
-            <p className="flex items-center gap-2">
-              <Badge tom={TOM_VARIACAO[variacao.glifo]}>{variacao.texto}</Badge>
-              <span className="text-xs text-texto-2">desde o começo do acompanhamento</span>
-            </p>
-          ) : ultimoScore ? (
-            <div>
-              <p className="font-display text-2xl font-fino leading-tight tracking-tight text-texto">
-                {ultimoScore.score}
-              </p>
-              <p className="mt-1 text-xs text-texto-2">Última medição registrada</p>
-            </div>
-          ) : (
-            <Vazio>Ainda não há histórico de evolução por aqui.</Vazio>
-          )}
-        </Card>
-
         {/* 5b) A jornada. Vem pronta da leitura, já projetada — ver `LinhaDoTempo`. */}
-        <Card titulo={TITULO_LINHA_TEMPO}>
+        <Card titulo={TITULO_LINHA_TEMPO} className="xl:col-span-2 xl:row-start-5">
           <LinhaDoTempo fatos={portal.linhaTempo} />
         </Card>
 
         {/* 6) Marcos conquistados e conteúdos liberados. */}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 xl:col-span-2 xl:row-start-6">
           <Card titulo="Marcos conquistados">
             {portal.marcos.length ? (
               <ul className="space-y-2 text-sm">
@@ -534,7 +558,7 @@ export function PortalVisao({
         </div>
 
         {/* 7) Histórico de sessões, ao final, enxuto. */}
-        <Card titulo="Histórico de sessões">
+        <Card titulo="Histórico de sessões" className="xl:col-span-2 xl:row-start-7">
           {portal.sessoes.length ? (
             <ul className="space-y-2.5 text-sm">
               {portal.sessoes.map((sessao) => (
@@ -560,7 +584,8 @@ export function PortalVisao({
             <Vazio>Nenhuma sessão registrada ainda.</Vazio>
           )}
         </Card>
+        </div>
       </div>
-    </>
+    </div>
   );
 }
