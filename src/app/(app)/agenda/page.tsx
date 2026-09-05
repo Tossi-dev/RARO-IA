@@ -5,17 +5,20 @@
 // datas na mão: toda a matemática de janela e agrupamento mora em
 // src/lib/agenda.ts, e a leitura do arquivo em src/lib/integracoes/ics.ts.
 
-import { CalendarClock, ChevronLeft, ChevronRight, MapPin, Repeat } from "lucide-react";
+import { CalendarClock, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileText, MapPin, MessageCircle, Plus, Repeat, Target } from "lucide-react";
 import Link from "next/link";
 import { Badge, Card, PageHeader, Vazio, cx } from "@/components/ui";
 import {
   agruparPorDia,
+  chaveDia,
   faixaHoraria,
+  diaDaSemana,
   hojeISO,
   isoValido,
   janelaAgenda,
   mesDoISO,
   numeroDoDia,
+  partesLocais,
   rotuloDiaCurto,
   VISAO_LABEL,
   visaoValida,
@@ -109,6 +112,33 @@ function Compromisso({ e, compacto = false }: { e: EventoAgenda; compacto?: bool
   );
 }
 
+type EventoNaGrade = { evento: EventoAgenda; faixa: number; totalFaixas: number };
+
+function distribuirEventosGrade(eventos: EventoAgenda[]): EventoNaGrade[] {
+  const ordenados = [...eventos].sort((a, b) => a.inicio.getTime() - b.inicio.getTime());
+  const finais: number[] = [];
+  const distribuidos = ordenados.map((evento) => {
+    const faixaLivre = finais.findIndex((fim) => fim <= evento.inicio.getTime());
+    const faixa = faixaLivre === -1 ? finais.length : faixaLivre;
+    finais[faixa] = evento.fim.getTime();
+    return { evento, faixa, totalFaixas: 1 };
+  });
+  const totalFaixas = Math.max(1, finais.length);
+  return distribuidos.map((item) => ({ ...item, totalFaixas }));
+}
+
+function CompromissoGrade({ item, horaInicial, data }: { item: EventoNaGrade; horaInicial: number; data: string }) {
+  const { evento, faixa, totalFaixas } = item;
+  const inicio = partesLocais(evento.inicio);
+  const minutos = Math.max(30, Math.round((evento.fim.getTime() - evento.inicio.getTime()) / 60000));
+  const inicioDecimal = inicio.hora + inicio.minuto / 60;
+  const minutosVisiveis = Math.min(minutos, Math.max(0, (24 - inicioDecimal) * 60));
+  const topo = evento.diaInteiro ? 4 : Math.max(4, ((inicio.hora + inicio.minuto / 60) - horaInicial) * 58 + 4);
+  const altura = evento.diaInteiro ? 48 : Math.max(18, minutosVisiveis * 58 / 60 - 6);
+  const largura = 100 / totalFaixas;
+  return <article data-agenda-event="true" aria-label={`${data}, ${faixaHoraria(evento)}, ${evento.titulo}${evento.cancelado ? ", cancelado" : ""}`} title={`${faixaHoraria(evento)} · ${evento.titulo}`} className={`absolute z-10 overflow-hidden rounded-md border px-2 py-1.5 text-[11px] shadow-lg ${evento.cancelado ? "border-[#a64e58] bg-[#3a1b25] text-[#b7a0a5] line-through" : "border-[#247cff] bg-[#0b326d] text-[#dbe9ff]"}`} style={{ top: `${topo}px`, height: `${altura}px`, left: `calc(${faixa * largura}% + 4px)`, width: `calc(${largura}% - 8px)` }}><p className="font-semibold tabular-nums">{evento.diaInteiro ? "Dia inteiro" : faixaHoraria(evento).slice(0, 5)}</p><p className="mt-0.5 line-clamp-2 font-medium leading-4">{evento.titulo}</p>{!evento.diaInteiro ? <p className="mt-1 text-[10px] opacity-75">{minutos} min{minutosVisiveis < minutos ? " · continua no dia seguinte" : ""}</p> : null}</article>;
+}
+
 const ERROS: Record<string, string> = {
   "sem-credenciais":
     "O login com o Google ainda não foi habilitado nesta instalação: faltam as credenciais do app.",
@@ -159,48 +189,6 @@ export default async function AgendaPage({
   const fonteNome = viaGoogle ? "conta Google conectada" : leitura?.dados?.nome || "arquivo iCal";
   const porDia = agruparPorDia(eventos, janela.dias);
   const total = eventos.length;
-
-  const navegacao = (
-    <div data-agenda-workspace="true" className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-1 rounded-full border border-borda-sutil bg-poco p-0.5">
-        {VISOES.map((v) => (
-          <Link
-            key={v}
-            href={href(v, ref)}
-            data-ativo={v === visao ? "true" : "false"}
-            className={cx(
-              "pilula rounded-full px-3.5 py-1.5 text-xs font-medium",
-              v === visao ? "" : "text-texto-3 hover:text-texto-2"
-            )}
-          >
-            {VISAO_LABEL[v]}
-          </Link>
-        ))}
-      </div>
-      <div className="flex items-center gap-1">
-        <Link
-          href={href(visao, janela.anterior)}
-          aria-label="Período anterior"
-          className="trans flex h-8 w-8 items-center justify-center rounded-full border border-borda-sutil bg-poco text-texto-2 transition-colors hover:border-borda hover:text-texto"
-        >
-          <ChevronLeft size={16} aria-hidden strokeWidth={1.5} />
-        </Link>
-        <Link
-          href={href(visao, hoje)}
-          className="trans rounded-full border border-borda-sutil bg-poco px-3.5 py-1.5 text-xs text-texto-2 transition-colors hover:border-borda hover:text-texto"
-        >
-          Hoje
-        </Link>
-        <Link
-          href={href(visao, janela.proximo)}
-          aria-label="Próximo período"
-          className="trans flex h-8 w-8 items-center justify-center rounded-full border border-borda-sutil bg-poco text-texto-2 transition-colors hover:border-borda hover:text-texto"
-        >
-          <ChevronRight size={16} aria-hidden strokeWidth={1.5} />
-        </Link>
-      </div>
-    </div>
-  );
 
   // ------------------------------------------------- agenda não conectada
   if (!conectada || erroLeitura) {
@@ -311,14 +299,29 @@ export default async function AgendaPage({
     );
   }
 
+  const agora = new Date();
+  const proximos = eventos.filter((evento) => !evento.cancelado && evento.fim.getTime() >= agora.getTime()).sort((a, b) => a.inicio.getTime() - b.inicio.getTime());
+  const proximo = proximos[0] ?? null;
+  const minutosReservados = eventos.filter((evento) => !evento.cancelado && !evento.diaInteiro).reduce((soma, evento) => soma + Math.max(0, Math.round((evento.fim.getTime() - evento.inicio.getTime()) / 60000)), 0);
+  const conflitos = eventos.filter((evento, indice) => eventos.some((outro, outroIndice) => outroIndice > indice && !evento.cancelado && !outro.cancelado && evento.inicio < outro.fim && outro.inicio < evento.fim)).length;
+  const diasUteis = janela.dias.filter((dia) => { const semana = diaDaSemana(dia); return semana >= 1 && semana <= 5; });
+  const eventosFimDeSemana = janela.dias.filter((dia) => { const semana = diaDaSemana(dia); return semana === 0 || semana === 6; }).flatMap((dia) => porDia[dia] ?? []);
+  const eventosDoDiaNaGrade = (dia: string) => (porDia[dia] ?? []).filter((evento) => chaveDia(evento.inicio) === dia);
+  const eventosUteis = diasUteis.flatMap(eventosDoDiaNaGrade).filter((evento) => !evento.diaInteiro);
+  const horaInicial = Math.max(0, Math.min(8, ...eventosUteis.map((evento) => partesLocais(evento.inicio).hora)));
+  const horaFinal = Math.min(24, Math.max(18, ...eventosUteis.map((evento) => {
+    const inicio = partesLocais(evento.inicio);
+    const duracaoHoras = Math.max(0, evento.fim.getTime() - evento.inicio.getTime()) / 3_600_000;
+    return Math.ceil(inicio.hora + inicio.minuto / 60 + duracaoHoras);
+  })));
+  const horasGrade = Array.from({ length: horaFinal - horaInicial + 1 }, (_, indice) => horaInicial + indice);
+  const alturaGrade = (horaFinal - horaInicial) * 58;
+
   return (
-    <>
-      <PageHeader
-        titulo="Agenda de sessões"
-        sub={`${janela.rotulo} · ${total === 0 ? "nenhum compromisso" : `${total} compromisso(s)`} · mantenha a próxima conversa por perto`}
-      >
-        {navegacao}
-      </PageHeader>
+    <div data-agenda-visual="referencia-aprovada" data-agenda-workspace="true" className="mx-auto max-w-[1420px] text-[#f4f7ff]">
+      <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center"><div><h1 className="text-[34px] font-semibold leading-tight tracking-[-0.04em]">Agenda de atendimentos</h1><p className="mt-1 text-[16px] text-[#a6afc1]">Organize suas conversas e prepare cada encontro com contexto.</p></div><Link href="/mentoria" className="inline-flex items-center justify-center gap-2 rounded-md bg-[#126df0] px-5 py-3 text-sm font-medium text-white lg:ml-auto"><Plus size={17} aria-hidden /> Nova sessão</Link></div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-3 rounded-[10px] border border-[#29354a] bg-[#07111f]/92 px-3 py-3"><Link href={href(visao, hoje)} className="rounded-md border border-[#1769ff] px-4 py-2 text-sm font-medium text-[#3b8cff]">Hoje</Link><Link href={href(visao, janela.anterior)} aria-label="Período anterior" className="flex h-9 w-9 items-center justify-center text-[#d8dee9]"><ChevronLeft size={18} aria-hidden /></Link><p className="min-w-[190px] text-center text-[16px] font-semibold text-white">{janela.rotulo}</p><Link href={href(visao, janela.proximo)} aria-label="Próximo período" className="flex h-9 w-9 items-center justify-center text-[#d8dee9]"><ChevronRight size={18} aria-hidden /></Link><div className="ml-auto flex overflow-hidden rounded-md border border-[#29354a]">{VISOES.map((item) => <Link key={item} href={href(item, ref)} aria-current={item === visao ? "page" : undefined} data-ativo={item === visao ? "true" : "false"} className={`px-4 py-2 text-sm ${item === visao ? "bg-[#0d63ed] text-white" : "text-[#c2c8d3] hover:bg-[#0c192b]"}`}>{VISAO_LABEL[item]}</Link>)}</div></div>
 
       {/* De onde os compromissos estao vindo, e como parar de traze-los.
           O par "esta conectado assim / desconectar" fica junto de proposito:
@@ -372,40 +375,9 @@ export default async function AgendaPage({
 
       {/* --------------------------------------------------------- SEMANA */}
       {visao === "semana" && (
-        <div className="grid gap-3 md:grid-cols-7">
-          {janela.dias.map((d) => {
-            const doDia = porDia[d] ?? [];
-            const eHoje = d === hoje;
-            return (
-              <Card
-                key={d}
-                className={cx("min-h-[150px] !rounded-[22px] !p-3", eHoje && "!border-primaria/60")}
-              >
-                <Link href={href("dia", d)} className="mb-2.5 block">
-                  <p className="text-[11px] uppercase tracking-wider text-texto-3">
-                    {rotuloDiaCurto(d)}
-                  </p>
-                  <p
-                    className={cx(
-                      "font-display text-xl font-fino tabular-nums leading-none",
-                      eHoje && "text-primaria-2"
-                    )}
-                  >
-                    {numeroDoDia(d)}
-                  </p>
-                </Link>
-                {doDia.length ? (
-                  <div className="space-y-1.5">
-                    {doDia.map((e, i) => (
-                      <Compromisso key={`${e.uid}-${i}`} e={e} compacto />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-[11px] text-texto-4">livre</p>
-                )}
-              </Card>
-            );
-          })}
+        <div className="grid gap-3 xl:grid-cols-[1.82fr_.78fr]">
+          <section role="grid" aria-label={`Agenda semanal, ${janela.rotulo}`} data-grade-inicio={horaInicial} data-grade-fim={horaFinal} className="overflow-hidden rounded-[10px] border border-[#29354a] bg-[#07111f]/92"><div role="row" className="grid grid-cols-[64px_repeat(5,minmax(0,1fr))] border-b border-[#29354a]"><span role="columnheader" aria-label="Horário" />{diasUteis.map((dia) => <div role="columnheader" key={dia} className="border-l border-[#253045]"><Link href={href("dia", dia)} aria-label={`${rotuloDiaCurto(dia)}, dia ${numeroDoDia(dia)}`} className="block py-3 text-center"><span className="block text-[10px] uppercase text-[#aab2c0]">{rotuloDiaCurto(dia)}</span><strong className={`mt-1 block text-xl ${dia === hoje ? "text-[#378cff]" : "text-white"}`}>{numeroDoDia(dia)}</strong></Link></div>)}</div><div role="row" className="grid grid-cols-[64px_repeat(5,minmax(0,1fr))]"><div role="rowheader" aria-label={`Horários de ${String(horaInicial).padStart(2, "0")}:00 a ${String(horaFinal).padStart(2, "0")}:00`} className="relative" style={{ height: `${alturaGrade}px` }}>{horasGrade.map((hora, indice) => <span key={hora} aria-hidden className="absolute right-3 text-xs tabular-nums text-[#a3acba]" style={{ top: `${indice * 58 - 7}px` }}>{String(hora).padStart(2, "0")}:00</span>)}</div>{diasUteis.map((dia) => <div role="gridcell" aria-label={`${rotuloDiaCurto(dia)}, dia ${numeroDoDia(dia)}`} key={dia} className="relative border-l border-[#253045] bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent_57px,#1d293c_58px)]" style={{ height: `${alturaGrade}px` }}>{distribuirEventosGrade(eventosDoDiaNaGrade(dia)).map((item, indice) => <CompromissoGrade key={`${item.evento.uid}-${indice}`} item={item} horaInicial={horaInicial} data={`${rotuloDiaCurto(dia)}, dia ${numeroDoDia(dia)}`} />)}</div>)}</div><footer className="flex flex-wrap items-center gap-6 border-t border-[#29354a] px-5 py-4 text-xs text-[#a8b0bd]"><span className="flex items-center gap-2"><i className="h-3 w-3 rounded-sm bg-[#126df0]" /> Compromisso</span><span className="flex items-center gap-2"><i className="h-3 w-3 rounded-sm bg-[#713142]" /> Cancelado</span><span>Horários e durações proporcionais</span></footer>{eventosFimDeSemana.length ? <div className="border-t border-[#29354a] px-5 py-4"><p className="mb-2 text-xs font-medium text-[#aab2c0]">Fim de semana</p><div className="grid gap-2 sm:grid-cols-2">{eventosFimDeSemana.map((evento, indice) => <Compromisso key={`${evento.uid}-fim-${indice}`} e={evento} compacto />)}</div></div> : null}</section>
+          <aside className="space-y-3"><section className="rounded-[10px] border border-[#29354a] bg-[#07111f]/92 p-5"><h2 className="text-[17px] font-semibold">Próximo atendimento</h2>{proximo ? <><div className="mt-5 flex items-center gap-4"><span className="rounded-md border border-[#26344b] bg-[#091625] px-3 py-3 text-xl font-semibold text-[#378cff]">{faixaHoraria(proximo).slice(0, 5)}</span><div className="min-w-0"><p className="truncate font-semibold">{proximo.titulo}</p><p className="mt-1 text-xs text-[#9aa4b5]">{faixaHoraria(proximo)}</p></div></div><Link href="/mentoria" className="mt-4 flex w-full items-center justify-center rounded-md border border-[#1769ff] py-2.5 text-sm font-medium text-[#3b8cff]">Abrir ficha</Link></> : <p className="py-8 text-center text-sm text-[#929caf]">Nenhum próximo atendimento nesta janela.</p>}</section><section className="rounded-[10px] border border-[#29354a] bg-[#07111f]/92 p-5"><h2 className="text-[17px] font-semibold">Preparação rápida</h2><div className="mt-3 divide-y divide-[#253045]">{[[FileText,"Revisar contexto essencial"],[Target,"Ver metas em andamento"],[MessageCircle,"Preparar perguntas"]].map(([Icone, rotulo]) => { const I = Icone as typeof FileText; return <Link key={String(rotulo)} href="/mentoria" className="flex items-center gap-3 py-4 text-sm text-[#e3e7ee]"><span className="flex h-9 w-9 items-center justify-center rounded-md border border-[#126f64] bg-[#082b2d] text-[#22cabc]"><I size={18} aria-hidden /></span><span>{String(rotulo)}</span><ChevronRight size={16} className="ml-auto" aria-hidden /></Link>; })}</div></section><section className="rounded-[10px] border border-[#29354a] bg-[#07111f]/92 p-5"><h2 className="text-[17px] font-semibold">Nesta semana</h2><dl className="mt-3 divide-y divide-[#253045] text-sm">{[[CalendarDays,"Atendimentos",total],[Clock3,"Tempo reservado",`${Math.floor(minutosReservados/60)}h${String(minutosReservados%60).padStart(2,"0")}`],[CheckCircle2,"Conflitos",conflitos]].map(([Icone, rotulo, valor]) => { const I = Icone as typeof CalendarDays; return <div key={String(rotulo)} className="flex items-center gap-3 py-3"><I size={18} className="text-[#b8c0cd]" aria-hidden /><dt className="text-[#cdd3dd]">{String(rotulo)}</dt><dd className={`ml-auto font-medium ${rotulo === "Conflitos" && Number(valor) > 0 ? "text-[#ff655f]" : "text-white"}`}>{String(valor)}</dd></div>; })}</dl></section></aside>
         </div>
       )}
 
@@ -477,6 +449,6 @@ export default async function AgendaPage({
           .
         </span>
       </div>
-    </>
+    </div>
   );
 }
