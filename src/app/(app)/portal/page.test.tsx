@@ -725,3 +725,58 @@ describe("Portal — conversa individual e contrato", () => {
     expect(html).not.toContain("9999");
   });
 });
+
+describe("Portal — referência visual aprovada", () => {
+  it("organiza a primeira dobra como acompanhamento, sem aparência financeira", async () => {
+    lerPortalMock.mockResolvedValue(portalConectado());
+
+    const html = await renderizarPortal();
+
+    expect(html).toContain('data-portal-visual="referencia-aprovada"');
+    expect(html).toContain("Seu progresso");
+    expect(html).toContain("Tarefas desta semana");
+    expect(html).toContain("Sua jornada");
+    expect(html).not.toContain("Faturamento");
+  });
+
+  it("mantém ações e seções reais navegáveis na nova composição", async () => {
+    lerPortalMock.mockResolvedValue(portalConectado());
+
+    const html = await renderizarPortal();
+
+    expect(html).toContain('id="tarefas-da-semana"');
+    expect(html).toContain("Conversa com seu mentor");
+    expect(html).toContain("Marcos conquistados");
+    expect(html).toContain("Conteúdos liberados");
+    expect(html).toContain("Histórico de sessões");
+    expect(html).toContain('name="tarefaId"');
+  });
+
+  it("não inventa foco, progresso ou próxima sessão quando faltam dados", async () => {
+    lerPortalMock.mockResolvedValue(portalConectado({ matriculas: [], proxima: null, tarefas: [], scores: [] }));
+
+    const html = await renderizarPortal();
+
+    expect(soTexto(html)).toContain("Nenhuma matrícula por aqui no momento");
+    expect(soTexto(html)).toContain("Nenhuma sessão marcada no momento");
+    expect(soTexto(html)).toContain("Nenhuma tarefa combinada por aqui");
+    expect(soTexto(html)).toContain("Ainda não há histórico de evolução");
+    expect(soTexto(html)).toContain("Nenhuma jornada vinculada");
+    expect(soTexto(html)).not.toContain("Acompanhamento em construção");
+    expect(soTexto(html)).not.toContain("Seu mentor faz perguntas");
+    expect(soTexto(html)).not.toContain("O que você percebe hoje");
+  });
+
+  it("deriva o programa e o selo da mesma matrícula atual", async () => {
+    const base = portalConectado();
+    const concluida = { ...base.matriculas[0], matricula: { ...base.matriculas[0].matricula, id: "mat-antiga", status: "concluida" as const }, programa: { ...base.matriculas[0].programa!, id: "prog-antigo", nome: "Programa antigo" } };
+    const ativa = { ...base.matriculas[0], matricula: { ...base.matriculas[0].matricula, id: "mat-atual", status: "ativa" as const }, programa: { ...base.matriculas[0].programa!, id: "prog-atual", nome: "Programa atual" } };
+    lerPortalMock.mockResolvedValue(portalConectado({ matriculas: [concluida, ativa] }));
+
+    const html = await renderizarPortal();
+
+    expect(soTexto(html)).toContain("Programa Programa atual");
+    expect(soTexto(html)).toContain("Matrícula ativa");
+    expect(soTexto(html)).not.toContain("Matrícula concluída");
+  });
+});
