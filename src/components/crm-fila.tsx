@@ -48,13 +48,13 @@ const ICONE: Record<Temperatura, typeof Flame> = {
  */
 const TETO_DA_FILA = 12;
 
-export function CrmFila({ itens }: { itens: ItemDaFila[] }) {
+export function CrmFila({ itens, titulo = "Com quem falar hoje", limiteInicial = TETO_DA_FILA }: { itens: ItemDaFila[]; titulo?: string; limiteInicial?: number }) {
   const [aberto, setAberto] = useState<string | null>(null);
   const [verTodos, setVerTodos] = useState(false);
 
   if (itens.length === 0) {
     return (
-      <Card titulo="Com quem falar hoje">
+      <Card titulo={titulo}>
         <Vazio>
           A fila é montada a partir de conversas registradas. Sem nenhuma mensagem trocada, não há
           base para dizer com quem falar — e chutar seria pior que não dizer nada.
@@ -64,12 +64,13 @@ export function CrmFila({ itens }: { itens: ItemDaFila[] }) {
   }
 
   const esperando = itens.filter((i) => i.leitura.esperandoResposta).length;
-  const mostrados = verTodos ? itens : itens.slice(0, TETO_DA_FILA);
+  const limite = Math.max(1, limiteInicial);
+  const mostrados = verTodos ? itens : itens.slice(0, limite);
   const escondidos = itens.length - mostrados.length;
 
   return (
     <Card
-      titulo="Com quem falar hoje"
+      titulo={titulo}
       acao={
         esperando > 0 ? (
           <Badge tom="vermelho">{esperando} esperando resposta</Badge>
@@ -147,7 +148,7 @@ export function CrmFila({ itens }: { itens: ItemDaFila[] }) {
           className="toque mt-3 w-full rounded-xl border border-borda-sutil py-2 text-xs text-texto-3 transition-colors hover:border-borda hover:text-texto-2"
         >
           {verTodos
-            ? `mostrar só os ${TETO_DA_FILA} primeiros`
+            ? `mostrar só os ${limite} primeiros`
             : `mais ${escondidos} pessoa(s) com sinal, ordenadas atrás destas`}
         </button>
       ) : null}

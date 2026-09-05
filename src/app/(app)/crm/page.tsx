@@ -1,12 +1,13 @@
 import Link from "next/link";
+import { Columns3, List, Plus, Search } from "lucide-react";
 import { GraficoFunil } from "@/components/charts";
 import { KanbanCrm, type CartaoKanban } from "@/components/kanban";
-import { Badge, Botao, Campo, Card, Input, PageHeader, PainelForm, Select, Stat, Tabela, Td, Th, TextArea, Vazio, cx, type Tom } from "@/components/ui";
+import { Badge, Botao, Campo, Card, Input, PainelForm, Select, Stat, Tabela, Td, Th, TextArea, Vazio, cx, type Tom } from "@/components/ui";
 import { criarAluno } from "@/lib/actions";
 import { ordemDaEtapa, type EtapaJornada } from "@/lib/crm/jornada";
 import { getDB } from "@/lib/data";
 import { STATUS_FUNIL_LABEL } from "@/lib/domain";
-import { fmtBRL, fmtDate } from "@/lib/format";
+import { fmtBRL } from "@/lib/format";
 import { funil, statsAluno } from "@/lib/metrics";
 import type { Estagio } from "@/lib/types";
 import { CrmFila } from "@/components/crm-fila";
@@ -233,49 +234,20 @@ export default async function Crm({
   const mensagemErro = mensagemDeErro(searchParams.erro);
 
   return (
-    <>
-      <PageHeader titulo="Clientes e relacionamentos" sub="Priorize conversas, acompanhe cada etapa e mantenha o contexto de quem está do outro lado.">
-        <div className="flex gap-1 rounded-lg border border-borda p-0.5">
-          {(["kanban", "lista"] as const).map((v) => (
-            <Link
-              key={v}
-              href={linkVisao(v)}
-              className={cx(
-                "rounded-md px-3 py-1.5 text-sm capitalize",
-                visao === v ? "bg-primaria/15 font-medium text-primaria-2" : "text-texto-2 hover:text-texto"
-              )}
-            >
-              {v}
-            </Link>
-          ))}
+    <div data-crm-visual="referencia-aprovada" data-crm-workspace="true" className="mx-auto max-w-[1420px] text-[#f4f7ff]">
+      <header className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center">
+        <div>
+          <h1 className="text-[34px] font-semibold leading-tight tracking-[-0.04em]">Clientes e relacionamentos</h1>
+          <p className="mt-1 text-[16px] text-[#a6afc1]">Priorize conversas, acompanhe cada etapa e mantenha o contexto de cada pessoa.</p>
         </div>
-      </PageHeader>
+        <a href="#novo-cliente" className="inline-flex items-center justify-center gap-2 rounded-md border border-[#1769ff] px-5 py-3 text-sm font-medium text-[#3b8cff] lg:ml-auto">
+          <Plus size={17} aria-hidden /> Novo cliente
+        </a>
+      </header>
 
-      {/* A recusa de `moverAlunoEstagio` volta aqui, em `?erro=<código>` —
-          mesmo banner (e mesmo estilo) do portal do mentorado. A frase diz o
-          que NÃO aconteceu, porque quem acabou de arrastar um card precisa
-          saber que o card voltou para o lugar. */}
-      {mensagemErro ? (
-        <p className="mb-4 rounded-xl border border-negativo/40 bg-negativo/10 px-4 py-3 text-sm text-negativo">
-          {mensagemErro}
-        </p>
-      ) : null}
+      {mensagemErro ? <p className="mb-4 rounded-lg border border-negativo/40 bg-negativo/10 px-4 py-3 text-sm text-negativo">{mensagemErro}</p> : null}
 
-      {/* A fila vem ANTES dos números. A pergunta que o dono faz ao abrir esta
-          tela é "com quem eu falo agora", não "quantos alunos eu tenho" — e a
-          ordem da tela é a resposta a essa pergunta. */}
-      <div data-crm-workspace="true" className="mb-5 grid gap-4 lg:grid-cols-[1fr_280px]">
-        <CrmFila itens={fila} />
-        <CrmWhatsapp
-          inicial={agente}
-          consultar={async () => {
-            "use server";
-            return estadoWhatsapp();
-          }}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {/* Composição extraída de `funil` (src/lib/metrics.ts, linha 210):
             cada aluno cai em exatamente uma das quatro situações do funil,
             então as quatro contagens somam a base inteira. */}
@@ -370,32 +342,56 @@ export default async function Crm({
         />
       </div>
 
-      {/* filtros + novo aluno */}
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <Card titulo="Filtros" className="lg:col-span-2">
-          <form className="flex flex-wrap items-end gap-2" method="GET">
-            <input type="hidden" name="visao" value={visao} />
-            <Campo label="Buscar" className="min-w-[200px] flex-1">
-              <Input name="q" defaultValue={searchParams.q ?? ""} placeholder="Nome ou telefone…" />
-            </Campo>
-            <Campo label="Estágio" className="min-w-[170px]">
-              <Select name="estagio" defaultValue={estagioFiltro}>
+      <div className="mt-5 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <section data-crm-pipeline="true" aria-labelledby="titulo-jornada" className="min-w-0 overflow-hidden rounded-[10px] border border-[#29354a] bg-[#07111f]/92">
+          <div className="flex flex-wrap items-center gap-3 border-b border-[#29354a] p-3">
+            <form className="flex min-w-[260px] flex-1 items-end gap-2" method="GET">
+              <input type="hidden" name="visao" value={visao} />
+              <label className="relative min-w-0 flex-1">
+                <span className="sr-only">Buscar cliente</span>
+                <Search size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8792a6]" />
+                <Input name="q" defaultValue={searchParams.q ?? ""} placeholder="Buscar cliente" className="pl-9" />
+              </label>
+              <label className="sr-only" htmlFor="filtro-estagio">Estágio</label>
+              <Select name="estagio" id="filtro-estagio" defaultValue={estagioFiltro} className="max-w-[170px]">
                 <option value="">Todos</option>
-                {estagiosNaEscada.map((e) => (
-                  <option key={e.id} value={e.id}>{e.nome}</option>
-                ))}
+                {estagiosNaEscada.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
               </Select>
-            </Campo>
-            <Botao tipo="fantasma">Filtrar</Botao>
-          </form>
-        </Card>
-        <Card titulo="Funil (visão macro)">
-          <GraficoFunil data={dadosFunil} />
-        </Card>
+              <Botao tipo="fantasma">Filtrar</Botao>
+            </form>
+            <nav aria-label="Visualização do CRM" className="ml-auto flex overflow-hidden rounded-md border border-[#29354a]">
+              <Link href={linkVisao("kanban")} aria-current={visao === "kanban" ? "page" : undefined} className={cx("inline-flex items-center gap-2 px-4 py-2 text-sm", visao === "kanban" ? "bg-[#0d63ed] text-white" : "text-[#c2c8d3]")}><Columns3 size={15} aria-hidden /> Pipeline</Link>
+              <Link href={linkVisao("lista")} aria-current={visao === "lista" ? "page" : undefined} className={cx("inline-flex items-center gap-2 px-4 py-2 text-sm", visao === "lista" ? "bg-[#0d63ed] text-white" : "text-[#c2c8d3]")}><List size={15} aria-hidden /> Lista</Link>
+            </nav>
+          </div>
+          <div className="p-3">
+            <h2 id="titulo-jornada" className="mb-3 text-[18px] font-semibold">Jornada comercial</h2>
+            {visao === "kanban" ? (
+              <KanbanCrm estagios={estagiosNaEscada} colunas={colunas} variante="crm" />
+            ) : (
+              <Card titulo={`Pessoas (${filtrados.length})`}>
+                {filtrados.length ? (
+                  <Tabela><thead><tr><Th>Nome</Th><Th>Estágio</Th><Th>Origem</Th><Th num>Compras</Th><Th num>LTV</Th><Th num>Últ. contato</Th></tr></thead><tbody>
+                    {filtrados.slice().sort((a, b) => degrauNaLista(a.estagioId) - degrauNaLista(b.estagioId) || a.nome.localeCompare(b.nome, "pt-BR")).map((a) => {
+                      const st = statsAluno(porAluno.get(a.id) ?? []); const e = nomeEstagio.get(a.estagioId ?? ""); const dias = diasSem(a.id);
+                      return <tr key={a.id}><Td><Link className="font-medium hover:text-primaria-2" href={`/crm/${a.id}`}>{a.nome}</Link></Td><Td><Badge tom={(e?.cor as Tom) ?? "cinza"}>{e?.nome ?? "—"}</Badge></Td><Td className="text-texto-2">{a.origem || "—"}</Td><Td num>{st.compras}</Td><Td num>{fmtBRL(st.ltv)}</Td><Td num>{dias !== null ? `${dias}d` : "—"}</Td></tr>;
+                    })}
+                  </tbody></Tabela>
+                ) : <Vazio>Ninguém encontrado com esses filtros.</Vazio>}
+              </Card>
+            )}
+          </div>
+        </section>
+
+        <aside className="space-y-4">
+          <CrmFila itens={fila} titulo="Conversas prioritárias" limiteInicial={3} />
+          <CrmWhatsapp inicial={agente} consultar={async () => { "use server"; return estadoWhatsapp(); }} />
+        </aside>
       </div>
 
-      <div className="mt-4">
-        <PainelForm titulo="Cadastrar lead / aluno">
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_320px]">
+        <section id="novo-cliente" className="scroll-mt-24">
+          <PainelForm titulo="Cadastrar lead / aluno">
           <form action={criarAluno} className="grid gap-3 sm:grid-cols-2">
             <Campo label="Nome completo" className="sm:col-span-2">
               <Input name="nome" required placeholder="Nome do lead ou aluno" />
@@ -423,70 +419,10 @@ export default async function Crm({
               <Botao>Salvar</Botao>
             </div>
           </form>
-        </PainelForm>
+          </PainelForm>
+        </section>
+        <Card titulo="Funil (visão macro)"><GraficoFunil data={dadosFunil} /></Card>
       </div>
-
-      <div className="mt-4">
-        {visao === "kanban" ? (
-          <KanbanCrm estagios={estagiosNaEscada} colunas={colunas} />
-        ) : (
-          <Card titulo={`Pessoas (${filtrados.length})`}>
-            {filtrados.length ? (
-              <Tabela>
-                <thead>
-                  <tr>
-                    <Th>Nome</Th>
-                    <Th>Estágio</Th>
-                    <Th>Origem</Th>
-                    <Th num>Compras</Th>
-                    <Th num>LTV</Th>
-                    <Th num>Últ. contato</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtrados
-                    .slice()
-                    // A mesma escada do quadro (`ordenarPelaEscada`), pela
-                    // mesma razão: as duas visões da mesma tela não podem
-                    // discordar sobre a sequência do funil. Pessoa em estágio
-                    // fora da escada vai para o fim, com o nome do banco na
-                    // coluna "Estágio" — não some da lista. Empate resolvido
-                    // pelo nome, para a lista não trocar de ordem sozinha
-                    // entre duas aberturas.
-                    .sort(
-                      (a, b) =>
-                        degrauNaLista(a.estagioId) - degrauNaLista(b.estagioId) ||
-                        a.nome.localeCompare(b.nome, "pt-BR")
-                    )
-                    .map((a) => {
-                      const st = statsAluno(porAluno.get(a.id) ?? []);
-                      const e = nomeEstagio.get(a.estagioId ?? "");
-                      const dias = diasSem(a.id);
-                      return (
-                        <tr key={a.id}>
-                          <Td>
-                            <Link className="font-medium hover:text-primaria-2" href={`/crm/${a.id}`}>
-                              {a.nome}
-                            </Link>
-                          </Td>
-                          <Td>
-                            <Badge tom={(e?.cor as Tom) ?? "cinza"}>{e?.nome ?? "—"}</Badge>
-                          </Td>
-                          <Td className="text-texto-2">{a.origem || "—"}</Td>
-                          <Td num>{st.compras}</Td>
-                          <Td num>{fmtBRL(st.ltv)}</Td>
-                          <Td num>{dias !== null ? `${dias}d` : "—"}</Td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </Tabela>
-            ) : (
-              <Vazio>Ninguém encontrado com esses filtros.</Vazio>
-            )}
-          </Card>
-        )}
-      </div>
-    </>
+    </div>
   );
 }

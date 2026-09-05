@@ -25,7 +25,7 @@
 import { QrCode, RefreshCw, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { EstadoWhatsapp } from "@/lib/actions";
-import { Badge, Card, cx } from "./ui";
+import { Card, cx } from "./ui";
 
 const INTERVALO_PARADO_MS = 60_000;
 const INTERVALO_CONECTANDO_MS = 3_000;
@@ -68,9 +68,9 @@ export function CrmWhatsapp({
       titulo="WhatsApp"
       acao={
         estado.ligado ? (
-          <Badge tom="verde">conectado</Badge>
+          <span className="text-xs font-medium text-positivo">conectado</span>
         ) : (
-          <Badge tom="cinza">desconectado</Badge>
+          <span className="text-xs font-medium text-texto-3">desconectado</span>
         )
       }
     >
