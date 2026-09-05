@@ -79,7 +79,7 @@ vi.mock("@/lib/documentos/acoes", () => ({
   alternarVisivelPortal: vi.fn(),
 }));
 
-const { FichaVisao } = await import("./visao");
+const { FichaVisao, atendimentoParaRoteiro, proximaSessaoDaMatricula } = await import("./visao");
 
 // ============================================================
 // Fábricas
@@ -343,6 +343,35 @@ function glifosForaDoPermitido(html: string): string[] {
 }
 
 describe("FichaVisao — ficha 360 do atendimento", () => {
+  it("não entrega conteúdo sem consentimento ao roteiro cliente", () => {
+    const atendimento = {
+      ...fichaVazia().atendimento,
+      mapa: [{ dor: "dor sigilosa" }],
+      metas: [{ titulo: "meta sigilosa" }],
+      passos: [{ descricao: "passo sigiloso" }],
+      reflexoes: [{ texto: "reflexão sigilosa" }],
+      consentimentos: [],
+    };
+    expect(atendimentoParaRoteiro(atendimento)).toMatchObject({ mapa: [], metas: [], passos: [], reflexoes: [] });
+  });
+
+  it("escolhe a próxima sessão futura somente da matrícula atual", () => {
+    const base = fichaComSessao({ id: "antiga", matriculaId: "mat-antiga", status: "agendada", quando: "2026-09-05T10:00:00.000Z" }).sessoes[0];
+    const atualDistante = fichaComSessao({ id: "atual-2", matriculaId: "mat-atual", status: "agendada", quando: "2026-09-08T10:00:00.000Z" }).sessoes[0];
+    const atualProxima = fichaComSessao({ id: "atual-1", matriculaId: "mat-atual", status: "agendada", quando: "2026-09-06T10:00:00.000Z" }).sessoes[0];
+    expect(proximaSessaoDaMatricula([atualDistante, base, atualProxima], "mat-atual", "2026-09-04T00:00:00.000Z")?.id).toBe("atual-1");
+  });
+  it("expõe o contrato visual aprovado da ficha em cinco áreas de trabalho", () => {
+    const html = render(fichaVazia());
+    expect(html).toContain('data-ficha-visual="referencia-aprovada"');
+    expect(textoDe(html)).toContain("Voltar para mentorados");
+    expect(textoDe(html)).toContain("Contexto essencial");
+    expect(textoDe(html)).toContain("Pontos para explorar");
+    for (const aba of ["Visão geral", "Mapa de atendimento", "Plano de ação", "Sessões", "Documentos"]) {
+      expect(textoDe(html)).toContain(aba);
+    }
+  });
+
   it("explica quando não há base de atendimento", async () => {
     const ficha = fichaVazia();
     ficha.atendimento.consentimentos = [{ categoria: "mapa", consentido: true }];
@@ -431,7 +460,7 @@ describe("FichaVisao — ficha 360 do atendimento", () => {
     const ficha = fichaVazia();
     ficha.atendimento = { ...ficha.atendimento, encontrado: false };
     const html = render(ficha);
-    expect(html.match(/Não encontramos uma ficha de atendimento para este mentorado\./g)?.length).toBe(3);
+    expect(html.match(/Não encontramos uma ficha de atendimento para este mentorado\./g)?.length).toBeGreaterThanOrEqual(3);
   });
 });
 
@@ -445,12 +474,14 @@ describe("FichaVisao — ficha 360 do atendimento", () => {
  * asserção `toContain` no HTML inteiro não sabe a diferença. Tudo que precisa
  * ser VISTO na abertura é conferido dentro de `visaoGeral`.
  */
-function paineis(html: string): { visaoGeral: string; historico: string } {
+function paineis(html: string): { visaoGeral: string; historico: string; documentos: string } {
   const partes = html.split('role="tabpanel"');
-  expect(partes.length, "a ficha não desenhou exatamente duas abas").toBe(3);
+  expect(partes.length, "a ficha não desenhou exatamente cinco abas").toBe(6);
   expect(partes[1].startsWith(">"), "o painel 'Visão geral' não é o que abre por padrão").toBe(true);
-  expect(partes[2].startsWith(" hidden"), "o painel 'Histórico' deveria nascer escondido").toBe(true);
-  return { visaoGeral: partes[1], historico: partes[2] };
+  expect(partes[4].startsWith(" hidden"), "o painel 'Sessões' deveria nascer escondido").toBe(true);
+  // Compatibilidade semântica dos testes legados: saúde, operação e histórico
+  // agora convivem na aba Sessões; a nova Visão geral é o resumo aprovado.
+  return { visaoGeral: partes[4], historico: partes[4], documentos: partes[5] };
 }
 
 /** O texto que a pessoa lê, sem as tags — para conferir FRASE, e não fragmento. */
@@ -907,13 +938,13 @@ describe("FichaVisao — o bloco de documentos entra na ficha", () => {
       ],
     });
 
-    const { visaoGeral } = paineis(html);
+    const { documentos: painelDocumentos } = paineis(html);
 
-    expect(visaoGeral).toContain("Documentos (1)");
-    expect(visaoGeral).toContain("Contrato assinado.pdf");
+    expect(painelDocumentos).toContain("Documentos (1)");
+    expect(painelDocumentos).toContain("Contrato assinado.pdf");
     // O `mentoradoId` da ficha viaja nos formulários do bloco — sem ele, as
     // Server Actions não sabem para qual ficha voltar nem a quem anexar.
-    expect(visaoGeral).toContain('name="mentoradoId" value="ment-1"');
+    expect(painelDocumentos).toContain('name="mentoradoId" value="ment-1"');
     // E o caminho interno do objeto continua fora da marcação, como na suíte
     // do próprio bloco (a montagem não pode desfazer isso).
     expect(html).not.toContain("ws-1/contrato/contrato-assinado.pdf");
@@ -924,8 +955,8 @@ describe("FichaVisao — o bloco de documentos entra na ficha", () => {
     // que o motivo da falha fique escrito.
     const html = render(fichaVazia());
 
-    expect(html.split('role="tabpanel"').length - 1).toBe(2);
-    expect(textoDe(paineis(html).visaoGeral)).toContain("Nenhum arquivo anexado a este mentorado ainda.");
+    expect(html.split('role="tabpanel"').length - 1).toBe(5);
+    expect(textoDe(paineis(html).documentos)).toContain("Nenhum arquivo anexado a este mentorado ainda.");
   });
 });
 

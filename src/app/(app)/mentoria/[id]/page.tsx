@@ -60,6 +60,7 @@ export default async function FichaMentorado({
       documentos={documentos}
       erro={searchParams.erro}
       agendaConectada={googleConectado()}
+      agoraIso={agoraIso}
     />
   );
 }

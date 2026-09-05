@@ -19,9 +19,11 @@
 // perde metade da história, ou o cliente ganha a metade que não é dele.
 
 import Link from "next/link";
+import type { ReactNode } from "react";
+import { ArrowLeft, CalendarDays, ChevronRight, MessageCircle, Sparkles } from "lucide-react";
 import { Tabs } from "@/components/tabs";
 import { Timeline } from "@/components/timeline";
-import { Badge, Botao, Campo, Card, Input, PageHeader, ProgressBar, Select, TextArea, Vazio, cx, type Tom } from "@/components/ui";
+import { Badge, Botao, Campo, Card, Input, ProgressBar, Select, TextArea, Vazio, cx, type Tom } from "@/components/ui";
 import type { ListaDocumentos } from "@/lib/documentos/dados";
 import { agendarSessao, darBaixaNaSessao } from "@/lib/mentoria/acoes";
 import { gravarScoreSemanal } from "@/lib/mentoria/acoes-score";
@@ -35,6 +37,7 @@ import {
   vincularAudioDaFicha,
 } from "@/lib/mentoria/acoes-ficha";
 import type { Ficha } from "@/lib/mentoria/dados";
+import type { AtendimentoLido } from "@/lib/mentoria/dados-atendimento";
 import type { HistoricoDaFicha } from "@/lib/mentoria/dados-historico";
 import type { FatoHistorico, TipoFato } from "@/lib/mentoria/historico";
 import { NIVEL_SAUDE_MENTORADO_LABEL, type NivelSaudeMentorado, type SaudeMentorado } from "@/lib/mentoria/saude-mentorado";
@@ -91,6 +94,80 @@ const TOM_VARIACAO: Record<"▲" | "▼" | "▬", Tom> = {
   "▼": "vermelho",
   "▬": "cinza",
 };
+
+const iniciaisDe = (nome: string) =>
+  nome.split(/\s+/).filter(Boolean).slice(0, 2).map((parte) => parte[0]).join("").toUpperCase();
+
+function PainelFicha({ titulo, children, className = "" }: { titulo: string; children: ReactNode; className?: string }) {
+  return <section className={`rounded-[10px] border border-[#29354a] bg-[#07111f]/92 ${className}`}><header className="border-b border-[#253045] px-5 py-4"><h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[#f5f7fd]">{titulo}</h2></header><div className="p-5">{children}</div></section>;
+}
+
+/** DTO mínimo entregue ao único módulo cliente da ficha. */
+export function atendimentoParaRoteiro(atendimento: AtendimentoLido): AtendimentoLido {
+  const consentido = (categoria: string) => atendimento.consentimentos.some((item) => item.categoria === categoria && item.consentido === true);
+  return {
+    conectado: atendimento.conectado,
+    encontrado: atendimento.encontrado,
+    mapa: consentido("mapa") ? atendimento.mapa : [],
+    metas: consentido("meta") ? atendimento.metas : [],
+    passos: consentido("meta") ? atendimento.passos : [],
+    reflexoes: consentido("reflexao") ? atendimento.reflexoes : [],
+    consentimentos: atendimento.consentimentos.filter((item) => ["mapa", "meta", "reflexao"].includes(item.categoria ?? "")),
+  };
+}
+
+export function proximaSessaoDaMatricula(sessoes: Sessao[], matriculaId: string | null, agoraIso: string): Sessao | null {
+  const agora = Date.parse(agoraIso);
+  return sessoes
+    .filter((sessao) => sessao.status === "agendada" && sessao.matriculaId === matriculaId && Date.parse(sessao.quando) >= agora)
+    .sort((a, b) => Date.parse(a.quando) - Date.parse(b.quando))[0] ?? null;
+}
+
+function ResumoFicha({ ficha, historico, agoraIso, matriculaId }: { ficha: Ficha; historico: HistoricoDaFicha; agoraIso: string; matriculaId: string | null }) {
+  const atendimento = ficha.atendimento;
+  const mapaAutorizado = atendimento.consentimentos.some((item) => item.categoria === "mapa" && item.consentido === true);
+  const metaAutorizada = atendimento.consentimentos.some((item) => item.categoria === "meta" && item.consentido === true);
+  const mapa = mapaAutorizado ? atendimento.mapa : [];
+  const primeiroContexto = mapa[0];
+  const proxima = proximaSessaoDaMatricula(ficha.sessoes, matriculaId, agoraIso);
+  const meta = metaAutorizada ? atendimento.metas[0] : null;
+  const passos = meta ? atendimento.passos.filter((passo) => passo.meta_id === meta.id) : [];
+  const reflexoesAutorizadas = atendimento.consentimentos.some((item) => item.categoria === "reflexao" && item.consentido === true)
+    ? atendimento.reflexoes.slice(0, 3)
+    : [];
+  const dimensoes = mapa.filter((item) => item.nota !== null && item.nota !== undefined).slice(0, 8);
+  const estadoMapa = !atendimento.conectado ? "Não foi possível carregar os dados de atendimento agora." : !atendimento.encontrado ? "Não encontramos uma ficha de atendimento para este mentorado." : !mapaAutorizado ? "O mapa não está disponível porque o consentimento está ausente." : "As notas das áreas ainda não foram registradas.";
+  const estadoContexto = !atendimento.conectado ? "Não foi possível carregar o contexto de atendimento agora." : !atendimento.encontrado ? "A ficha de atendimento ainda não existe." : !mapaAutorizado ? "O contexto não está disponível porque o consentimento está ausente." : "O contexto essencial ainda não foi registrado.";
+  const estadoMeta = !atendimento.conectado ? "Não foi possível carregar o plano de ação agora." : !atendimento.encontrado ? "A ficha de atendimento ainda não existe." : !metaAutorizada ? "O plano de ação não está disponível porque o consentimento está ausente." : "Nenhuma meta foi registrada ainda.";
+
+  return <div className="grid gap-3 xl:grid-cols-[1.72fr_.78fr]">
+    <div className="space-y-3">
+      <div className="grid gap-3 lg:grid-cols-2">
+        <PainelFicha titulo="Visão 360°">
+          <p className="mb-5 text-xs leading-5 text-[#9ba5b6]">Leitura das áreas compartilhadas pelo mentorado, sem diagnóstico e sem preencher lacunas.</p>
+          {dimensoes.length ? <div className="space-y-3">{dimensoes.map((item, indice) => <div key={item.id ?? `${item.dimensao}-${indice}`} className="grid grid-cols-[105px_1fr_34px] items-center gap-3"><span className="truncate text-xs text-[#c1c8d4]">{item.dimensao || "Área"}</span><span className="h-1.5 overflow-hidden rounded-full bg-[#273247]"><span className="block h-full rounded-full bg-[#287fff]" style={{ width: `${Math.max(0, Math.min(10, item.nota ?? 0)) * 10}%` }} /></span><span className="text-right text-xs font-medium text-[#48a0ff]">{item.nota}/10</span></div>)}</div> : <p className="flex min-h-[185px] items-center justify-center text-center text-sm leading-6 text-[#929caf]">{estadoMapa}</p>}
+        </PainelFicha>
+        <PainelFicha titulo="Contexto essencial">
+          {primeiroContexto ? <dl className="space-y-5 text-sm"><div><dt className="text-[10px] font-semibold uppercase tracking-[.14em] text-[#758196]">Dor percebida</dt><dd className="mt-1.5 leading-6 text-[#e6eaf1]">{primeiroContexto.dor || "Ainda não registrada"}</dd></div><div><dt className="text-[10px] font-semibold uppercase tracking-[.14em] text-[#758196]">Medo ou bloqueio</dt><dd className="mt-1.5 leading-6 text-[#e6eaf1]">{primeiroContexto.medo || "Ainda não registrado"}</dd></div><div><dt className="text-[10px] font-semibold uppercase tracking-[.14em] text-[#758196]">Objetivo desejado</dt><dd className="mt-1.5 leading-6 text-[#e6eaf1]">{primeiroContexto.objetivo || "Ainda não registrado"}</dd></div></dl> : <p className="flex min-h-[250px] items-center justify-center text-center text-sm leading-6 text-[#929caf]">{estadoContexto}</p>}
+        </PainelFicha>
+      </div>
+      <PainelFicha titulo="Metas e plano de ação">
+        {meta ? <div><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-[#f3f6fc]">{meta.titulo || "Meta sem título"}</p><p className="mt-1 text-xs text-[#929caf]">{meta.prazo ? `Prazo combinado: ${dataBr(meta.prazo) || meta.prazo}` : "Prazo ainda não combinado"}</p></div><span className="rounded-full border border-[#1b6ee8]/50 bg-[#0d2445] px-3 py-1 text-xs text-[#4595ff]">{meta.status || "status não informado"}</span></div>{passos.length ? <ol className="mt-5 grid gap-2 lg:grid-cols-2">{passos.map((passo, indice) => <li key={passo.id ?? indice} className="flex items-start gap-3 rounded-lg border border-[#263249] bg-[#091523] px-4 py-3 text-sm text-[#c7ced9]"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0d63ed] text-[11px] font-semibold text-white">{indice + 1}</span><span>{passo.descricao || "Passo ainda não descrito"}</span></li>)}</ol> : <p className="mt-5 text-sm text-[#929caf]">Nenhum passo combinado ainda.</p>}</div> : <p className="py-7 text-center text-sm text-[#929caf]">{estadoMeta}</p>}
+      </PainelFicha>
+    </div>
+    <div className="space-y-3">
+      <PainelFicha titulo="Próxima conversa">
+        {proxima ? <div><div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#0d2445] text-[#3f91ff]"><CalendarDays size={21} aria-hidden /></span><div><p className="text-sm font-semibold text-white">{dataHoraBr(proxima.quando) || "Data não informada"}</p><p className="mt-1 text-xs text-[#929caf]">{proxima.numero !== null ? `Sessão ${proxima.numero}` : "Sessão agendada"}</p></div></div><Link href="#sessoes" className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-[#126df0] px-4 py-2.5 text-sm font-medium text-white">Preparar sessão <ChevronRight size={16} aria-hidden /></Link></div> : <p className="py-6 text-center text-sm text-[#929caf]">Nenhuma próxima conversa agendada.</p>}
+      </PainelFicha>
+      <PainelFicha titulo="Pontos para explorar">
+        {reflexoesAutorizadas.length ? <ul className="space-y-3">{reflexoesAutorizadas.map((reflexao, indice) => <li key={reflexao.id ?? indice} className="flex items-start gap-3 text-sm leading-6 text-[#d7dce5]"><Sparkles size={16} className="mt-1 shrink-0 text-[#378cff]" aria-hidden /><span>{reflexao.texto || "Reflexão ainda não descrita"}</span></li>)}</ul> : <div className="space-y-3 text-sm leading-6 text-[#c8ced8]"><p>O que mudou desde a última conversa?</p><p>Que pergunta pode ajudar o cliente a encontrar o próprio caminho?</p><p className="text-xs text-[#7f899b]">Sugestões genéricas; adapte ao que a pessoa trouxer.</p></div>}
+      </PainelFicha>
+      <PainelFicha titulo="Evolução recente">
+        {historico.saude.score !== null ? <div className="flex items-center gap-4"><span className="text-[32px] font-semibold text-[#23c9b9]">{historico.saude.score}</span><div><p className="text-sm text-[#e2e6ed]">Score com base disponível</p><p className="mt-1 text-xs text-[#929caf]">{historico.saude.maxComBase} pontos considerados</p></div></div> : <p className="py-4 text-sm leading-6 text-[#929caf]">Ainda não há base suficiente para afirmar uma evolução.</p>}
+      </PainelFicha>
+    </div>
+  </div>;
+}
 
 // Rótulo dos três status que `darBaixaNaSessao` aceita (STATUS_BAIXA_VALORES,
 // única fonte da verdade em `validacao.ts` — o `<select>` da baixa nunca
@@ -534,6 +611,7 @@ export function FichaVisao({
   documentos,
   erro,
   agendaConectada = false,
+  agoraIso = new Date().toISOString(),
 }: {
   ficha: Ficha;
   historico: HistoricoDaFicha;
@@ -547,6 +625,7 @@ export function FichaVisao({
    * ofereceria um botão de sincronizar que não tem como funcionar.
    */
   agendaConectada?: boolean;
+  agoraIso?: string;
   /**
    * Os arquivos deste mentorado, já lidos por `lerDocumentosDoMentorado`.
    *
@@ -600,6 +679,7 @@ export function FichaVisao({
   }
 
   const { mentorado } = ficha;
+  const atendimentoRoteiro = atendimentoParaRoteiro(ficha.atendimento);
   const variacao = variacaoScore(ficha.scores);
   const tarefasAbertas = ficha.tarefas.filter((t) => !t.concluida);
 
@@ -607,15 +687,11 @@ export function FichaVisao({
   // e a linha do tempo unificada. `Tabs` recebe conteúdo já renderizado,
   // então as duas nascem juntas — a de trás não fica esperando um clique
   // para ir ao banco.
-  const visaoGeral = (
+  const operacaoCompleta = (
     <>
       <CardSaudeMentorado historico={historico} />
 
       <div className="mt-4 space-y-4">
-        <MapaAtendimento atendimento={ficha.atendimento} />
-        <RoteiroSessao atendimento={ficha.atendimento} />
-        <PlanoAcao atendimento={ficha.atendimento} />
-        <Grafo atendimento={ficha.atendimento} />
       </div>
 
       <Card titulo="Ações de evolução" className="mt-4">
@@ -854,11 +930,7 @@ export function FichaVisao({
         <ConteudosLiberados mentoradoId={mentorado.id} conteudos={ficha.conteudos} />
       </div>
 
-      <div className="mt-4">
-        <DocumentosDoMentorado mentoradoId={mentorado.id} lista={documentos} />
-      </div>
-
-      <div className="mt-4">
+      <div id="mensagem-privada" className="mt-4 scroll-mt-24">
         <Card titulo="Mensagem privada para o mentorado">
           <p className="text-sm text-texto-2">
             Registre uma pergunta ou devolutiva para este mentorado. O sistema guarda a mensagem na conversa privada; não envia WhatsApp, e-mail ou outro canal externo.
@@ -873,17 +945,27 @@ export function FichaVisao({
     </>
   );
 
+  const matriculaAtual = ficha.matriculas.find(({ matricula }) => matricula.status === "ativa") ?? ficha.matriculas[0];
+  const programaAtual = matriculaAtual?.programa?.nome ?? "Acompanhamento individual";
+  const realizadas = ficha.sessoes.filter((sessao) => sessao.status === "realizada" && sessao.matriculaId === matriculaAtual?.matricula.id).length;
+  const prevista = matriculaAtual?.progresso.previstas;
+  const statusHumano = mentorado.status === "ativo" ? "Em acompanhamento" : LABEL_STATUS_MENTORADO[mentorado.status];
+  const visaoGeral = <ResumoFicha ficha={ficha} historico={historico} agoraIso={agoraIso} matriculaId={matriculaAtual?.matricula.id ?? null} />;
+
   return (
     <>
-      <p className="mb-2 text-xs text-texto-2">
-        <Link href="/mentoria" className="hover:text-primaria-2">
-          ← Mentoria
+      <div data-ficha-visual="referencia-aprovada" className="mx-auto max-w-[1420px] text-[#f4f7ff]">
+      <p className="mb-4 text-xs text-[#8f9aab]">
+        <Link href="/mentoria" className="inline-flex items-center gap-2 hover:text-[#3b8cff]">
+          <ArrowLeft size={15} aria-hidden /> Voltar para mentorados
         </Link>
       </p>
 
-      <PageHeader titulo={mentorado.nome}>
-        <Badge tom={TOM_STATUS_MENTORADO[mentorado.status]}>{LABEL_STATUS_MENTORADO[mentorado.status]}</Badge>
-      </PageHeader>
+      <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center">
+        <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-[#0d63ed] text-xl font-semibold text-white">{iniciaisDe(mentorado.nome)}</span>
+        <div className="min-w-0"><div className="flex flex-wrap items-center gap-3"><h1 className="text-[32px] font-semibold tracking-[-0.04em] text-white">{mentorado.nome}</h1><span className="rounded-full border border-[#126f64] bg-[#092b2c] px-3 py-1 text-xs font-medium text-[#28cbbb]">{statusHumano}</span></div><p className="mt-1 text-sm text-[#9ba5b6]">{programaAtual}{prevista !== null && prevista !== undefined ? ` · Sessão ${realizadas + 1} de ${prevista}` : realizadas ? ` · ${realizadas} sessão(ões) realizada(s)` : ""}</p></div>
+        <div className="flex gap-2 lg:ml-auto"><Link href="#sessoes" className="inline-flex items-center gap-2 rounded-md bg-[#126df0] px-4 py-2.5 text-sm font-medium text-white"><CalendarDays size={17} aria-hidden /> Nova sessão</Link><a href="#mensagem-privada" className="inline-flex items-center gap-2 rounded-md border border-[#29354a] bg-[#0a1524] px-4 py-2.5 text-sm font-medium text-[#e8ecf3]"><MessageCircle size={17} aria-hidden /> Enviar mensagem</a></div>
+      </div>
 
       {/* Erro de `agendarSessao`/`darBaixaNaSessao` (validação ou banco) volta
           aqui, em `?erro=` — mensagem já humana, sem detalhe técnico (ver
@@ -897,14 +979,19 @@ export function FichaVisao({
       <Tabs
         abas={[
           { id: "visao", rotulo: "Visão geral", conteudo: visaoGeral },
+          { id: "mapa", rotulo: "Mapa de atendimento", conteudo: <div className="space-y-4"><MapaAtendimento atendimento={ficha.atendimento} /><RoteiroSessao atendimento={atendimentoRoteiro} /><Grafo atendimento={ficha.atendimento} /></div> },
+          { id: "plano", rotulo: "Plano de ação", conteudo: <PlanoAcao atendimento={ficha.atendimento} /> },
           {
-            id: "historico",
-            rotulo: "Histórico",
+            id: "sessoes",
+            rotulo: "Sessões",
             badge: historico.fatos.length,
-            conteudo: <AbaHistorico historico={historico} />,
+            hashes: ["mensagem-privada"],
+            conteudo: <div id="sessoes" className="space-y-4 scroll-mt-24">{operacaoCompleta}<AbaHistorico historico={historico} /></div>,
           },
+          { id: "documentos", rotulo: "Documentos", conteudo: <DocumentosDoMentorado mentoradoId={mentorado.id} lista={documentos} /> },
         ]}
       />
+      </div>
     </>
   );
 }
