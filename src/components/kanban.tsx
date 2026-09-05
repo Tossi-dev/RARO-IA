@@ -46,37 +46,44 @@ export interface ColunaKanban {
 /**
  * A tira de colunas. Não sabe o que é um cartão — só empilha o que recebe.
  */
-export function KanbanColunas({ colunas }: { colunas: ColunaKanban[] }) {
-  return (
-    // snap-x: cada coluna do funil pára inteira na tela — sem isso, um swipe
-    // no celular parava no meio de uma coluna e parecia o layout quebrado.
-    <div className="flex snap-x snap-proximity gap-3 overflow-x-auto pb-3">
+export function KanbanColunas({ colunas, variante = "padrao" }: { colunas: ColunaKanban[]; variante?: "padrao" | "crm" }) {
+  const conteudo = (
+    <div className={variante === "crm" ? "flex min-w-max gap-1.5 pb-1" : "flex gap-3 pb-3"}>
       {colunas.map((coluna) => (
         <section
           key={coluna.id}
-          className="w-[250px] shrink-0 snap-start rounded-xl border border-borda bg-painel"
+          className={variante === "crm" ? "w-[180px] shrink-0 rounded-lg border border-[#29354a] bg-[#081525]" : "w-[250px] shrink-0 snap-start rounded-xl border border-borda bg-painel"}
           aria-label={coluna.rotuloAria}
         >
           <header className="flex items-center justify-between border-b border-borda px-3 py-2">
             <span className="text-sm font-medium">{coluna.titulo}</span>
             {coluna.etiqueta}
           </header>
-          <div className="max-h-[520px] space-y-2 overflow-y-auto p-2">{coluna.conteudo}</div>
+          <div className={variante === "crm" ? "min-h-[430px] max-h-[560px] space-y-2 overflow-y-auto p-1.5" : "max-h-[520px] space-y-2 overflow-y-auto p-2"}>{coluna.conteudo}</div>
         </section>
       ))}
     </div>
+  );
+
+  return (
+    // snap-x: cada coluna do funil pára inteira na tela — sem isso, um swipe
+    // no celular parava no meio de uma coluna e parecia o layout quebrado.
+    <div data-kanban-scroll={variante === "crm" ? "horizontal" : undefined} className={variante === "crm" ? "w-full overflow-x-auto" : "w-full snap-x snap-proximity overflow-x-auto"}>{conteudo}</div>
   );
 }
 
 export function KanbanCrm({
   estagios,
   colunas,
+  variante = "padrao",
 }: {
   estagios: Estagio[];
   colunas: Record<string, CartaoKanban[]>; // estagioId → cartões
+  variante?: "padrao" | "crm";
 }) {
   return (
     <KanbanColunas
+      variante={variante}
       colunas={estagios.map((e) => {
         const cartoes = colunas[e.id] ?? [];
         return {
@@ -87,7 +94,7 @@ export function KanbanCrm({
           conteudo: (
             <>
               {cartoes.map((c) => (
-                <article key={c.id} className="rounded-lg border border-borda bg-painel-2 p-2.5">
+                <article key={c.id} className={variante === "crm" ? "rounded-md border border-[#25344b] bg-[#0b192b] p-2.5" : "rounded-lg border border-borda bg-painel-2 p-2.5"}>
                   <div className="flex items-start justify-between gap-1">
                     <Link href={`/crm/${c.id}`} className="min-w-0 flex-1 truncate text-sm font-medium hover:text-primaria-2">
                       {c.nome}
@@ -103,7 +110,7 @@ export function KanbanCrm({
                       >
                         ⋯
                       </summary>
-                      <div className="absolute right-0 z-10 mt-1 w-44 rounded-lg border border-borda bg-fundo p-1 shadow-xl">
+                      <div className={variante === "crm" ? "absolute right-0 z-20 mt-1 w-[164px] rounded-lg border border-borda bg-fundo p-1 shadow-xl" : "absolute right-0 z-10 mt-1 w-44 rounded-lg border border-borda bg-fundo p-1 shadow-xl"}>
                         <p className="px-2 py-1 text-[10px] uppercase tracking-wide text-texto-2">Mover para</p>
                         {estagios
                           .filter((x) => x.id !== e.id)
