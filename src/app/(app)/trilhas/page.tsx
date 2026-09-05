@@ -15,7 +15,14 @@ import { TrilhasVisao } from "./visao";
 
 export const dynamic = "force-dynamic";
 
-export default async function Trilhas({ searchParams }: { searchParams: { erro?: string } }) {
+export default async function Trilhas({ searchParams }: { searchParams: { erro?: string; q?: string; situacao?: string } }) {
   const lista = await lerTrilhas();
-  return <TrilhasVisao lista={lista} erro={typeof searchParams.erro === "string" ? searchParams.erro : ""} />;
+  return (
+    <TrilhasVisao
+      lista={lista}
+      erro={typeof searchParams.erro === "string" ? searchParams.erro : ""}
+      busca={typeof searchParams.q === "string" ? searchParams.q : ""}
+      situacao={typeof searchParams.situacao === "string" ? searchParams.situacao : "todas"}
+    />
+  );
 }
