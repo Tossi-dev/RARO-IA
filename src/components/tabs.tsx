@@ -17,6 +17,8 @@ export interface AbaDef {
   rotulo: string;
   badge?: string | number;
   conteudo: ReactNode;
+  /** Âncoras internas que também devem abrir esta aba. */
+  hashes?: string[];
 }
 
 export function Tabs({ abas, inicial }: { abas: AbaDef[]; inicial?: string }) {
@@ -38,6 +40,20 @@ export function Tabs({ abas, inicial }: { abas: AbaDef[]; inicial?: string }) {
     el?.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativa]);
+
+  useEffect(() => {
+    const abrirPeloHash = () => {
+      const hash = window.location.hash.replace(/^#/, "");
+      if (!hash) return;
+      const correspondente = abas.find((aba) => aba.id === hash || aba.hashes?.includes(hash));
+      if (!correspondente) return;
+      setAtiva(correspondente.id);
+      window.setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+    };
+    abrirPeloHash();
+    window.addEventListener("hashchange", abrirPeloHash);
+    return () => window.removeEventListener("hashchange", abrirPeloHash);
+  }, [abas]);
 
   return (
     <div>
