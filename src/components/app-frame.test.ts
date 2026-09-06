@@ -11,6 +11,9 @@ describe("AppFrame", () => {
     expect(fonte).toContain('data-shell="launcher"');
     expect(fonte).toContain('data-shell="interno"');
     expect(fonte).toContain("<SidebarNav grupos={grupos} modoPainel />");
+    expect(fonte).toContain('pathname === "/portal"');
+    expect(fonte).toContain("Falar com mentor");
+    expect(topbar).toContain('"Meu acompanhamento"');
   });
 
   it("mantem os controles globais acessiveis no shell interno", () => {

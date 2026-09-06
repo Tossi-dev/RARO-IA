@@ -24,6 +24,14 @@ begin
     raise exception 'T-124 abortada: matricula sintetica T-112 ausente ou divergente';
   end if;
 
+  if exists (select 1 from public.sessao where id = '00000000-0000-0000-0000-000000001220' and (workspace_id <> v_workspace_id or matricula_id <> v_matricula_id))
+    or exists (select 1 from public.tarefa_mentoria where id between '00000000-0000-0000-0000-000000001221' and '00000000-0000-0000-0000-000000001223' and (workspace_id <> v_workspace_id or mentorado_id <> v_mentorado_id))
+    or exists (select 1 from public.score_evolucao where id between '00000000-0000-0000-0000-000000001230' and '00000000-0000-0000-0000-000000001235' and (workspace_id <> v_workspace_id or mentorado_id <> v_mentorado_id))
+    or exists (select 1 from public.marco where id between '00000000-0000-0000-0000-000000001240' and '00000000-0000-0000-0000-000000001241' and (workspace_id <> v_workspace_id or mentorado_id <> v_mentorado_id))
+    or exists (select 1 from public.conteudo_liberado where id between '00000000-0000-0000-0000-000000001250' and '00000000-0000-0000-0000-000000001252' and (workspace_id <> v_workspace_id or mentorado_id <> v_mentorado_id)) then
+    raise exception 'T-124 abortada: UUID reservado colide com registro fora da massa sintetica';
+  end if;
+
   insert into public.sessao
     (id, workspace_id, matricula_id, numero, quando, duracao_min, status,
      link_gravacao, transcricao, resumo)
@@ -75,11 +83,11 @@ begin
      '[AUDIT] Video — Tomada de decisao com clareza', '', timestamptz '2026-09-03 12:00:00+00', false)
   on conflict (id) do nothing;
 
-  if (select count(*) from public.sessao where id = '00000000-0000-0000-0000-000000001220') <> 1
-    or (select count(*) from public.tarefa_mentoria where id between '00000000-0000-0000-0000-000000001221' and '00000000-0000-0000-0000-000000001223') <> 3
-    or (select count(*) from public.score_evolucao where id between '00000000-0000-0000-0000-000000001230' and '00000000-0000-0000-0000-000000001235') <> 6
-    or (select count(*) from public.marco where id between '00000000-0000-0000-0000-000000001240' and '00000000-0000-0000-0000-000000001241') <> 2
-    or (select count(*) from public.conteudo_liberado where id between '00000000-0000-0000-0000-000000001250' and '00000000-0000-0000-0000-000000001252') <> 3 then
+  if (select count(*) from public.sessao where id = '00000000-0000-0000-0000-000000001220' and workspace_id = v_workspace_id and matricula_id = v_matricula_id) <> 1
+    or (select count(*) from public.tarefa_mentoria where id between '00000000-0000-0000-0000-000000001221' and '00000000-0000-0000-0000-000000001223' and workspace_id = v_workspace_id and mentorado_id = v_mentorado_id) <> 3
+    or (select count(*) from public.score_evolucao where id between '00000000-0000-0000-0000-000000001230' and '00000000-0000-0000-0000-000000001235' and workspace_id = v_workspace_id and mentorado_id = v_mentorado_id) <> 6
+    or (select count(*) from public.marco where id between '00000000-0000-0000-0000-000000001240' and '00000000-0000-0000-0000-000000001241' and workspace_id = v_workspace_id and mentorado_id = v_mentorado_id) <> 2
+    or (select count(*) from public.conteudo_liberado where id between '00000000-0000-0000-0000-000000001250' and '00000000-0000-0000-0000-000000001252' and workspace_id = v_workspace_id and mentorado_id = v_mentorado_id) <> 3 then
     raise exception 'T-124 abortada: conferencia atomica do complemento falhou';
   end if;
 end

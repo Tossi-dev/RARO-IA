@@ -733,9 +733,12 @@ describe("Portal — referência visual aprovada", () => {
     const html = await renderizarPortal();
 
     expect(html).toContain('data-portal-visual="referencia-aprovada"');
+    expect(html).toContain('data-portal-layout="modelo-aprovado"');
     expect(html).toContain("Seu progresso");
-    expect(html).toContain("Tarefas desta semana");
-    expect(html).toContain("Sua jornada");
+    expect(html).toContain(">Tarefas</h2>");
+    expect(html).toContain("Foco atual");
+    expect(html).toContain("Mensagem do seu mentor");
+    expect(html).toContain('aria-label="Progresso da matrícula"');
     expect(html).not.toContain("Faturamento");
   });
 
@@ -748,8 +751,30 @@ describe("Portal — referência visual aprovada", () => {
     expect(html).toContain("Conversa com seu mentor");
     expect(html).toContain("Marcos conquistados");
     expect(html).toContain("Conteúdos liberados");
+    expect(html).toContain("Todos os marcos estão exibidos");
+    expect(html).toContain("Todos os conteúdos estão exibidos");
     expect(html).toContain("Histórico de sessões");
     expect(html).toContain('name="tarefaId"');
+  });
+
+  it("preserva pendências antes de concluídas e mantém a conversa completa acessível", async () => {
+    const base = portalConectado();
+    lerPortalMock.mockResolvedValue(portalConectado({
+      tarefas: [
+        { ...base.tarefas[0], id: "concluida", titulo: "Concluída antiga", prazo: "2026-01-01", concluida: true },
+        { ...base.tarefas[0], id: "aberta", titulo: "Pendente atual", prazo: "2026-12-01", concluida: false },
+      ],
+      mensagens: [
+        { id: "m-1", direcao: "gestao_para_mentorado", texto: "Primeira orientação", criadoEm: "2026-01-01T00:00:00Z" },
+        { id: "m-2", direcao: "mentorado_para_gestao", texto: "Minha resposta", criadoEm: "2026-01-02T00:00:00Z" },
+      ],
+    }));
+
+    const texto = soTexto(await renderizarPortal());
+
+    expect(texto.indexOf("Pendente atual")).toBeLessThan(texto.indexOf("Concluída antiga"));
+    expect(texto).toContain("Primeira orientação");
+    expect(texto).toContain("Minha resposta");
   });
 
   it("não inventa foco, progresso ou próxima sessão quando faltam dados", async () => {

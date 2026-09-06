@@ -21,9 +21,9 @@ export function AppFrame({ grupos, topbar, menuMobile, barraAbas, children }: {
   return (
     <div data-shell="interno" className="mx-auto flex min-h-[100dvh] w-full max-w-[1680px]">
       <aside className="sticky top-0 hidden h-[100dvh] w-[232px] shrink-0 flex-col border-r border-white/[0.08] bg-[#030917]/95 px-3 py-6 md:flex">
-        <Link href="/" aria-label="Seu espaço de trabalho" className="mb-7 px-3"><Marca /></Link>
+        <Link href="/" aria-label="Seu espaço de trabalho" className="mb-7 px-2"><Marca destaque={pathname === "/portal"} /></Link>
         <SidebarNav grupos={grupos} modoPainel />
-        <Link href="/agenda" className="mt-auto flex items-center gap-3 rounded-lg border border-white/[0.05] bg-[#071326] px-4 py-3 text-sm text-[#2f7cff] transition-colors hover:border-[#1f6fff]/50 hover:bg-[#0a1830]"><Plus size={18} strokeWidth={1.7} aria-hidden />Nova sessão</Link>
+        <Link href={pathname === "/portal" ? "/portal#conversa" : "/agenda"} onClick={pathname === "/portal" ? () => { const conversa = document.getElementById("conversa"); if (conversa instanceof HTMLDetailsElement) conversa.open = true; } : undefined} className="mt-auto flex items-center gap-3 rounded-lg border border-[#1f6fff]/70 bg-transparent px-4 py-3 text-sm text-[#2f8cff] transition-colors hover:bg-[#0a1830]"><Plus size={18} strokeWidth={1.7} aria-hidden />{pathname === "/portal" ? "Falar com mentor" : "Nova sessão"}</Link>
       </aside>
       <div className="min-w-0 flex-1">{topbar}{menuMobile}<main className="px-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] pt-7 md:px-7 md:pb-8 md:pt-6">{children}</main>{barraAbas}</div>
     </div>

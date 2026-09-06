@@ -18,6 +18,8 @@ import {
   LayoutDashboard,
   LayoutGrid,
   ListChecks,
+  BookOpen,
+  MessageCircle,
   Plug,
   Upload,
   Megaphone,
@@ -52,12 +54,12 @@ const ICONES: Record<NomeIconeLateral, LucideIcon> = {
   UserCircle,
 };
 
-export function Marca() {
+export function Marca({ destaque = false }: { destaque?: boolean }) {
   // "Mentor" + "OS" no lugar de "raro" + ".ia": o ponto que separava o nome
   // antigo virava só uma letra maiúscula no nome novo, então quem carrega a
   // cor de destaque muda de sufixo para sigla — mesma ideia, peça nova.
   return (
-    <span className="font-display text-xl font-fino tracking-tight">
+    <span className={cx("font-display tracking-[-0.04em]", destaque ? "text-[28px] font-semibold text-white" : "text-xl font-fino")}>
       Mentor<span className="text-primaria-2">OS</span>
     </span>
   );
@@ -74,6 +76,16 @@ function ativo(pathname: string, href: string) {
 export function SidebarNav({ grupos, modoPainel = false }: { grupos: GrupoNavLateral[]; modoPainel?: boolean }) {
   const pathname = usePathname();
   if (modoPainel) {
+    if (pathname === "/portal") {
+      const portalMenu = [
+        { href: "/portal", rotulo: "Minha jornada", Icone: Route },
+        { href: "/portal#historico", rotulo: "Sessões", Icone: CalendarDays },
+        { href: "/portal#tarefas-da-semana", rotulo: "Tarefas", Icone: ListChecks },
+        { href: "/portal#conteudos", rotulo: "Conteúdos", Icone: BookOpen },
+        { href: "/portal#conversa", rotulo: "Falar com mentor", Icone: MessageCircle },
+      ];
+      return <nav className="flex flex-col gap-2">{portalMenu.map(({ href, rotulo, Icone }, indice) => <Link key={href} href={href} onClick={rotulo === "Falar com mentor" ? () => { const conversa = document.getElementById("conversa"); if (conversa instanceof HTMLDetailsElement) conversa.open = true; } : undefined} aria-current={indice === 0 ? "page" : undefined} className={cx("flex min-h-12 items-center gap-3 rounded-md px-4 text-[14px] transition-colors", indice === 0 ? "bg-gradient-to-r from-[#0d54e8] to-[#1749c6] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,.18)]" : "text-[#d6dbea] hover:bg-white/[0.04] hover:text-white")}><Icone size={20} strokeWidth={1.6} aria-hidden />{rotulo}</Link>)}</nav>;
+    }
     const ordem = ["/painel", "/mentoria", "/crm", "/trilhas", "/agenda", "/comercial", "/financeiro"];
     const rotulos: Record<string, string> = { "/painel": "Visão geral", "/mentoria": "Atendimentos", "/crm": "Clientes", "/trilhas": "Jornada", "/agenda": "Agenda", "/comercial": "Equipe", "/financeiro": "Operação" };
     const itens = grupos.flatMap((grupo) => grupo.itens);

@@ -13,7 +13,8 @@
 // este componente, em vez de duplicar a marcação.
 
 import Link from "next/link";
-import { Badge, Botao, Card, PageHeader, ProgressBar, Vazio, cx, type Tom } from "@/components/ui";
+import { ArrowRight, BookOpen, CalendarDays, Check, Flag, MessageCircle, Target, TrendingUp } from "lucide-react";
+import { Badge, Botao, Card, PageHeader, Vazio, cx, type Tom } from "@/components/ui";
 import { sair } from "@/lib/actions";
 import { concluirTarefa, reabrirTarefa } from "@/lib/mentoria/acoes-portal";
 import { enviarMensagemDoPortal } from "@/lib/mentoria/acoes-mensagem-form";
@@ -31,7 +32,6 @@ import {
   TITULO_LINHA_TEMPO,
   VAZIO_LINHA_TEMPO,
   VER_GRAVACAO,
-  dataHoraPorExtenso,
   diasAte,
   mensagemDeErro,
   programaAtual,
@@ -65,14 +65,6 @@ const TOM_STATUS_SESSAO: Record<StatusSessao, Tom> = {
   realizada: "verde",
   faltou: "vermelho",
   cancelada: "cinza",
-};
-
-/** Tom da pílula de variação do score — sobe é bom, desce é ruim, empate é
- *  neutro. Mesmo mapa de `/mentoria/[id]/page.tsx`, não exportado de lá. */
-const TOM_VARIACAO: Record<"▲" | "▼" | "▬", Tom> = {
-  "▲": "verde",
-  "▼": "vermelho",
-  "▬": "cinza",
 };
 
 /** Cor do prazo de uma tarefa pelo TOM dela (`tomDoPrazo`, `./textos.ts`) —
@@ -276,6 +268,11 @@ export function PortalVisao({
   // pode derrubar a tela enquanto é atualizada.
   const mensagens = portal.mensagens ?? [];
   const contratos = portal.contratos ?? [];
+  const tarefasOrdenadas = [...portal.tarefas].sort((a, b) => {
+    if (a.concluida !== b.concluida) return a.concluida ? 1 : -1;
+    return (a.prazo ?? "9999").localeCompare(b.prazo ?? "9999");
+  });
+  const tarefaEmAberto = tarefasOrdenadas.find((tarefa) => !tarefa.concluida) ?? null;
 
   // MÉDIO 5 da auditoria — `erro` NUNCA é renderizado direto. Antes desta
   // correção, o texto cru da URL aparecia dentro do banner oficial do
@@ -286,7 +283,7 @@ export function PortalVisao({
   const mensagemErro = mensagemDeErro(erro);
 
   return (
-    <div data-portal-visual="referencia-aprovada">
+    <div data-portal-visual="referencia-aprovada" className="mx-auto max-w-[1320px]">
       <PageHeader
         titulo={primeiroNome ? `Olá, ${primeiroNome}` : "Olá"}
         sub={programa ? `Programa ${programa}` : undefined}
@@ -309,36 +306,50 @@ export function PortalVisao({
       ) : null}
 
       <div className="space-y-4">
-        {/* 1) Os avisos, primeiro: é o que MUDOU desde a última visita, e a
-            razão mais comum de a pessoa abrir o portal num dia qualquer. O
-            card decide sozinho se aparece — ver `./avisos.tsx`. */}
-        {feed ? <AvisosDoPortal feed={feed} /> : null}
-
-        {/* Logo depois dos avisos, e antes do progresso: para quem acabou de
-            entrar, o roteiro de entrada é a tela inteira. O card some sozinho
-            quando não há etapa ativa — ver `./primeiros-passos.tsx`. */}
         {onboarding ? <PrimeirosPassos onboarding={onboarding} /> : null}
-
-        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        {feed && feed.itens.length > 0 ? <AvisosDoPortal feed={feed} /> : null}
+        <div data-portal-layout="modelo-aprovado" className="grid items-start gap-3 xl:grid-cols-[minmax(0,3fr)_minmax(300px,2fr)]">
 
         {/* 2) O progresso — um bloco por matrícula. */}
-        <Card titulo="Seu progresso" className="xl:col-start-1 xl:row-start-1">
+        <Card titulo="Seu progresso" className="!rounded-lg !border-white/15 !bg-[#061120]/75 !p-5 [&>div>h2]:text-[18px] xl:col-start-1 xl:row-start-1">
           {portal.matriculas.length ? (
-            <ul className="space-y-4">
+            <ul className="space-y-5">
               {portal.matriculas.map(({ matricula, programa: prog, progresso }) => (
-                <li key={matricula.id}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium">{prog?.nome ?? "—"}</span>
-                    <Badge tom={TOM_STATUS_MATRICULA[matricula.status]}>
-                      {LABEL_STATUS_MATRICULA[matricula.status]}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-sm text-texto-2">{progresso.rotulo}</p>
-                  {progresso.percentual !== null ? (
-                    <div className="mt-1.5">
-                      <ProgressBar pct={progresso.percentual} />
+                <li key={matricula.id} className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                  <div
+                    role="progressbar"
+                    aria-label="Progresso da matrícula"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={progresso.percentual ?? undefined}
+                    aria-valuetext={progresso.percentual === null ? "Progresso indisponível" : undefined}
+                    className="relative grid h-32 w-32 shrink-0 place-items-center rounded-full"
+                    style={{ background: `conic-gradient(#22c98b ${progresso.percentual ?? 0}%, #0b3032 0)` }}
+                  >
+                    <div className="absolute inset-[10px] grid place-items-center rounded-full bg-[#07111f]">
+                      <span className="text-3xl font-semibold tabular-nums text-white">{progresso.percentual === null ? "—" : `${progresso.percentual}%`}</span>
                     </div>
-                  ) : null}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base text-texto-2">
+                      {matricula.status === "cancelada"
+                        ? "Esta matrícula foi cancelada."
+                        : matricula.status === "trancada"
+                          ? "Esta matrícula está trancada."
+                          : matricula.status === "concluida"
+                            ? "Esta jornada foi concluída."
+                            : progresso.percentual === null
+                              ? "Progresso ainda não calculado."
+                              : progresso.percentual === 0
+                                ? "Sua jornada está começando."
+                                : "Seu acompanhamento está em andamento."}
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-white">{progresso.rotulo}</p>
+                    <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10">
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progresso.percentual ?? 0}%` }} />
+                    </div>
+                    <p className="sr-only">{prog?.nome ?? "Programa sem nome"} · {LABEL_STATUS_MATRICULA[matricula.status]}</p>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -347,13 +358,11 @@ export function PortalVisao({
           )}
         </Card>
 
-        <Card titulo="Sua jornada" className="xl:col-start-2 xl:row-start-1">
+        <Card titulo="Foco atual" className="!rounded-lg !border-white/15 !bg-[#061120]/75 !p-5 [&>div>h2]:text-[18px] xl:col-start-2 xl:row-start-1">
           {matriculaAtual ? (
             <>
-              <p className="text-sm font-medium text-texto">{programa ? `Programa ${programa}` : "Programa sem nome informado"}</p>
-              <p className="mt-3 text-xs leading-relaxed text-texto-2">Pergunta para reflexão</p>
-              <p className="mt-2 rounded-xl border border-primaria/35 bg-primaria/5 px-3 py-3 text-sm leading-relaxed text-texto">O que você percebe hoje que ainda não conseguia enxergar no começo desta jornada?</p>
-              <p className="mt-3 text-xs leading-relaxed text-texto-3">Seu mentor faz perguntas; você constrói o próprio caminho.</p>
+              <p className="flex items-center gap-3 text-sm font-medium text-texto"><span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-500/15 text-emerald-400"><Target size={20} aria-hidden /></span>{tarefaEmAberto?.titulo ?? (programa ? `Programa ${programa}` : "Programa sem nome informado")}</p>
+              {tarefaEmAberto ? <><p className="mt-3 text-xs leading-relaxed text-texto-2">Pergunta para reflexão</p><p className="mt-2 rounded-md border border-emerald-500/40 bg-emerald-500/[0.04] px-4 py-3 text-base leading-relaxed text-texto">Qual é o próximo passo possível para avançar nesta tarefa?</p></> : <p className="mt-3 text-sm text-texto-2">Nenhuma tarefa em aberto neste momento.</p>}
             </>
           ) : (
             <Vazio>Nenhuma jornada vinculada à sua conta no momento.</Vazio>
@@ -361,28 +370,15 @@ export function PortalVisao({
         </Card>
 
         {/* 3) A próxima sessão, em destaque. */}
-        <Card titulo="Próxima sessão" className="xl:col-start-1 xl:row-start-2">
+        <Card titulo="Próxima sessão" className="!rounded-lg !border-white/15 !bg-[#061120]/75 !p-5 [&>div>h2]:text-[18px] xl:col-start-1 xl:row-start-2">
           {portal.proxima ? (
-            <div>
-              <p className="font-display text-2xl font-fino leading-tight tracking-tight text-texto">
-                {dataHoraPorExtenso(portal.proxima.quando) || "Data a confirmar"}
-              </p>
-              {diasAte(portal.proxima.quando, agoraIso) ? (
-                <Badge tom="violeta">
-                  {/* `diasAte` devolve minúsculo ("em 3 dias") de propósito — é
-                      frase, não título. `capitalize` (CSS) maiuscula CADA
-                      PALAVRA, o que em português vira "Em 3 Dias": só a
-                      primeira letra de uma frase é maiúscula. `first-letter:`
-                      resolve isso sem pedir que `diasAte` devolva o texto já
-                      capitalizado (o teste de `diasAte` continua verde). */}
-                  <span className="first-letter:uppercase">
-                    {diasAte(portal.proxima.quando, agoraIso)}
-                  </span>
-                </Badge>
-              ) : null}
-              <a href="#tarefas-da-semana" className="mt-4 inline-flex rounded-full border border-borda px-4 py-2 text-sm text-primaria-2 hover:border-primaria/60">
-                Ver preparação
-              </a>
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-blue-600/20 text-blue-400"><CalendarDays size={24} aria-hidden /></span>
+              <div className="min-w-[220px] flex-1">
+                <p className="text-lg font-semibold text-white">{dataHoraBr(portal.proxima.quando) || "Data a confirmar"}</p>
+                <p className="mt-0.5 text-sm text-texto-2">{portal.proxima.resumo || diasAte(portal.proxima.quando, agoraIso)}</p>
+              </div>
+              <a href="#tarefas-da-semana" className="inline-flex rounded-md border border-blue-500 px-4 py-2 text-sm text-blue-400 hover:bg-blue-500/10">Ver preparação</a>
             </div>
           ) : (
             <Vazio>
@@ -393,16 +389,20 @@ export function PortalVisao({
         </Card>
 
         {/* Evolução fica ao lado da próxima sessão também na ordem de leitura. */}
-        <Card titulo="Evolução" className="xl:col-start-2 xl:row-start-2">
-          {variacao ? (
-            <p className="flex items-center gap-2">
-              <Badge tom={TOM_VARIACAO[variacao.glifo]}>{variacao.texto}</Badge>
-              <span className="text-xs text-texto-2">desde o começo do acompanhamento</span>
-            </p>
-          ) : ultimoScore ? (
+        <Card titulo="Evolução" className="!rounded-lg !border-white/15 !bg-[#061120]/75 !p-5 [&>div>h2]:text-[18px] xl:col-start-2 xl:row-start-2">
+          {ultimoScore ? (
             <div>
-              <p className="font-display text-2xl font-fino leading-tight tracking-tight text-texto">{ultimoScore.score}</p>
-              <p className="mt-1 text-xs text-texto-2">Última medição registrada</p>
+              <div className="flex items-center gap-3">
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-500/15 text-emerald-400"><TrendingUp size={20} aria-hidden /></span>
+                <div><p className="text-xs text-texto-2">Sua nota atual</p><p className="text-3xl font-semibold text-white">{(ultimoScore.score / 10).toLocaleString("pt-BR", { minimumFractionDigits: 1 })}<span className="text-lg font-normal text-texto-2">/10</span></p></div>
+                {portal.scores.length > 1 ? (
+                  <svg className="ml-auto h-12 w-32 text-emerald-400" viewBox="0 0 120 40" role="img" aria-label="Evolução recente">
+                    <polyline fill="none" stroke="currentColor" strokeWidth="2" points={portal.scores.map((score, indice) => `${(indice * 116) / (portal.scores.length - 1) + 2},${38 - (score.score / 100) * 34}`).join(" ")} />
+                    {portal.scores.map((score, indice) => <circle key={score.id} cx={(indice * 116) / (portal.scores.length - 1) + 2} cy={38 - (score.score / 100) * 34} r="2.5" fill="currentColor" />)}
+                  </svg>
+                ) : null}
+              </div>
+              <p className="mt-3 text-sm text-texto-2">{portal.scores.length === 1 ? "Este é seu primeiro registro de evolução." : variacao?.glifo === "▼" ? "Sua nota diminuiu em relação ao registro anterior." : variacao?.glifo === "▲" ? "Sua nota aumentou em relação ao registro anterior." : "Sua nota permaneceu estável."}</p>
             </div>
           ) : (
             <Vazio>Ainda não há histórico de evolução por aqui.</Vazio>
@@ -410,35 +410,29 @@ export function PortalVisao({
         </Card>
 
         {/* 4) Tarefas — em aberto primeiro (já é a ordem de `portal.tarefas`). */}
-        <Card titulo="Tarefas desta semana" className="xl:col-start-1 xl:row-start-3">
-          <span id="tarefas-da-semana" className="sr-only">Tarefas desta semana</span>
+        <Card titulo="Tarefas" className="!rounded-lg !border-white/15 !bg-[#061120]/75 !p-5 [&>div>h2]:text-[18px] xl:col-start-1 xl:row-start-3">
+          <span id="tarefas-da-semana" className="sr-only">Lista completa de tarefas</span>
           {portal.tarefas.length ? (
             <ul className="space-y-2">
-              {portal.tarefas.map((tarefa) => {
+              {tarefasOrdenadas.map((tarefa) => {
                 const tom = tomDoPrazo(tarefa.prazo, agoraIso, tarefa.concluida);
                 const prazoBr = tarefa.prazo ? dataBr(tarefa.prazo) : "";
                 return (
                   <li
                     key={tarefa.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-borda-sutil bg-poco px-3 py-2.5"
+                    className="flex items-center gap-3 rounded-md border border-white/10 bg-[#071426] px-3 py-2"
                   >
-                    <div>
+                    <form action={tarefa.concluida ? reabrirTarefa : concluirTarefa}>
+                      <input type="hidden" name="tarefaId" value={tarefa.id} />
+                      <button aria-label={tarefa.concluida ? `Reabrir ${tarefa.titulo}` : `Concluir ${tarefa.titulo}`} className="grid h-5 w-5 place-items-center rounded border border-white/50 text-emerald-400">{tarefa.concluida ? <Check size={14} aria-hidden /> : null}</button>
+                    </form>
+                    <div className="min-w-0 flex-1">
                       <p className={cx("text-sm", tarefa.concluida && "text-texto-3 line-through")}>
                         {tarefa.titulo}
                       </p>
-                      {prazoBr ? (
-                        <p className={cx("mt-0.5 text-xs", COR_TOM_PRAZO[tom])}>
-                          {tom === "vencido" ? "Meta vencida · " : ""}
-                          {prazoBr}
-                        </p>
-                      ) : null}
                     </div>
-                    <form action={tarefa.concluida ? reabrirTarefa : concluirTarefa}>
-                      <input type="hidden" name="tarefaId" value={tarefa.id} />
-                      <Botao tipo="fantasma" className="shrink-0">
-                        {tarefa.concluida ? "Reabrir" : "Concluir"}
-                      </Botao>
-                    </form>
+                    {prazoBr ? <p className={cx("shrink-0 text-xs", COR_TOM_PRAZO[tom])}>{tom === "vencido" ? <><span className="sr-only">Meta vencida · </span>Vencida · </> : "Até "}{prazoBr}</p> : null}
+                    <ArrowRight size={16} className="shrink-0 text-blue-400" aria-hidden />
                   </li>
                 );
               })}
@@ -446,42 +440,78 @@ export function PortalVisao({
           ) : (
             <Vazio>Nenhuma tarefa combinada por aqui, por enquanto.</Vazio>
           )}
+          <p className="mt-4 text-sm text-texto-3">Todas as tarefas estão exibidas.</p>
         </Card>
 
-        <Card titulo="Conversa com seu mentor" className="xl:col-start-2 xl:row-start-3">
+        <Card titulo="Mensagem do seu mentor" className="!rounded-lg !border-white/15 !bg-[#061120]/75 !p-5 [&>div>h2]:text-[18px] xl:col-start-2 xl:row-start-3">
+          <span className="sr-only">Conversa com seu mentor</span>
           {mensagens.length ? (
-            <ul className="space-y-2">
-              {mensagens.map((mensagem) => (
-                <li key={mensagem.id} className="rounded-lg border border-borda-sutil bg-poco px-3 py-2.5 text-sm">
-                  <p className="text-xs font-medium text-texto-2">
-                    {mensagem.direcao === "gestao_para_mentorado" ? "Seu mentor" : "Você"}
-                    {dataHoraBr(mensagem.criadoEm) ? ` · ${dataHoraBr(mensagem.criadoEm)}` : ""}
-                  </p>
-                  <p className="mt-1 whitespace-pre-wrap text-texto">{mensagem.texto}</p>
-                </li>
-              ))}
-            </ul>
+            <div className="flex gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-violet-600 text-sm font-semibold text-white">M</span><p className="text-sm leading-relaxed text-texto-2">{[...mensagens].reverse().find((mensagem) => mensagem.direcao === "gestao_para_mentorado")?.texto ?? mensagens[mensagens.length - 1].texto}</p></div>
           ) : (
             <Vazio>Ainda não há mensagens nesta conversa.</Vazio>
           )}
-          <form action={enviarMensagemDoPortal} className="mt-3 space-y-2 border-t border-borda-sutil pt-3">
-            <label className="block text-sm font-medium" htmlFor="mensagem-portal">
-              Compartilhe sua reflexão
-            </label>
-            <textarea
-              id="mensagem-portal"
-              name="texto"
-              required
-              maxLength={4000}
-              rows={3}
-              className="w-full rounded-lg border border-borda bg-poco px-3 py-2 text-sm text-texto"
-              placeholder="Escreva o que percebeu ou uma pergunta para sua próxima sessão."
-            />
-            <Botao tipo="fantasma">Enviar mensagem</Botao>
-          </form>
+          <details id="conversa" className="mt-4 scroll-mt-24"><summary className="inline-flex cursor-pointer list-none items-center gap-2 rounded-md border border-blue-500 px-4 py-2 text-sm text-blue-400"><MessageCircle size={16} aria-hidden />Ver conversa e responder</summary>{mensagens.length ? <ol className="mt-3 max-h-56 space-y-2 overflow-y-auto">{mensagens.map((mensagem) => <li key={mensagem.id} className="rounded-md border border-white/10 bg-[#071426] px-3 py-2"><p className="text-[11px] font-medium uppercase tracking-wide text-texto-3">{mensagem.direcao === "gestao_para_mentorado" ? "Mentor" : "Você"}</p><p className="mt-1 text-sm text-texto-2">{mensagem.texto}</p></li>)}</ol> : null}<form action={enviarMensagemDoPortal} className="mt-3 space-y-2"><label className="sr-only" htmlFor="mensagem-portal">Compartilhe sua reflexão</label><textarea id="mensagem-portal" name="texto" required maxLength={4000} rows={3} className="w-full rounded-md border border-borda bg-poco px-3 py-2 text-sm text-texto" placeholder="Escreva sua reflexão."/><Botao tipo="fantasma">Enviar mensagem</Botao></form></details>
         </Card>
 
-        <Card titulo="Contratos liberados" className="xl:col-span-2 xl:row-start-4">
+        {/* 6) Marcos conquistados e conteúdos liberados. */}
+        <div className="grid gap-3 sm:grid-cols-2 xl:col-span-2">
+          <Card titulo="Marcos conquistados" className="!rounded-lg !border-white/15 !bg-[#061120]/75 !p-5 [&>div>h2]:text-[18px]">
+            <Flag className="mb-3 text-emerald-400" size={24} aria-hidden />
+            {portal.marcos.length ? (
+              <ul className="space-y-2 text-sm">
+                {portal.marcos.map((marco) => (
+                  <li key={marco.id} className="flex items-center gap-2 border-b border-white/10 pb-2 last:border-0">
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-emerald-500 text-emerald-400"><Check size={13} aria-hidden /></span><span className="font-medium">{marco.titulo}</span>
+                    {marco.descricao ? <p className="text-xs text-texto-2">{marco.descricao}</p> : null}
+                    {dataBr(marco.conquistadoEm) ? (
+                      <p className="text-xs text-texto-3">{dataBr(marco.conquistadoEm)}</p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Vazio>Nenhum marco conquistado ainda.</Vazio>
+            )}
+            <p className="mt-4 text-sm text-texto-3">Todos os marcos estão exibidos.</p>
+          </Card>
+
+          <Card titulo="Conteúdos liberados" className="!rounded-lg !border-white/15 !bg-[#061120]/75 !p-5 [&>div>h2]:text-[18px]">
+            <span id="conteudos" className="sr-only">Conteúdos liberados</span>
+            <BookOpen className="mb-3 text-blue-400" size={24} aria-hidden />
+            {portal.conteudos.length ? (
+              <ul className="space-y-2 text-sm">
+                {portal.conteudos.map((conteudo) => {
+                  // Só vira link clicável quando a url é http(s) absoluta —
+                  // reaproveita `linkGravacaoValido` (validacao.ts), a MESMA
+                  // checagem da escrita, em vez de reescrever a regra aqui.
+                  const urlValida = conteudo.url.trim() !== "" && linkGravacaoValido(conteudo.url);
+                  return (
+                    <li key={conteudo.id} className="flex items-center justify-between gap-3 border-b border-white/10 pb-2 last:border-0">
+                      {urlValida ? (
+                        <a
+                          href={conteudo.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primaria-2 hover:underline"
+                        >
+                          {conteudo.titulo}
+                        </a>
+                      ) : (
+                        <span className="text-texto-2">{conteudo.titulo}</span>
+                      )}
+                      {urlValida ? <ArrowRight size={15} className="shrink-0 text-blue-400" aria-hidden /> : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <Vazio>Nenhum conteúdo liberado ainda.</Vazio>
+            )}
+            <p className="mt-4 text-sm text-texto-3">Todos os conteúdos estão exibidos.</p>
+          </Card>
+        </div>
+
+        <Card titulo="Contratos liberados" className="!rounded-lg !border-white/15 !bg-[#061120]/75 xl:col-span-2">
           {contratos.length ? (
             <ul className="space-y-2 text-sm">
               {contratos.map((contrato) => (
@@ -501,64 +531,13 @@ export function PortalVisao({
         </Card>
 
         {/* 5b) A jornada. Vem pronta da leitura, já projetada — ver `LinhaDoTempo`. */}
-        <Card titulo={TITULO_LINHA_TEMPO} className="xl:col-span-2 xl:row-start-5">
+        <Card titulo={TITULO_LINHA_TEMPO} className="!rounded-lg !border-white/15 !bg-[#061120]/75 xl:col-span-2">
           <LinhaDoTempo fatos={portal.linhaTempo} />
         </Card>
 
-        {/* 6) Marcos conquistados e conteúdos liberados. */}
-        <div className="grid gap-4 sm:grid-cols-2 xl:col-span-2 xl:row-start-6">
-          <Card titulo="Marcos conquistados">
-            {portal.marcos.length ? (
-              <ul className="space-y-2 text-sm">
-                {portal.marcos.map((marco) => (
-                  <li key={marco.id}>
-                    <span className="font-medium">{marco.titulo}</span>
-                    {marco.descricao ? <p className="text-xs text-texto-2">{marco.descricao}</p> : null}
-                    {dataBr(marco.conquistadoEm) ? (
-                      <p className="text-xs text-texto-3">{dataBr(marco.conquistadoEm)}</p>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <Vazio>Nenhum marco conquistado ainda.</Vazio>
-            )}
-          </Card>
-
-          <Card titulo="Conteúdos liberados">
-            {portal.conteudos.length ? (
-              <ul className="space-y-2 text-sm">
-                {portal.conteudos.map((conteudo) => {
-                  // Só vira link clicável quando a url é http(s) absoluta —
-                  // reaproveita `linkGravacaoValido` (validacao.ts), a MESMA
-                  // checagem da escrita, em vez de reescrever a regra aqui.
-                  const urlValida = conteudo.url.trim() !== "" && linkGravacaoValido(conteudo.url);
-                  return (
-                    <li key={conteudo.id}>
-                      {urlValida ? (
-                        <a
-                          href={conteudo.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primaria-2 hover:underline"
-                        >
-                          {conteudo.titulo}
-                        </a>
-                      ) : (
-                        <span>{conteudo.titulo}</span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <Vazio>Nenhum conteúdo liberado ainda.</Vazio>
-            )}
-          </Card>
-        </div>
-
         {/* 7) Histórico de sessões, ao final, enxuto. */}
-        <Card titulo="Histórico de sessões" className="xl:col-span-2 xl:row-start-7">
+        <Card titulo="Histórico de sessões" className="!rounded-lg !border-white/15 !bg-[#061120]/75 xl:col-span-2" >
+          <span id="historico" className="sr-only">Histórico completo</span>
           {portal.sessoes.length ? (
             <ul className="space-y-2.5 text-sm">
               {portal.sessoes.map((sessao) => (

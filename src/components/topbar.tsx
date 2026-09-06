@@ -200,7 +200,7 @@ export function Topbar({
   if (pathname !== "/") {
     const nome = usuario ? usuario.split("@")[0].replace(/[._-]+/g, " ") : "Mentor";
     const nomeExibicao = nome.replace(/\b\w/g, (letra) => letra.toUpperCase());
-    const tituloInterno = pathname === "/painel" ? "Visão geral" : (nomeDoLugar ?? "MentorOS");
+    const tituloInterno = papel === "mentorado" && pathname === "/portal" ? "Meu acompanhamento" : pathname === "/painel" ? "Visão geral" : (nomeDoLugar ?? "MentorOS");
     const rotuloPapel: Record<Papel, string> = { dono: "Dono", gestor: "Gestor", comercial: "Comercial", mentorado: "Mentorado", afiliado: "Afiliado", aluno: "Aluno" };
     return <header className="sticky top-0 z-40 hidden h-[66px] items-center border-b border-white/[0.08] bg-[#030917]/90 px-7 backdrop-blur-xl md:flex">
       <div className="flex items-center gap-6"><button type="button" onClick={() => window.dispatchEvent(new CustomEvent("raro:abrir-paleta"))} aria-label="Abrir navegação rápida" className="text-[#dce2f1] transition-colors hover:text-white"><Menu size={22} strokeWidth={1.6} aria-hidden /></button><span className="text-[15px] font-semibold text-white">{tituloInterno}</span></div>
