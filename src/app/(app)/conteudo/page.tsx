@@ -50,7 +50,7 @@ function linkComFiltros({
 }
 
 function metricaOuTraco(valor: number | null | undefined, formatar: (numero: number) => string) {
-  return valor && valor > 0 ? formatar(valor) : "—";
+  return valor === null || valor === undefined ? "—" : formatar(valor);
 }
 
 function Indicador({
@@ -223,15 +223,19 @@ export default async function Conteudo({
             <form action="/conteudo" className="flex flex-col gap-3 border-b border-borda pb-4 md:flex-row md:items-center">
               {plataforma ? <input type="hidden" name="plataforma" value={plataforma} /> : null}
               {tipo ? <input type="hidden" name="tipo" value={tipo} /> : null}
-              <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-borda bg-poco px-3 py-2 text-texto-3 focus-within:border-primaria/70">
+              <label htmlFor="busca-conteudos" className="sr-only">
+                Buscar conteúdo por título
+              </label>
+              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-borda bg-poco px-3 py-2 text-texto-3 focus-within:border-primaria/70">
                 <Search size={16} aria-hidden />
                 <input
+                  id="busca-conteudos"
                   name="busca"
                   defaultValue={busca}
                   placeholder="Buscar por título"
                   className="min-w-0 flex-1 bg-transparent text-sm text-texto outline-none placeholder:text-texto-3"
                 />
-              </label>
+              </div>
               <button className="rounded-xl border border-borda px-3 py-2 text-sm text-texto-2 transition hover:border-primaria/60 hover:text-texto">
                 Buscar
               </button>
@@ -284,7 +288,7 @@ export default async function Conteudo({
                 {conteudosVisiveis.map((conteudo) => {
                   const metrica = conteudo.metrica;
                   const engajamento = engajamentoPct(metrica);
-                  const plataformaConteudo = conteudo.plataforma ?? "instagram";
+                  const plataformaConteudo = conteudo.plataforma;
                   return (
                     <Link
                       key={conteudo.id}
@@ -293,8 +297,8 @@ export default async function Conteudo({
                     >
                       <div className="min-w-0">
                         <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                          <Badge tom={TOM_PLATAFORMA[plataformaConteudo]}>
-                            {PLATAFORMA_LABEL[plataformaConteudo]} · {CONTEUDO_TIPO_LABEL[conteudo.tipo]}
+                          <Badge tom={plataformaConteudo ? TOM_PLATAFORMA[plataformaConteudo] : "cinza"}>
+                            {plataformaConteudo ? PLATAFORMA_LABEL[plataformaConteudo] : "Perfil indisponível"} · {CONTEUDO_TIPO_LABEL[conteudo.tipo]}
                           </Badge>
                           {!metrica ? <span className="text-[11px] text-texto-3">sem métrica coletada</span> : null}
                         </div>
@@ -306,7 +310,7 @@ export default async function Conteudo({
                       <span className="hidden text-xs text-texto-2 sm:block">{fmtDate(conteudo.publicadoEm)}</span>
                       <span className="hidden text-right text-xs tabular-nums text-texto-2 sm:block">
                         {metrica ? `${fmtNum(metrica.views)} views` : "—"}
-                        {metrica?.retencaoMedia ? <span className="block text-[11px] text-texto-3">{fmtPct(metrica.retencaoMedia)} retenção · {fmtPct(engajamento)} engaj.</span> : null}
+                        {metrica ? <span className="block text-[11px] text-texto-3">{fmtPct(metrica.retencaoMedia)} retenção · {fmtPct(engajamento)} engaj.</span> : null}
                       </span>
                       <ArrowRight size={17} aria-hidden className="hidden justify-self-end text-texto-3 transition group-hover:translate-x-0.5 group-hover:text-primaria-2 sm:block" />
                     </Link>

@@ -20,7 +20,7 @@ describe("Conteúdo & Redes — contrato da referência aprovada", () => {
     expect(pagina).toContain("plataforma");
     expect(pagina).toContain("tipo");
     expect(pagina).toContain("todos");
-    expect(pagina).toContain("`/conteudo/${c.id}`");
+    expect(pagina).toContain("`/conteudo/${conteudo.id}`");
   });
 
   it("não apresenta números de desempenho como dados sem origem", () => {
@@ -29,11 +29,14 @@ describe("Conteúdo & Redes — contrato da referência aprovada", () => {
     expect(pagina).toContain("engajamentoPct");
     expect(pagina).toContain("retencaoMedia");
     expect(pagina).toContain("sem métrica coletada");
+    expect(pagina).toContain("Perfil indisponível");
+    expect(pagina).toContain("valor === null || valor === undefined");
   });
 
   it("falha fechada em UAT e não orienta configurar integrações externas", () => {
     expect(pagina).toContain("contaUatSinteticaAtual");
     expect(pagina).toContain("Integrações externas permanecem isoladas");
+    expect(pagina).toContain('htmlFor="busca-conteudos"');
     expect(pagina).not.toContain("configure os tokens das APIs oficiais");
   });
 });
