@@ -48,6 +48,7 @@ describe("Conteúdo & Redes — contrato da referência aprovada", () => {
     expect(pagina).toContain("Retenção");
     expect(pagina).toContain("Engajamento");
     expect(pagina).toContain("Novo conteúdo");
+    expect(pagina).toContain("O cadastro ainda não existe neste módulo");
   });
 
   it("organiza os cartões de apoio e o calendário como a referência", () => {

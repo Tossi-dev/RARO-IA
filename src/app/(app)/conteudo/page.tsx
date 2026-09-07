@@ -7,6 +7,7 @@ import {
   Eye,
   FileText,
   Instagram,
+  Info,
   Megaphone,
   Music2,
   Plus,
@@ -100,10 +101,13 @@ export default async function Conteudo({ searchParams }: { searchParams: { plata
       <style>{`body:has([data-conteudo-visual="referencia-aprovada"]) [data-faixa-simulacao] { display: none; }`}</style>
       <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div><h1 className="font-display text-[clamp(30px,3vw,36px)] font-medium leading-none tracking-[-0.045em]">Conteúdo &amp; Redes</h1><p className="mt-2 text-[15px] text-texto-2">Planeje, publique e aprenda com o que gera transformação</p></div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link href="/conteudo/ranking" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-borda px-3.5 text-sm font-medium text-texto-2 transition hover:border-primaria/60 hover:bg-painel-2 hover:text-texto"><Trophy size={16} aria-hidden /> Ranking &amp; vencedores</Link>
-          <Link href="/conteudo/campanhas" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-borda px-3.5 text-sm font-medium text-texto-2 transition hover:border-primaria/60 hover:bg-painel-2 hover:text-texto"><Megaphone size={16} aria-hidden /> Campanhas</Link>
-          <button type="button" disabled title="O cadastro de conteúdos ainda não está disponível nesta tela" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primaria px-3.5 text-sm font-medium text-white opacity-100"><Plus size={16} aria-hidden /> Novo conteúdo</button>
+        <div className="flex max-w-full flex-col items-end gap-1.5">
+          <div className="flex flex-wrap justify-end gap-2">
+            <Link href="/conteudo/ranking" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-borda px-3.5 text-sm font-medium text-texto-2 transition hover:border-primaria/60 hover:bg-painel-2 hover:text-texto"><Trophy size={16} aria-hidden /> Ranking &amp; vencedores</Link>
+            <Link href="/conteudo/campanhas" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-borda px-3.5 text-sm font-medium text-texto-2 transition hover:border-primaria/60 hover:bg-painel-2 hover:text-texto"><Megaphone size={16} aria-hidden /> Campanhas</Link>
+            <button type="button" disabled aria-describedby="aviso-novo-conteudo" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primaria px-3.5 text-sm font-medium text-white opacity-100"><Plus size={16} aria-hidden /> Novo conteúdo</button>
+          </div>
+          <p id="aviso-novo-conteudo" className="flex max-w-[360px] items-center gap-1 text-right text-xs leading-snug text-texto-3"><Info size={13} aria-hidden /> O cadastro ainda não existe neste módulo; por isso a ação permanece desabilitada.</p>
         </div>
       </header>
       {emUat ? <p data-conteudo-aviso="uat" className="sr-only">Homologação sintética: esta tela usa somente dados reservados ao teste. Integrações externas permanecem isoladas.</p> : !algumaRedeConfigurada() ? <p className="sr-only">Nenhum canal está conectado nesta instalação. A tela mostra somente os dados já disponíveis na base.</p> : null}
