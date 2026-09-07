@@ -199,11 +199,11 @@ const SUBAPPS_CONTEUDO: SubApp[] = [
   },
   {
     id: "conteudo-campanhas",
-    nome: "Campanhas",
+    nome: "Marketing & Campanhas",
     href: "/conteudo/campanhas",
     icone: "Megaphone",
     cor: COR_CONTEUDO,
-    frase: "Tráfego pago e orgânico amarrados aos conteúdos que performam",
+    frase: "Planeje campanhas que geram conversas e acompanhe o que funciona",
   },
   {
     id: "conteudo-ranking",
