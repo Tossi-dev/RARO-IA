@@ -39,4 +39,21 @@ describe("Conteúdo & Redes — contrato da referência aprovada", () => {
     expect(pagina).toContain('htmlFor="busca-conteudos"');
     expect(pagina).not.toContain("configure os tokens das APIs oficiais");
   });
+
+  it("mantém a primeira dobra com a hierarquia da referência aprovada", () => {
+    expect(pagina).toContain("filtrados.slice(0, 4)");
+    expect(pagina).toContain("xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]");
+    expect(pagina).toContain('data-conteudo-aviso="uat"');
+    expect(pagina).toContain("Visualizações");
+    expect(pagina).toContain("Retenção");
+    expect(pagina).toContain("Engajamento");
+    expect(pagina).toContain("Novo conteúdo");
+  });
+
+  it("organiza os cartões de apoio e o calendário como a referência", () => {
+    expect(pagina).toContain("melhoresConteudos");
+    expect(pagina).toContain("Ver ranking completo");
+    expect(pagina).toContain("calendario-dia");
+    expect(pagina).toContain("Ver calendário completo");
+  });
 });

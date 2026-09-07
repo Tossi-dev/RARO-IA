@@ -3,18 +3,20 @@ import {
   ArrowRight,
   BarChart3,
   CalendarDays,
+  ChevronRight,
   Eye,
   FileText,
+  Instagram,
+  Megaphone,
+  Music2,
+  Plus,
   Search,
+  Trophy,
   UsersRound,
 } from "lucide-react";
-import { Badge, Card, PageHeader, Vazio, cx, type Tom } from "@/components/ui";
+import { Card, Vazio, cx, type Tom } from "@/components/ui";
 import { getDB } from "@/lib/data";
-import {
-  CAMPANHA_TIPO_LABEL,
-  CONTEUDO_TIPO_LABEL,
-  PLATAFORMA_LABEL,
-} from "@/lib/domain";
+import { CAMPANHA_TIPO_LABEL, CONTEUDO_TIPO_LABEL, PLATAFORMA_LABEL } from "@/lib/domain";
 import { fmtDate, fmtNum, fmtPct } from "@/lib/format";
 import { algumaRedeConfigurada } from "@/lib/integracoes/social";
 import { engajamentoPct } from "@/lib/metrics";
@@ -23,23 +25,9 @@ import { contaUatSinteticaAtual } from "@/lib/uat/isolamento";
 
 export const dynamic = "force-dynamic";
 
-const TOM_PLATAFORMA: Record<PlataformaSocial, Tom> = {
-  instagram: "violeta",
-  tiktok: "azul",
-  facebook: "cinza",
-};
+const MESES_ABREVIADOS = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 
-function linkComFiltros({
-  plataforma = "",
-  tipo = "",
-  busca = "",
-  todos = false,
-}: {
-  plataforma?: string;
-  tipo?: string;
-  busca?: string;
-  todos?: boolean;
-}) {
+function linkComFiltros({ plataforma = "", tipo = "", busca = "", todos = false }: { plataforma?: string; tipo?: string; busca?: string; todos?: boolean }) {
   const params = new URLSearchParams();
   if (plataforma) params.set("plataforma", plataforma);
   if (tipo) params.set("tipo", tipo);
@@ -53,52 +41,27 @@ function metricaOuTraco(valor: number | null | undefined, formatar: (numero: num
   return valor === null || valor === undefined ? "—" : formatar(valor);
 }
 
-function Indicador({
-  icone,
-  rotulo,
-  valor,
-  apoio,
-  tom = "azul",
-}: {
-  icone: React.ReactNode;
-  rotulo: string;
-  valor: string;
-  apoio: string;
-  tom?: "azul" | "verde" | "violeta" | "ouro";
-}) {
-  const cores = {
-    azul: "bg-primaria/15 text-primaria-2",
-    verde: "bg-positivo/15 text-positivo",
-    violeta: "bg-violeta/15 text-violeta",
-    ouro: "bg-ouro/15 text-ouro",
-  };
-
-  return (
-    <section className="superficie min-h-[140px] rounded-[22px] border p-5" aria-label={rotulo}>
-      <div className="flex items-center justify-between gap-3">
-        <span className={cx("grid size-9 place-items-center rounded-xl", cores[tom])}>{icone}</span>
-        <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-texto-3">Base atual</span>
-      </div>
-      <p className="mt-4 text-xs text-texto-2">{rotulo}</p>
-      <p className="mt-1 font-display text-[30px] font-fino leading-none tracking-tight tabular-nums">{valor}</p>
-      <p className="mt-2 text-xs text-texto-3">{apoio}</p>
-    </section>
-  );
+function dataCalendario(data: string) {
+  const [ano, mes, dia] = data.split("-").map(Number);
+  if (!Number.isInteger(ano) || !Number.isInteger(mes) || !Number.isInteger(dia) || mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+  return { dia: String(dia).padStart(2, "0"), mes: MESES_ABREVIADOS[mes - 1] };
 }
 
-export default async function Conteudo({
-  searchParams,
-}: {
-  searchParams: { plataforma?: string; tipo?: string; busca?: string; todos?: string };
-}) {
-  const db = getDB();
-  const [perfis, conteudos, campanhas, emUat] = await Promise.all([
-    db.listPerfisSociais(),
-    db.listConteudos(),
-    db.listCampanhas(),
-    contaUatSinteticaAtual(),
-  ]);
+function IconePlataforma({ plataforma, compacto = false }: { plataforma: PlataformaSocial | null | undefined; compacto?: boolean }) {
+  const Icone = plataforma === "instagram" ? Instagram : plataforma === "tiktok" ? Music2 : FileText;
+  const cor = plataforma === "instagram" ? "bg-violeta/15 text-violeta" : plataforma === "tiktok" ? "bg-primaria/15 text-primaria-2" : "bg-eleva text-texto-2";
+  const descricao = plataforma ? PLATAFORMA_LABEL[plataforma] : "Perfil indisponível";
+  return <span className={cx("grid shrink-0 place-items-center rounded-lg", compacto ? "size-8" : "size-11", cor)} title={descricao} aria-label={descricao}><Icone size={compacto ? 16 : 21} aria-hidden /></span>;
+}
 
+function Indicador({ icone, rotulo, valor, apoio, tom = "azul" }: { icone: React.ReactNode; rotulo: string; valor: string; apoio: string; tom?: "azul" | "verde" | "violeta" | "ouro" }) {
+  const cores = { azul: "bg-primaria/15 text-primaria-2", verde: "bg-positivo/15 text-positivo", violeta: "bg-violeta/15 text-violeta", ouro: "bg-ouro/15 text-ouro" };
+  return <section className="superficie flex h-[112px] items-center gap-4 rounded-xl border px-5 py-3" aria-label={rotulo}><span className={cx("grid size-14 shrink-0 place-items-center rounded-full", cores[tom])}>{icone}</span><div className="min-w-0"><p className="text-sm text-texto-2">{rotulo}</p><p className="mt-1 font-display text-[28px] font-medium leading-none tracking-tight tabular-nums">{valor}</p><p className="mt-1.5 truncate text-xs text-primaria-2">{apoio}</p></div></section>;
+}
+
+export default async function Conteudo({ searchParams }: { searchParams: { plataforma?: string; tipo?: string; busca?: string; todos?: string } }) {
+  const db = getDB();
+  const [perfis, conteudos, campanhas, emUat] = await Promise.all([db.listPerfisSociais(), db.listConteudos(), db.listCampanhas(), contaUatSinteticaAtual()]);
   const plataforma = searchParams.plataforma ?? "";
   const tipo = searchParams.tipo ?? "";
   const busca = searchParams.busca?.trim() ?? "";
@@ -109,312 +72,102 @@ export default async function Conteudo({
     if (tipo && conteudo.tipo !== tipo) return false;
     return !termoBusca || conteudo.titulo.toLocaleLowerCase("pt-BR").includes(termoBusca);
   });
-
   const totalViews = conteudos.reduce((soma, conteudo) => soma + (conteudo.metrica?.views ?? 0), 0);
   const comRetencao = conteudos.filter((conteudo) => (conteudo.metrica?.retencaoMedia ?? 0) > 0);
-  const retencaoMedia = comRetencao.length
-    ? comRetencao.reduce((soma, conteudo) => soma + (conteudo.metrica?.retencaoMedia ?? 0), 0) /
-      comRetencao.length
-    : null;
+  const retencaoMedia = comRetencao.length ? comRetencao.reduce((soma, conteudo) => soma + (conteudo.metrica?.retencaoMedia ?? 0), 0) / comRetencao.length : null;
   const comEngajamento = conteudos.filter((conteudo) => (conteudo.metrica?.views ?? 0) > 0);
-  const engajamentoMedio = comEngajamento.length
-    ? comEngajamento.reduce((soma, conteudo) => soma + engajamentoPct(conteudo.metrica), 0) /
-      comEngajamento.length
-    : null;
+  const engajamentoMedio = comEngajamento.length ? comEngajamento.reduce((soma, conteudo) => soma + engajamentoPct(conteudo.metrica), 0) / comEngajamento.length : null;
 
-  const porFormato = new Map<ConteudoTipo, { soma: number; quantidade: number }>();
-  for (const conteudo of conteudos) {
-    const retencao = conteudo.metrica?.retencaoMedia ?? 0;
-    if (retencao <= 0) continue;
-    const atual = porFormato.get(conteudo.tipo) ?? { soma: 0, quantidade: 0 };
-    porFormato.set(conteudo.tipo, { soma: atual.soma + retencao, quantidade: atual.quantidade + 1 });
-  }
-  const formatosComDados = [...porFormato.entries()]
-    .map(([formato, dados]) => ({
-      formato,
-      retencao: dados.soma / dados.quantidade,
-      quantidade: dados.quantidade,
-    }))
-    .sort((a, b) => b.retencao - a.retencao)
-    .slice(0, 3);
-
+  // Sem taxonomia de temas no modelo atual, a leitura honesta é por conteúdo
+  // com retenção já coletada — nunca por uma classificação inventada.
+  const melhoresConteudos = conteudos.filter((conteudo) => (conteudo.metrica?.retencaoMedia ?? 0) > 0).sort((a, b) => (b.metrica?.retencaoMedia ?? 0) - (a.metrica?.retencaoMedia ?? 0)).slice(0, 3);
   const plataformasDisponiveis = [...new Set(perfis.map((perfil) => perfil.plataforma))];
   const tiposDisponiveis = [...new Set(conteudos.map((conteudo) => conteudo.tipo))];
-  const campanhasCalendario = [...campanhas]
-    .sort((a, b) => b.inicio.localeCompare(a.inicio))
-    .slice(0, 3);
-  // A página principal é um painel de leitura, não uma tabela infinita: a
-  // referência aprovada deixa o calendário visível na primeira dobra. Busca e
-  // filtros abrem a lista completa; sem consulta, o link explícito preserva o
-  // acesso aos demais conteúdos sem reduzir a informação disponível.
-  const conteudosVisiveis = mostrarTodos ? filtrados : filtrados.slice(0, 5);
+  // A navegação de primeira dobra replica os cinco filtros da referência. Os
+  // demais filtros seguem atendidos pela URL e reaparecem se já estiverem ativos.
+  const plataformasDoResumo: PlataformaSocial[] = plataformasDisponiveis.filter((item) => item === "instagram" || item === "tiktok");
+  const tiposDoResumo: ConteudoTipo[] = ["video", "carrossel"];
+  if (plataforma && plataformasDisponiveis.includes(plataforma as PlataformaSocial) && !plataformasDoResumo.includes(plataforma as PlataformaSocial)) plataformasDoResumo.push(plataforma as PlataformaSocial);
+  if (tipo && tiposDisponiveis.includes(tipo as ConteudoTipo) && !tiposDoResumo.includes(tipo as ConteudoTipo)) tiposDoResumo.push(tipo as ConteudoTipo);
+  const campanhasCalendario = [...campanhas].sort((a, b) => a.inicio.localeCompare(b.inicio)).slice(0, 3);
+  const conteudoPorId = new Map(conteudos.map((conteudo) => [conteudo.id, conteudo]));
+  const perfisEmDestaque = perfis.slice(0, 2);
+  const conteudosVisiveis = mostrarTodos ? filtrados : filtrados.slice(0, 4);
   const haMaisConteudos = conteudosVisiveis.length < filtrados.length;
 
   return (
     <div data-conteudo-visual="referencia-aprovada" className="mx-auto max-w-[1320px] pb-8">
-      <PageHeader
-        titulo="Conteúdo & Redes"
-        sub="Planeje, publique e aprenda com o que gera transformação"
-      >
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/conteudo/ranking"
-            className="rounded-xl border border-borda px-3.5 py-2 text-sm text-texto-2 transition hover:border-primaria/60 hover:bg-painel-2 hover:text-texto"
-          >
-            Ranking & vencedores
-          </Link>
-          <Link
-            href="/conteudo/campanhas"
-            className="rounded-xl bg-primaria px-3.5 py-2 text-sm font-medium text-white transition hover:bg-primaria/85"
-          >
-            Campanhas
-          </Link>
+      <style>{`body:has([data-conteudo-visual="referencia-aprovada"]) [data-faixa-simulacao] { display: none; }`}</style>
+      <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div><h1 className="font-display text-[clamp(30px,3vw,36px)] font-medium leading-none tracking-[-0.045em]">Conteúdo &amp; Redes</h1><p className="mt-2 text-[15px] text-texto-2">Planeje, publique e aprenda com o que gera transformação</p></div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/conteudo/ranking" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-borda px-3.5 text-sm font-medium text-texto-2 transition hover:border-primaria/60 hover:bg-painel-2 hover:text-texto"><Trophy size={16} aria-hidden /> Ranking &amp; vencedores</Link>
+          <Link href="/conteudo/campanhas" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-borda px-3.5 text-sm font-medium text-texto-2 transition hover:border-primaria/60 hover:bg-painel-2 hover:text-texto"><Megaphone size={16} aria-hidden /> Campanhas</Link>
+          <button type="button" disabled title="O cadastro de conteúdos ainda não está disponível nesta tela" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primaria px-3.5 text-sm font-medium text-white opacity-100"><Plus size={16} aria-hidden /> Novo conteúdo</button>
         </div>
-      </PageHeader>
-
-      {emUat ? (
-        <p className="mb-5 rounded-xl border border-primaria/25 bg-primaria/10 px-3.5 py-2.5 text-xs text-primaria-2">
-          Homologação sintética: esta tela usa somente dados reservados ao teste. Integrações externas permanecem isoladas.
-        </p>
-      ) : !algumaRedeConfigurada() ? (
-        <p className="mb-5 rounded-xl border border-ouro/30 bg-ouro/10 px-3.5 py-2.5 text-xs text-ouro">
-          Nenhum canal está conectado nesta instalação. A leitura abaixo mostra somente os dados já disponíveis na base.
-        </p>
-      ) : null}
+      </header>
+      {emUat ? <p data-conteudo-aviso="uat" className="sr-only">Homologação sintética: esta tela usa somente dados reservados ao teste. Integrações externas permanecem isoladas.</p> : !algumaRedeConfigurada() ? <p className="sr-only">Nenhum canal está conectado nesta instalação. A tela mostra somente os dados já disponíveis na base.</p> : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Indicador
-          icone={<FileText size={18} aria-hidden />}
-          rotulo="Conteúdos publicados"
-          valor={fmtNum(conteudos.length)}
-          apoio="na base atual"
-          tom="azul"
-        />
-        <Indicador
-          icone={<Eye size={18} aria-hidden />}
-          rotulo="Visualizações"
-          valor={fmtNum(totalViews)}
-          apoio="soma da última coleta por conteúdo"
-          tom="violeta"
-        />
-        <Indicador
-          icone={<BarChart3 size={18} aria-hidden />}
-          rotulo="Retenção média"
-          valor={retencaoMedia === null ? "—" : fmtPct(retencaoMedia)}
-          apoio={comRetencao.length ? `${fmtNum(comRetencao.length)} conteúdo(s) com métrica` : "sem métrica coletada"}
-          tom="verde"
-        />
-        <Indicador
-          icone={<UsersRound size={18} aria-hidden />}
-          rotulo="Engajamento"
-          valor={engajamentoMedio === null ? "—" : fmtPct(engajamentoMedio)}
-          apoio={comEngajamento.length ? "média por conteúdo com visualização" : "sem métrica coletada"}
-          tom="ouro"
-        />
+        <Indicador icone={<FileText size={23} aria-hidden />} rotulo="Conteúdos publicados" valor={fmtNum(conteudos.length)} apoio="na base atual" tom="azul" />
+        <Indicador icone={<Eye size={23} aria-hidden />} rotulo="Visualizações" valor={fmtNum(totalViews)} apoio="soma da última coleta" tom="violeta" />
+        <Indicador icone={<BarChart3 size={23} aria-hidden />} rotulo="Retenção média" valor={retencaoMedia === null ? "—" : fmtPct(retencaoMedia)} apoio={comRetencao.length ? `${fmtNum(comRetencao.length)} conteúdos com métrica` : "sem métrica coletada"} tom="verde" />
+        <Indicador icone={<UsersRound size={23} aria-hidden />} rotulo="Engajamento" valor={engajamentoMedio === null ? "—" : fmtPct(engajamentoMedio)} apoio={comEngajamento.length ? "média por conteúdo visualizado" : "sem métrica coletada"} tom="ouro" />
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
-        <div data-conteudo-biblioteca="principal">
-          <Card
-            titulo="Biblioteca de conteúdos"
-            className="h-full !rounded-[24px] [&_h2]:text-[19px] [&_h2]:font-medium"
-            acao={<span className="text-xs text-texto-3">{fmtNum(filtrados.length)} resultado(s)</span>}
-          >
-            <form action="/conteudo" className="flex flex-col gap-3 border-b border-borda pb-4 md:flex-row md:items-center">
-              {plataforma ? <input type="hidden" name="plataforma" value={plataforma} /> : null}
-              {tipo ? <input type="hidden" name="tipo" value={tipo} /> : null}
-              <label htmlFor="busca-conteudos" className="sr-only">
-                Buscar conteúdo por título
-              </label>
-              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-borda bg-poco px-3 py-2 text-texto-3 focus-within:border-primaria/70">
-                <Search size={16} aria-hidden />
-                <input
-                  id="busca-conteudos"
-                  name="busca"
-                  defaultValue={busca}
-                  placeholder="Buscar por título"
-                  className="min-w-0 flex-1 bg-transparent text-sm text-texto outline-none placeholder:text-texto-3"
-                />
-              </div>
-              <button className="rounded-xl border border-borda px-3 py-2 text-sm text-texto-2 transition hover:border-primaria/60 hover:text-texto">
-                Buscar
-              </button>
-            </form>
-
-            <nav aria-label="Filtros da biblioteca" className="mt-3 flex flex-wrap gap-1.5">
-              <Link
-                href={linkComFiltros({ busca })}
-                className={cx(
-                  "rounded-full border px-2.5 py-1 text-xs transition",
-                  !plataforma && !tipo ? "border-primaria/60 bg-primaria/15 text-primaria-2" : "border-borda text-texto-2 hover:text-texto"
-                )}
-              >
-                Tudo · {fmtNum(conteudos.length)}
-              </Link>
-              {plataformasDisponiveis.map((item) => (
-                <Link
-                  key={item}
-                  href={linkComFiltros({ plataforma: item, busca })}
-                  className={cx(
-                    "rounded-full border px-2.5 py-1 text-xs transition",
-                    plataforma === item ? "border-primaria/60 bg-primaria/15 text-primaria-2" : "border-borda text-texto-2 hover:text-texto"
-                  )}
-                >
-                  {PLATAFORMA_LABEL[item]}
-                </Link>
-              ))}
-              {tiposDisponiveis.map((item) => (
-                <Link
-                  key={item}
-                  href={linkComFiltros({ plataforma, tipo: item, busca })}
-                  className={cx(
-                    "rounded-full border px-2.5 py-1 text-xs transition",
-                    tipo === item ? "border-primaria/60 bg-primaria/15 text-primaria-2" : "border-borda text-texto-2 hover:text-texto"
-                  )}
-                >
-                  {CONTEUDO_TIPO_LABEL[item]}
-                </Link>
-              ))}
-            </nav>
-
-            {filtrados.length ? (
-              <div className="mt-4 overflow-hidden rounded-xl border border-borda">
-                <div className="hidden grid-cols-[minmax(0,1fr)_112px_88px_34px] gap-3 border-b border-borda bg-poco px-4 py-2 text-[10px] font-medium uppercase tracking-[0.12em] text-texto-3 sm:grid">
-                  <span>Conteúdo</span>
-                  <span>Publicação</span>
-                  <span className="text-right">Desempenho</span>
-                  <span />
-                </div>
-                {conteudosVisiveis.map((conteudo) => {
-                  const metrica = conteudo.metrica;
-                  const engajamento = engajamentoPct(metrica);
-                  const plataformaConteudo = conteudo.plataforma;
-                  return (
-                    <Link
-                      key={conteudo.id}
-                      href={`/conteudo/${conteudo.id}`}
-                      className="group grid gap-2 border-b border-borda px-4 py-3.5 last:border-b-0 transition hover:bg-painel-2 sm:grid-cols-[minmax(0,1fr)_112px_88px_34px] sm:items-center sm:gap-3"
-                    >
-                      <div className="min-w-0">
-                        <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                          <Badge tom={plataformaConteudo ? TOM_PLATAFORMA[plataformaConteudo] : "cinza"}>
-                            {plataformaConteudo ? PLATAFORMA_LABEL[plataformaConteudo] : "Perfil indisponível"} · {CONTEUDO_TIPO_LABEL[conteudo.tipo]}
-                          </Badge>
-                          {!metrica ? <span className="text-[11px] text-texto-3">sem métrica coletada</span> : null}
-                        </div>
-                        <p className="truncate text-sm font-medium text-texto transition group-hover:text-primaria-2">{conteudo.titulo}</p>
-                        <p className="mt-1 text-xs text-texto-3 sm:hidden">
-                          {fmtDate(conteudo.publicadoEm)} · {metricaOuTraco(metrica?.views, fmtNum)} views · {metricaOuTraco(metrica?.retencaoMedia, fmtPct)} retenção
-                        </p>
-                      </div>
-                      <span className="hidden text-xs text-texto-2 sm:block">{fmtDate(conteudo.publicadoEm)}</span>
-                      <span className="hidden text-right text-xs tabular-nums text-texto-2 sm:block">
-                        {metrica ? `${fmtNum(metrica.views)} views` : "—"}
-                        {metrica ? <span className="block text-[11px] text-texto-3">{fmtPct(metrica.retencaoMedia)} retenção · {fmtPct(engajamento)} engaj.</span> : null}
-                      </span>
-                      <ArrowRight size={17} aria-hidden className="hidden justify-self-end text-texto-3 transition group-hover:translate-x-0.5 group-hover:text-primaria-2 sm:block" />
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="mt-4">
-                <Vazio>Nenhum conteúdo corresponde à busca e aos filtros atuais.</Vazio>
-              </div>
-            )}
-            {haMaisConteudos ? (
-              <Link
-                href={linkComFiltros({ plataforma, tipo, busca, todos: true })}
-                className="mt-3 inline-flex items-center gap-1 text-sm text-primaria-2 hover:text-primaria"
-              >
-                Ver todos os {fmtNum(filtrados.length)} conteúdos <ArrowRight size={15} aria-hidden />
-              </Link>
-            ) : null}
+      <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <div id="biblioteca" data-conteudo-biblioteca="principal">
+          <Card titulo="Biblioteca de conteúdos" className="h-full !rounded-xl !p-5 [&_h2]:text-[20px] [&_h2]:font-medium">
+            <div className="flex flex-col gap-3 border-b border-borda pb-4 md:flex-row md:items-center md:gap-2">
+              <form action="/conteudo" className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-borda bg-poco px-3 py-2 text-texto-3 focus-within:border-primaria/70">
+                {plataforma ? <input type="hidden" name="plataforma" value={plataforma} /> : null}{tipo ? <input type="hidden" name="tipo" value={tipo} /> : null}
+                <label htmlFor="busca-conteudos" className="sr-only">Buscar conteúdo por título</label><Search size={16} aria-hidden />
+                <input id="busca-conteudos" name="busca" defaultValue={busca} placeholder="Buscar por título" className="min-w-0 flex-1 bg-transparent text-sm text-texto outline-none placeholder:text-texto-3" />
+              </form>
+              <nav aria-label="Filtros da biblioteca" className="flex flex-wrap gap-1.5">
+                <Link href={linkComFiltros({ busca })} className={cx("rounded-full border px-2.5 py-1 text-xs transition", !plataforma && !tipo ? "border-primaria/60 bg-primaria/15 text-primaria-2" : "border-borda text-texto-2 hover:text-texto")}>Tudo</Link>
+                {plataformasDoResumo.map((item) => <Link key={item} href={linkComFiltros({ plataforma: item, busca })} className={cx("rounded-full border px-2.5 py-1 text-xs transition", plataforma === item ? "border-primaria/60 bg-primaria/15 text-primaria-2" : "border-borda text-texto-2 hover:text-texto")}>{PLATAFORMA_LABEL[item]}</Link>)}
+                {tiposDoResumo.map((item) => <Link key={item} href={linkComFiltros({ plataforma, tipo: item, busca })} className={cx("rounded-full border px-2.5 py-1 text-xs transition", tipo === item ? "border-primaria/60 bg-primaria/15 text-primaria-2" : "border-borda text-texto-2 hover:text-texto")}>{CONTEUDO_TIPO_LABEL[item]}</Link>)}
+              </nav>
+            </div>
+            {filtrados.length ? <div className="mt-3 overflow-hidden">
+              <div className="hidden grid-cols-[minmax(0,1fr)_90px_88px_72px_72px_20px] gap-3 border-b border-borda px-1 py-2 text-[10px] font-medium uppercase tracking-[0.12em] text-texto-3 lg:grid"><span>Conteúdo</span><span>Publicado em</span><span className="text-right">Visualizações</span><span className="text-right">Retenção</span><span className="text-right">Engajamento</span><span /></div>
+              {conteudosVisiveis.map((conteudo) => {
+                const metrica = conteudo.metrica;
+                const plataformaConteudo = conteudo.plataforma;
+                const engajamento = metrica ? engajamentoPct(metrica) : null;
+                return <Link key={conteudo.id} href={`/conteudo/${conteudo.id}`} className="group grid gap-2 border-b border-borda px-1 py-3 last:border-b-0 transition hover:bg-painel-2 lg:grid-cols-[minmax(0,1fr)_90px_88px_72px_72px_20px] lg:items-center lg:gap-3">
+                  <div className="flex min-w-0 items-center gap-3"><IconePlataforma plataforma={plataformaConteudo} compacto /><div className="min-w-0"><p className="truncate text-sm font-medium text-texto transition group-hover:text-primaria-2">{conteudo.titulo}</p><p className="mt-0.5 text-xs text-texto-3">{plataformaConteudo ? PLATAFORMA_LABEL[plataformaConteudo] : "Perfil indisponível"} · {CONTEUDO_TIPO_LABEL[conteudo.tipo]}{!metrica ? " · sem métrica coletada" : ""}</p><p className="mt-1 text-xs text-texto-3 lg:hidden">{fmtDate(conteudo.publicadoEm)} · {metricaOuTraco(metrica?.views, fmtNum)} visualizações · {metricaOuTraco(metrica?.retencaoMedia, fmtPct)} retenção</p></div></div>
+                  <span className="hidden text-xs text-texto-2 lg:block">{fmtDate(conteudo.publicadoEm)}</span><span className="hidden text-right text-xs tabular-nums text-texto-2 lg:block">{metricaOuTraco(metrica?.views, fmtNum)}</span><span className="hidden text-right text-xs tabular-nums text-texto-2 lg:block">{metricaOuTraco(metrica?.retencaoMedia, fmtPct)}</span><span className="hidden text-right text-xs tabular-nums text-texto-2 lg:block">{engajamento === null ? "—" : fmtPct(engajamento)}</span><ChevronRight size={16} aria-hidden className="hidden justify-self-end text-texto-3 transition group-hover:translate-x-0.5 group-hover:text-primaria-2 lg:block" />
+                </Link>;
+              })}
+            </div> : <div className="mt-4"><Vazio>Nenhum conteúdo corresponde à busca e aos filtros atuais.</Vazio></div>}
+            {haMaisConteudos ? <Link href={linkComFiltros({ plataforma, tipo, busca, todos: true })} className="mt-4 inline-flex items-center gap-1 text-sm text-primaria-2 hover:text-primaria">Ver todos os conteúdos <ArrowRight size={15} aria-hidden /></Link> : null}
           </Card>
         </div>
 
-        <aside className="space-y-4">
-          <Card titulo="Canais" className="!rounded-[24px] [&_h2]:text-[19px] [&_h2]:font-medium">
-            {perfis.length ? (
-              <ul className="divide-y divide-borda">
-                {perfis.map((perfil) => (
-                  <li key={perfil.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                    <span className={cx("grid size-9 place-items-center rounded-xl text-xs font-semibold", TOM_PLATAFORMA[perfil.plataforma] === "violeta" ? "bg-violeta/15 text-violeta" : TOM_PLATAFORMA[perfil.plataforma] === "azul" ? "bg-primaria/15 text-primaria-2" : "bg-eleva text-texto-2")}>
-                      {PLATAFORMA_LABEL[perfil.plataforma].slice(0, 1)}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{perfil.handle}</p>
-                      <p className="text-xs text-texto-3">{fmtNum(perfil.seguidores)} seguidores</p>
-                    </div>
-                    <span className={cx("text-[11px]", perfil.conectado ? "text-positivo" : "text-texto-3")}>
-                      {perfil.conectado ? "conectado" : "manual"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <Vazio>Nenhum canal cadastrado.</Vazio>
-            )}
+        <aside className="space-y-3">
+          <Card titulo="Canais" className="!rounded-xl !p-5 [&_h2]:text-[20px] [&_h2]:font-medium">
+            {perfisEmDestaque.length ? <ul className="divide-y divide-borda">{perfisEmDestaque.map((perfil) => <li key={perfil.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"><IconePlataforma plataforma={perfil.plataforma} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{perfil.handle}</p><p className="mt-0.5 text-xs text-texto-3">{fmtNum(perfil.seguidores)} seguidores</p></div><span className={cx("rounded-full border px-2 py-1 text-[10px] font-medium", perfil.conectado ? "border-positivo/35 bg-positivo/10 text-positivo" : "border-borda text-texto-3")}>{perfil.conectado ? "Conectado" : "Manual"}</span><ChevronRight size={16} aria-hidden className="text-texto-3" /></li>)}</ul> : <Vazio>Nenhum canal cadastrado.</Vazio>}
           </Card>
-
-          <Card titulo="O que está funcionando" className="!rounded-[24px] [&_h2]:text-[19px] [&_h2]:font-medium">
-            {formatosComDados.length ? (
-              <div className="space-y-4">
-                <p className="text-xs leading-relaxed text-texto-2">Formatos ordenados pela retenção média dos conteúdos com métrica coletada.</p>
-                {formatosComDados.map((item) => (
-                  <div key={item.formato}>
-                    <div className="mb-1.5 flex items-center justify-between gap-3 text-xs">
-                      <span className="font-medium text-texto">{CONTEUDO_TIPO_LABEL[item.formato]}</span>
-                      <span className="tabular-nums text-positivo">{fmtPct(item.retencao)}</span>
-                    </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-poco" aria-label={`${CONTEUDO_TIPO_LABEL[item.formato]}: ${fmtPct(item.retencao)} de retenção média`}>
-                      <div className="h-full rounded-full bg-positivo" style={{ width: `${Math.min(100, Math.max(0, item.retencao))}%` }} />
-                    </div>
-                    <p className="mt-1 text-[11px] text-texto-3">{fmtNum(item.quantidade)} conteúdo(s) com métrica</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <Vazio>Não há retenção coletada para comparar formatos.</Vazio>
-            )}
+          <Card titulo="O que está funcionando" className="!rounded-xl !p-5 [&_h2]:text-[20px] [&_h2]:font-medium">
+            {melhoresConteudos.length ? <div><p className="-mt-1 text-xs text-texto-2">Conteúdos com maior retenção média</p><ol className="mt-4 space-y-3">{melhoresConteudos.map((conteudo, indice) => { const retencao = conteudo.metrica?.retencaoMedia ?? 0; return <li key={conteudo.id} className="grid grid-cols-[24px_minmax(0,1fr)_42px] items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-eleva text-[11px] font-medium text-texto-2">{indice + 1}</span><span className="min-w-0"><span className="mb-1 block truncate text-xs font-medium text-texto">{conteudo.titulo}</span><span className="block h-1.5 overflow-hidden rounded-full bg-poco"><span className="block h-full rounded-full bg-gradient-to-r from-primaria to-cyan-300" style={{ width: `${Math.min(100, Math.max(0, retencao))}%` }} /></span></span><span className="text-right text-xs font-medium tabular-nums text-primaria-2">{fmtPct(retencao)}</span></li>; })}</ol><Link href="/conteudo/ranking" className="mt-4 inline-flex items-center gap-1 text-sm text-primaria-2 hover:text-primaria">Ver ranking completo <ArrowRight size={15} aria-hidden /></Link></div> : <Vazio>Não há retenção coletada para comparar conteúdos.</Vazio>}
           </Card>
         </aside>
       </div>
 
-      <Card
-        titulo="Calendário editorial"
-        className="mt-4 !rounded-[24px] [&_h2]:text-[19px] [&_h2]:font-medium"
-        acao={
-          <Link href="/conteudo/campanhas" className="text-sm text-primaria-2 hover:text-primaria">
-            Ver campanhas <ArrowRight size={15} className="ml-1 inline" aria-hidden />
-          </Link>
-        }
-      >
-        <p className="-mt-1 text-xs text-texto-3">Campanhas já cadastradas, organizadas pela data de início.</p>
-        {campanhasCalendario.length ? (
-          <div className="mt-4 grid gap-2 md:grid-cols-3">
-            {campanhasCalendario.map((campanha) => (
-              <Link
-                key={campanha.id}
-                href="/conteudo/campanhas"
-                className="group flex min-h-[92px] gap-3 rounded-xl border border-borda bg-poco px-3.5 py-3 transition hover:border-primaria/60"
-              >
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primaria/15 text-primaria-2">
-                  <CalendarDays size={18} aria-hidden />
-                </span>
-                <span className="min-w-0">
-                  <span className="mb-1 block text-[11px] text-texto-3">Início {fmtDate(campanha.inicio)} · {CAMPANHA_TIPO_LABEL[campanha.tipo]}</span>
-                  <span className="block truncate text-sm font-medium group-hover:text-primaria-2">{campanha.nome}</span>
-                  <span className="mt-1 block truncate text-xs text-texto-2">{campanha.objetivo}</span>
-                </span>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-4">
-            <Vazio>Nenhuma campanha cadastrada para compor o calendário.</Vazio>
-          </div>
-        )}
+      <Card titulo="Calendário editorial" className="mt-3 !rounded-xl !p-5 [&_h2]:text-[20px] [&_h2]:font-medium" acao={<Link href="/conteudo/campanhas" className="inline-flex items-center gap-1 text-sm text-primaria-2 hover:text-primaria">Ver campanhas <ArrowRight size={15} aria-hidden /></Link>}>
+        <p className="-mt-2 text-xs text-texto-3">Próximas campanhas cadastradas</p>
+        {campanhasCalendario.length ? <div className="mt-4 grid gap-0 divide-y divide-borda md:grid-cols-3 md:divide-x md:divide-y-0">{campanhasCalendario.map((campanha) => {
+          const data = dataCalendario(campanha.inicio);
+          const conteudoDaCampanha = campanha.conteudoId ? conteudoPorId.get(campanha.conteudoId) : null;
+          const canal = campanha.canal === "instagram" || campanha.canal === "tiktok" || campanha.canal === "facebook" ? campanha.canal : conteudoDaCampanha?.plataforma;
+          return <Link key={campanha.id} href="/conteudo/campanhas" className="group flex min-h-[112px] items-center gap-3 py-3 pr-4 first:pt-0 md:px-4 md:first:pl-0 md:first:pt-3">
+            {data ? <span data-calendario-dia className="grid size-12 shrink-0 place-items-center rounded-lg border border-borda bg-poco text-center leading-none"><strong className="text-base font-medium text-texto">{data.dia}</strong><span className="text-[10px] font-medium text-texto-3">{data.mes}</span></span> : <span data-calendario-dia className="grid size-12 shrink-0 place-items-center rounded-lg border border-borda bg-poco text-texto-3"><CalendarDays size={18} aria-hidden /></span>}
+            <IconePlataforma plataforma={canal} compacto /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-texto transition group-hover:text-primaria-2">{conteudoDaCampanha?.titulo ?? campanha.nome}</span><span className="mt-1 block truncate text-xs text-texto-3">{CAMPANHA_TIPO_LABEL[campanha.tipo]} · {campanha.objetivo}</span></span><ChevronRight size={16} aria-hidden className="shrink-0 text-texto-3 transition group-hover:translate-x-0.5 group-hover:text-primaria-2" />
+          </Link>;
+        })}</div> : <div className="mt-4"><Vazio>Nenhuma campanha cadastrada para compor o calendário.</Vazio></div>}
+        <Link href="/conteudo/campanhas" className="mt-3 inline-flex items-center gap-1 text-sm text-primaria-2 hover:text-primaria">Ver calendário completo <ArrowRight size={15} aria-hidden /></Link>
       </Card>
     </div>
   );

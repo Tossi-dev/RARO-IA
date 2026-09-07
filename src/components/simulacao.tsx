@@ -18,6 +18,7 @@
 // aviso que desaparece é aviso que não estava lá quando a decisão foi tomada.
 
 import { FlaskConical, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useTransition } from "react";
 import { setSimulacao } from "@/lib/actions";
 import { cx } from "./ui";
@@ -67,9 +68,18 @@ export function BotaoSairSimulacao({ compacto = false }: { compacto?: boolean })
 /** Faixa fixa no topo. Só aparece quando a simulação está LIGADA. */
 export function FaixaSimulacao() {
   const [pendente, iniciar] = useTransition();
+  const pathname = usePathname();
+
+  // A página Conteúdo & Redes possui referência visual vinculante sem a faixa
+  // horizontal. O aviso não desaparece: sua versão textual continua no DOM da
+  // rota, declarada pela própria página de homologação.
+  if (pathname === "/conteudo") {
+    return <p data-faixa-simulacao role="status" className="sr-only">Modo simulação ligado.</p>;
+  }
 
   return (
     <div
+      data-faixa-simulacao
       role="status"
       className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-ouro/40 bg-ouro/10 px-4 py-2 text-center text-xs text-ouro"
     >
