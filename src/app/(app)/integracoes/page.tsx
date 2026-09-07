@@ -1,3 +1,18 @@
+import {
+  Activity,
+  ArrowRight,
+  CalendarDays,
+  CircleAlert,
+  CircleDollarSign,
+  Database,
+  FileSpreadsheet,
+  Link2,
+  ListChecks,
+  Settings2,
+  Sparkles,
+} from "lucide-react";
+import type { ReactNode } from "react";
+
 // Módulo J — Integrações, Pagamentos & Conciliação (Blueprint v3 §4-J).
 // "É o que tira o app do modo demonstração": status real de cada conexão,
 // eventos de webhook, conciliação gateway × vendas e mapa de produtos.
@@ -64,6 +79,27 @@ const ROTULO_ORIGEM: Record<OrigemAba, string> = {
 /** O id da planilha não é segredo, mas também não precisa aparecer inteiro na tela. */
 function idResumido(id: string): string {
   return id.length <= 14 ? id : `${id.slice(0, 6)}…${id.slice(-4)}`;
+}
+
+function IconeConexao({ id }: { id: string }) {
+  const comum = { size: 23, strokeWidth: 1.6, "aria-hidden": true } as const;
+  if (id === "supabase") return <Database {...comum} />;
+  if (id === "planilha") return <FileSpreadsheet {...comum} />;
+  if (id === "agenda-leitura" || id === "calendar") return <CalendarDays {...comum} />;
+  if (id === "stt" || id === "ia") return <Sparkles {...comum} />;
+  return <Link2 {...comum} />;
+}
+
+function KpiIntegracao({ rotulo, valor, detalhe, tom = "azul", children }: { rotulo: string; valor: string; detalhe: string; tom?: "azul" | "ciano" | "ouro"; children: ReactNode }) {
+  const cor = tom === "ouro" ? "border-ouro/85 text-ouro" : tom === "ciano" ? "border-cyan-300/75 text-cyan-200" : "border-primaria-2/90 text-primaria-2";
+  return <article className="flex min-h-[102px] items-center gap-4 rounded-xl border border-borda bg-painel/70 px-5 py-4 shadow-[0_12px_30px_rgba(0,0,0,.12)]"><span className={`grid size-[68px] shrink-0 place-items-center rounded-full border ${cor}`}>{children}</span><div className="min-w-0"><p className="text-sm text-texto-2">{rotulo}</p><p className="mt-0.5 text-[29px] font-semibold leading-none tracking-[-0.04em] tabular-nums text-texto">{valor}</p><p className="mt-1 truncate text-[11px] text-texto-3">{detalhe}</p></div></article>;
+}
+
+function SeloConexao({ conexao }: { conexao: Conexao }) {
+  const pendente = !conexao.conectado || Boolean(conexao.pendencia);
+  const classe = pendente ? conexao.conectado ? "border-ouro/45 bg-ouro/10 text-ouro" : "border-borda bg-poco text-texto-2" : "border-positivo/45 bg-positivo/10 text-positivo";
+  const texto = conexao.selo ?? (conexao.conectado ? "Conectada" : "Configurar");
+  return <span className={`inline-flex shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium ${classe}`}>{texto}</span>;
 }
 
 export default async function Integracoes() {
@@ -252,6 +288,11 @@ export default async function Integracoes() {
   const conciliadas = Math.min(vendasEvt.length, matriculas.length);
   const divergencia = 0;
   const processados = eventos.filter((e) => e.status === "processado").length;
+  const idsEmDestaque = new Set(["supabase", "planilha", "agenda-leitura", "stt"]);
+  const conexoesDestaque = conexoes.filter((conexao) => idsEmDestaque.has(conexao.id));
+  const conexoesComplementares = conexoes.filter((conexao) => !idsEmDestaque.has(conexao.id));
+  const alertasConfiguracao = conexoes.filter((conexao) => !conexao.conectado || Boolean(conexao.pendencia));
+  const eventosRecentes = [...eventos].sort((a, b) => b.recebidoEm.localeCompare(a.recebidoEm)).slice(0, 3);
 
   // Demonstração é MODO, não "ausência de Supabase": com a planilha ligada o
   // app roda com o dado real do dono e nada aqui pode se anunciar como fictício.
@@ -270,7 +311,59 @@ export default async function Integracoes() {
       : `${totalLinhas} linha(s) lida(s) no total. ${abasComLinhas.length === 1 ? `Só a aba ${abasComLinhas[0].nome} devolveu dado nesta leitura` : "Nenhuma aba devolveu dado nesta leitura"} — as demais voltaram vazias ou com erro, e por isso não há soma de partes a mostrar.`;
 
   return (
-    <>
+    <main data-integracoes-visual="referencia-aprovada" className="mx-auto max-w-[1320px] pb-10">
+      <style>{`body:has([data-integracoes-visual="referencia-aprovada"]) [data-faixa-simulacao] { display: none; }`}</style>
+      <p className="sr-only">Diagnóstico de integrações. Esta tela não configura serviços, não transmite credenciais e mantém o isolamento da homologação sintética.</p>
+
+      <header className="mb-7 flex flex-wrap items-end justify-between gap-5">
+        <div>
+          <h1 className="font-display text-[clamp(30px,3vw,36px)] font-medium leading-none tracking-[-0.045em]">Integrações</h1>
+          <p className="mt-2 text-[15px] text-texto-2">Conecte sua operação, mantenha dados seguros e saiba o que precisa de atenção</p>
+        </div>
+        <nav aria-label="Ações de integrações" className="flex flex-wrap items-center justify-end gap-2">
+          <a href="#integracoes-por-area" className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-borda px-4 text-sm font-medium text-texto transition hover:border-primaria/60 hover:bg-painel-2"><Settings2 size={18} aria-hidden /> Guia de conexão</a>
+          <a href="#eventos-integracoes" className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-borda px-4 text-sm font-medium text-texto transition hover:border-primaria/60 hover:bg-painel-2"><ListChecks size={18} aria-hidden /> Ver eventos</a>
+          <a href="#integracoes-por-area" className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-primaria px-5 text-sm font-medium text-white shadow-[0_10px_22px_rgba(24,99,255,.25)] transition hover:bg-primaria-2"><Link2 size={18} aria-hidden /> Configurar integração</a>
+        </nav>
+      </header>
+
+      <section data-integracoes-kpis="quatro" aria-label="Indicadores de integrações" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiIntegracao rotulo="Conexões ativas" valor={`${ativas}/${conexoes.length}`} detalhe="estado checado nesta abertura"><Link2 size={28} strokeWidth={1.6} aria-hidden /></KpiIntegracao>
+        <KpiIntegracao rotulo="Alertas de configuração" valor={fmtNum(alertasConfiguracao.length)} detalhe={alertasConfiguracao.length ? "conexões pendentes" : "nenhuma pendência"} tom="ouro"><CircleAlert size={28} strokeWidth={1.6} aria-hidden /></KpiIntegracao>
+        <KpiIntegracao rotulo="Eventos processados" valor={fmtNum(processados)} detalhe={demo ? "fluxo simulado" : "na base atual"} tom="ciano"><Activity size={28} strokeWidth={1.6} aria-hidden /></KpiIntegracao>
+        <KpiIntegracao rotulo="Conciliação" valor="—" detalhe="não medida sem gateway real" tom="ciano"><CircleDollarSign size={28} strokeWidth={1.6} aria-hidden /></KpiIntegracao>
+      </section>
+
+      <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.68fr)_minmax(320px,1fr)]">
+        <section id="integracoes-por-area" className="rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]">
+          <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Integrações por área</h2>
+          <ul className="mt-4 divide-y divide-borda">
+            {conexoesDestaque.map((conexao) => <li key={conexao.id} className="flex items-center gap-3 py-3.5 first:pt-0 last:pb-0"><span className="grid size-14 shrink-0 place-items-center rounded-lg border border-borda bg-poco text-primaria-2"><IconeConexao id={conexao.id} /></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-texto">{conexao.nome}</span><span className="mt-1 block line-clamp-1 text-xs text-texto-2">{conexao.detalhe}</span></span><SeloConexao conexao={conexao} /><ArrowRight size={16} aria-hidden className="shrink-0 text-texto-3" /></li>)}
+          </ul>
+          {conexoesComplementares.length ? <p className="mt-4 border-t border-borda pt-3 text-xs text-texto-3">Mais {fmtNum(conexoesComplementares.length)} conexão(ões) no diagnóstico completo abaixo.</p> : null}
+        </section>
+
+        <aside className="grid content-start gap-3">
+          <section className="rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]">
+            <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Requer atenção</h2>
+            {alertasConfiguracao.length ? <ul className="mt-3 divide-y divide-borda">{alertasConfiguracao.slice(0, 2).map((conexao) => <li key={conexao.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"><CircleAlert size={22} aria-hidden className="mt-0.5 shrink-0 text-ouro" /><span className="min-w-0 flex-1"><span className="block text-sm font-medium">{conexao.nome}</span><span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-texto-2">{conexao.pendencia ?? conexao.passo}</span></span><ArrowRight size={16} aria-hidden className="mt-1 shrink-0 text-texto-3" /></li>)}</ul> : <p className="mt-4 text-sm text-texto-3">Nenhuma configuração pendente neste momento.</p>}
+          </section>
+
+          <section className="rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]">
+            <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Atividade recente</h2>
+            {eventosRecentes.length ? <ul className="mt-3 divide-y divide-borda">{eventosRecentes.map((evento) => <li key={evento.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"><span className={`mt-0.5 size-2.5 shrink-0 rounded-full ${evento.status === "processado" ? "bg-positivo" : evento.status === "erro" ? "bg-negativo" : "bg-ouro"}`} aria-hidden /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium capitalize">{evento.tipo}</span><span className="mt-1 block text-xs text-texto-3">{fmtDateTime(evento.recebidoEm)}</span></span></li>)}</ul> : <p className="mt-4 text-sm text-texto-3">Nenhum evento recebido nesta fonte.</p>}
+          </section>
+        </aside>
+      </div>
+
+      <section id="eventos-integracoes" className="mt-3 rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]">
+        <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Eventos e conciliação</h2>
+        {eventos.length ? <div className="mt-4 overflow-x-auto"><table className="min-w-[640px] w-full text-left text-sm"><thead className="border-b border-borda text-xs text-texto-2"><tr><th className="pb-3 font-medium">Evento</th><th className="px-3 pb-3 font-medium">Origem</th><th className="px-3 pb-3 font-medium">Recebido em</th><th className="pb-3 font-medium">Status</th></tr></thead><tbody>{eventos.slice(0, 4).map((evento) => <tr key={evento.id} className="border-b border-borda/90 last:border-0"><td className="py-3.5 font-medium capitalize">{evento.tipo}</td><td className="px-3 py-3.5 capitalize text-texto-2">{evento.gateway}</td><td className="px-3 py-3.5 text-xs text-texto-2">{fmtDateTime(evento.recebidoEm)}</td><td className="py-3.5"><Badge tom={TOM_STATUS[evento.status]}>{evento.status}</Badge></td></tr>)}</tbody></table></div> : <div className="mt-4"><Vazio>Os eventos e a conciliação aparecem quando uma origem estiver conectada.</Vazio></div>}
+      </section>
+
+      <details id="diagnosticos-completos" className="mt-5 rounded-xl border border-borda bg-painel/40">
+        <summary className="cursor-pointer list-none px-5 py-4 text-sm font-medium text-texto [&::-webkit-details-marker]:hidden">Diagnósticos e dados completos <span className="ml-2 text-xs font-normal text-texto-3">inclui detalhes de conexões, mapa, planilha e webhook</span></summary>
+        <div className="border-t border-borda px-5 pb-5 pt-1">
       <PageHeader
         titulo="Integrações & Conciliação"
         sub="A fundação de dados reais: conexões, eventos do gateway e conciliação — o que tira o app do modo demonstração"
@@ -646,6 +739,8 @@ export default async function Integracoes() {
           )}
         </Card>
       </div>
-    </>
+        </div>
+      </details>
+    </main>
   );
 }
