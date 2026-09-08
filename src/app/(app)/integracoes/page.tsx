@@ -312,7 +312,6 @@ export default async function Integracoes() {
 
   return (
     <main data-integracoes-visual="referencia-aprovada" className="mx-auto max-w-[1320px] pb-10">
-      <style>{`body:has([data-integracoes-visual="referencia-aprovada"]) [data-faixa-simulacao] { display: none; }`}</style>
       <p className="sr-only">Diagnóstico de integrações. Esta tela não configura serviços, não transmite credenciais e mantém o isolamento da homologação sintética.</p>
 
       <header className="mb-7 flex flex-wrap items-end justify-between gap-5">

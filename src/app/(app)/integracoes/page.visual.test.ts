@@ -36,4 +36,8 @@ describe("Integrações — referência aprovada", () => {
     expect(pagina).toContain("Bloqueada neste login de homologação");
     expect(pagina).toContain("lerAbas(ABAS.map");
   });
+
+  it("não silencia a faixa global quando a simulação estiver ligada", () => {
+    expect(pagina).not.toContain('[data-faixa-simulacao] { display: none; }');
+  });
 });

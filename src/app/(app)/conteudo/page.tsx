@@ -98,7 +98,6 @@ export default async function Conteudo({ searchParams }: { searchParams: { plata
 
   return (
     <div data-conteudo-visual="referencia-aprovada" className="mx-auto max-w-[1320px] pb-8">
-      <style>{`body:has([data-conteudo-visual="referencia-aprovada"]) [data-faixa-simulacao] { display: none; }`}</style>
       <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div><h1 className="font-display text-[clamp(30px,3vw,36px)] font-medium leading-none tracking-[-0.045em]">Conteúdo &amp; Redes</h1><p className="mt-2 text-[15px] text-texto-2">Planeje, publique e aprenda com o que gera transformação</p></div>
         <div className="flex max-w-full flex-col items-end gap-1.5">

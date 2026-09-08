@@ -40,6 +40,10 @@ describe("Conteúdo & Redes — contrato da referência aprovada", () => {
     expect(pagina).not.toContain("configure os tokens das APIs oficiais");
   });
 
+  it("não silencia a faixa global quando a simulação estiver ligada", () => {
+    expect(pagina).not.toContain('[data-faixa-simulacao] { display: none; }');
+  });
+
   it("mantém a primeira dobra com a hierarquia da referência aprovada", () => {
     expect(pagina).toContain("filtrados.slice(0, 4)");
     expect(pagina).toContain("xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]");

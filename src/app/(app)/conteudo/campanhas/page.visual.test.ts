@@ -43,4 +43,8 @@ describe("Marketing & Campanhas — referência aprovada", () => {
     expect(pagina).toContain("Conteúdo vinculado (criativo)");
     expect(pagina).toContain("Gerar copy de campanha");
   });
+
+  it("não silencia a faixa global quando a simulação estiver ligada", () => {
+    expect(pagina).not.toContain('[data-faixa-simulacao] { display: none; }');
+  });
 });

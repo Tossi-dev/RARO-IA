@@ -102,7 +102,6 @@ export default async function Campanhas() {
 
   return (
     <main data-campanhas-visual="referencia-aprovada" className="mx-auto max-w-[1320px] pb-10">
-      <style>{`body:has([data-campanhas-visual="referencia-aprovada"]) [data-faixa-simulacao] { display: none; }`}</style>
       <p className="sr-only">Homologação sintética permanece isolada. Esta tela não atribui métricas de funil sem uma fonte de dados vinculada.</p>
 
       <header className="mb-7 flex flex-wrap items-end justify-between gap-5">
