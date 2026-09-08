@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowRight, CalendarDays, CircleAlert, CircleDollarSign, ListChecks, Plus, Target, TrendingUp, Wallet } from "lucide-react";
 import { GraficoCenarios, GraficoComparativoAnual, GraficoMargemProduto, GraficoOrcadoRealizado } from "@/components/charts";
 import { Badge, Botao, Campo, Card, Input, PageHeader, PainelForm, ProgressBar, Select, Stat, Tabela, Td, Th, Vazio, cx } from "@/components/ui";
 import { criarDespesa, salvarMetaFinanceira, salvarOrcamento } from "@/lib/actions";
@@ -90,9 +91,79 @@ export default async function Financeiro({
   }
   const categoriasOrdenadas = [...porCategoria.entries()].sort((a, b) => b[1] - a[1]);
   const hoje = new Date().toISOString().slice(0, 10);
+  const custoOperacionalAno = despesasAno.reduce((soma, despesa) => soma + despesa.valor, 0);
+  const totalOrcado = orcado.reduce((soma, linha) => soma + linha.previsto, 0);
+  const totalRealizado = orcado.reduce((soma, linha) => soma + linha.realizado, 0);
+  const percentualOrcamento = totalOrcado > 0 ? Math.min(100, (totalRealizado / totalOrcado) * 100) : null;
+  const indicadoresDestaque = [
+    { rotulo: "Receita registrada", valor: fmtBRL(totAno.faturamento), detalhe: `Faturamento de ${ano}`, icone: TrendingUp, tom: "text-primaria-2 border-primaria-2/65 bg-primaria/10" },
+    { rotulo: "Custos operacionais", valor: fmtBRL(totAno.custos), detalhe: `Custos de ${ano}`, icone: Wallet, tom: "text-cyan-200 border-cyan-300/65 bg-cyan-300/10" },
+    { rotulo: "Resultado do ano", valor: fmtBRL(totAno.lucro), detalhe: totAno.lucro >= 0 ? "Resultado positivo" : "Resultado a recuperar", icone: CircleDollarSign, tom: totAno.lucro >= 0 ? "text-positivo border-positivo/65 bg-positivo/10" : "text-negativo border-negativo/65 bg-negativo/10" },
+    { rotulo: "Margem", valor: fmtPct(margemAno), detalhe: `Sobre o faturamento de ${ano}`, icone: Target, tom: "text-ouro border-ouro/65 bg-ouro/10" },
+  ];
+  const programasDestaque = prods.slice(0, 3);
+  const prioridades = insights.slice(0, 3);
+  const leituraOperacao = saude.score === null || saude.nivel === null
+    ? { valor: "Sem base", detalhe: "Registre movimentações para calcular a saúde da operação." }
+    : { valor: `${saude.score}/100`, detalhe: `${NIVEL_SAUDE_LABEL[saude.nivel]}${saude.parcial ? " · leitura parcial" : ""}` };
+  const proximaAcao = prioridades[0]?.texto ?? "Confira os dados completos para decidir o próximo movimento da operação.";
 
   return (
-    <>
+    <main data-financeiro-visual="referencia-aprovada" className="mx-auto max-w-[1320px] pb-10">
+      <p className="sr-only">Visão financeira de apoio às jornadas de mentoria. Os dados detalhados e formulários continuam abaixo deste resumo.</p>
+
+      <header className="mb-7 flex flex-wrap items-end justify-between gap-5">
+        <div>
+          <h1 className="font-display text-[clamp(30px,3vw,36px)] font-medium leading-none tracking-[-0.045em]">Sustentabilidade da operação</h1>
+          <p className="mt-2 text-[15px] text-texto-2">Acompanhe o que mantém suas jornadas saudáveis — sem perder o foco nas pessoas.</p>
+        </div>
+        <nav aria-label="Ações financeiras" className="flex flex-wrap items-center justify-end gap-2">
+          <a href="/analise" className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-borda px-4 text-sm font-medium text-texto transition hover:border-primaria/60 hover:bg-painel-2"><TrendingUp size={18} aria-hidden /> Ver indicadores</a>
+          <a href="/financeiro/caixa" className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-borda px-4 text-sm font-medium text-texto transition hover:border-primaria/60 hover:bg-painel-2"><CalendarDays size={18} aria-hidden /> Fluxo de caixa</a>
+          <a href="#registrar-despesa" className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-primaria px-5 text-sm font-medium text-white shadow-[0_10px_22px_rgba(24,99,255,.25)] transition hover:bg-primaria-2"><Plus size={18} aria-hidden /> Registrar despesa</a>
+        </nav>
+      </header>
+
+      <section aria-label="Indicadores da operação" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {indicadoresDestaque.map((indicador) => {
+          const Icone = indicador.icone;
+          return (
+            <article key={indicador.rotulo} className="flex min-h-[116px] items-center gap-4 rounded-xl border border-borda bg-painel/70 px-5 py-4 shadow-[0_12px_30px_rgba(0,0,0,.12)]">
+              <span className={cx("grid size-[64px] shrink-0 place-items-center rounded-full border", indicador.tom)}><Icone size={28} strokeWidth={1.55} aria-hidden /></span>
+              <div className="min-w-0"><p className="text-sm text-texto-2">{indicador.rotulo}</p><p className="mt-0.5 text-[28px] font-semibold leading-none tracking-[-0.04em] tabular-nums text-texto">{indicador.valor}</p><p className="mt-1 text-[11px] text-texto-3">{indicador.detalhe}</p></div>
+            </article>
+          );
+        })}
+      </section>
+
+      <section className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.62fr)_minmax(320px,0.94fr)]">
+        <article className="rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]">
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-[21px] font-semibold tracking-[-0.035em]">O que sustenta a jornada</h2><p className="mt-1 text-sm text-texto-2">Leitura direta dos recursos que mantêm os acompanhamentos acontecendo.</p></div><a href="#dados-financeiros-completos" className="inline-flex items-center gap-1.5 text-sm font-medium text-primaria-2 hover:text-primaria">Ver detalhes <ArrowRight size={16} aria-hidden /></a></div>
+          <div className="mt-5 rounded-lg border border-borda bg-poco/60 p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2"><span className="text-sm font-medium">Orçamento do mês</span><span className="text-sm tabular-nums text-texto-2">{percentualOrcamento === null ? "Sem orçamento definido" : `${fmtBRL(totalRealizado)} de ${fmtBRL(totalOrcado)}`}</span></div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-eleva" aria-label={percentualOrcamento === null ? "Sem orçamento definido" : `${Math.round(percentualOrcamento)}% do orçamento do mês utilizado`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentualOrcamento === null ? undefined : Math.round(percentualOrcamento)}><span className={cx("block h-full rounded-full", percentualOrcamento !== null && totalRealizado > totalOrcado ? "bg-negativo" : "bg-gradient-to-r from-primaria-2 to-cyan-300")} style={{ width: `${percentualOrcamento ?? 0}%` }} /></div>
+            <p className="mt-2 text-xs text-texto-3">{percentualOrcamento === null ? "Defina o orçamento por categoria nos dados completos abaixo." : `${Math.round(percentualOrcamento)}% do orçamento planejado para ${ymLabel(periodoAtual)}.`}</p>
+          </div>
+          <dl className="mt-4 divide-y divide-borda border-t border-borda">
+            <div className="flex items-center justify-between gap-4 py-3"><dt className="flex items-center gap-2 text-sm text-texto-2"><ListChecks size={17} className="text-primaria-2" aria-hidden /> Programas e mentorias</dt><dd className="text-sm font-medium tabular-nums">{fmtBRL(totAno.faturamento)}</dd></div>
+            <div className="flex items-center justify-between gap-4 py-3"><dt className="flex items-center gap-2 text-sm text-texto-2"><Target size={17} className="text-cyan-200" aria-hidden /> Equipe e parceiros</dt><dd className="text-sm font-medium tabular-nums">{fmtBRL(somaMes("comissoes"))}</dd></div>
+            <div className="flex items-center justify-between gap-4 py-3"><dt className="flex items-center gap-2 text-sm text-texto-2"><Wallet size={17} className="text-ouro" aria-hidden /> Despesas operacionais</dt><dd className="text-sm font-medium tabular-nums">{fmtBRL(custoOperacionalAno)}</dd></div>
+          </dl>
+        </article>
+
+        <aside className="grid content-start gap-3">
+          <article className="rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]"><div className="flex items-center gap-2"><span className="grid size-10 place-items-center rounded-full border border-ouro/65 bg-ouro/10 text-ouro"><CircleAlert size={20} aria-hidden /></span><h2 className="text-[21px] font-semibold tracking-[-0.035em]">Prioridades</h2></div>{prioridades.length ? <ul className="mt-4 space-y-3">{prioridades.map((prioridade, indice) => <li key={`${prioridade.nivel}-${indice}`} className="flex gap-3 border-t border-borda pt-3"><span className="grid size-6 shrink-0 place-items-center rounded-full bg-primaria text-xs font-semibold text-white">{indice + 1}</span><span className="text-sm leading-relaxed text-texto-2">{prioridade.texto}</span></li>)}</ul> : <p className="mt-4 text-sm leading-relaxed text-texto-2">Nenhuma prioridade calculada com a base atual.</p>}</article>
+        </aside>
+      </section>
+
+      <section className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.9fr)]">
+        <article className="rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]"><div className="flex items-center justify-between gap-3"><div><h2 className="text-[21px] font-semibold tracking-[-0.035em]">Visão por programa</h2><p className="mt-1 text-sm text-texto-2">Fontes de receita que apoiam as jornadas no período selecionado.</p></div><a href="#dados-financeiros-completos" className="text-sm font-medium text-primaria-2 hover:text-primaria">Ver todos</a></div>{programasDestaque.length ? <ul className="mt-5 divide-y divide-borda border-t border-borda">{programasDestaque.map((programa) => <li key={programa.produtoId} className="flex items-center justify-between gap-4 py-3"><span className="min-w-0"><span className="block truncate text-sm font-medium">{programa.nome}</span><span className="mt-1 block text-xs text-texto-3">{programa.qtd} venda{programa.qtd === 1 ? "" : "s"} · margem {fmtPct(programa.margemContribuicao)}</span></span><span className="shrink-0 text-sm font-medium tabular-nums">{fmtBRL(programa.receita)}</span></li>)}</ul> : <p className="mt-5 text-sm text-texto-2">Ainda não há receita por programa em {ano}.</p>}</article>
+        <article className="rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]"><div className="flex items-center gap-2"><span className="grid size-10 place-items-center rounded-full border border-positivo/65 bg-positivo/10 text-positivo"><TrendingUp size={20} aria-hidden /></span><h2 className="text-[21px] font-semibold tracking-[-0.035em]">Leitura de operação</h2></div><p className="mt-4 text-[28px] font-semibold leading-none tracking-[-0.04em] tabular-nums">{leituraOperacao.valor}</p><p className="mt-2 text-sm leading-relaxed text-texto-2">{leituraOperacao.detalhe}</p></article>
+      </section>
+
+      <section className="mt-3 rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]"><div className="flex flex-wrap items-center gap-4"><span className="grid size-12 shrink-0 place-items-center rounded-full border border-primaria-2/65 bg-primaria/10 text-primaria-2"><Target size={23} aria-hidden /></span><div className="min-w-0 flex-1"><h2 className="text-[21px] font-semibold tracking-[-0.035em]">Próximo passo</h2><p className="mt-1 text-sm leading-relaxed text-texto-2">{proximaAcao}</p></div><a href="/analise" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-primaria-2/65 px-4 text-sm font-medium text-primaria-2 transition hover:border-primaria hover:bg-primaria/10">Abrir análise completa <ArrowRight size={16} aria-hidden /></a></div></section>
+
+      <section id="dados-financeiros-completos" className="mt-9 scroll-mt-24">
       <PageHeader titulo="Visão financeira" sub="Acompanhe a sustentabilidade da operação sem perder o foco nas jornadas de mentoria.">
         <div className="flex gap-1">
           {anosDisponiveis.map((a) => (
@@ -407,6 +478,7 @@ export default async function Financeiro({
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
+          <div id="registrar-despesa" className="scroll-mt-24">
           <PainelForm titulo="Registrar nova despesa">
             <form action={criarDespesa} className="grid gap-3 sm:grid-cols-2">
               <Campo label="Data">
@@ -436,6 +508,7 @@ export default async function Financeiro({
               </div>
             </form>
           </PainelForm>
+          </div>
 
           <Card titulo={`Despesas recentes — ${ano}`}>
             {recentes.length ? (
@@ -523,6 +596,7 @@ export default async function Financeiro({
           <Vazio>Sem movimentação em {ano}.</Vazio>
         )}
       </Card>
-    </>
+      </section>
+    </main>
   );
 }
