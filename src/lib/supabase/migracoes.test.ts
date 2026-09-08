@@ -4207,3 +4207,32 @@ describe("0043 — gatilho do atendimento só lê campos da tabela que o acionou
     );
   });
 });
+
+// ============================================================
+// 0044 — conexão Google Calendar por workspace
+// ============================================================
+
+const ARQUIVO_0044_GOOGLE = "0044_google_calendar_conexao.sql";
+const ARQUIVO_EXEC_0044_GOOGLE = "_exec_0044_google_calendar_conexao.sql";
+
+describe("0044 — cofre Google é isolado por workspace e não expõe token ao cliente", () => {
+  it("cria a migration e o espelho que será usado no SQL Editor", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0044_GOOGLE)).toBe(true);
+    expect(readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0044_GOOGLE)).toBe(true);
+  });
+
+  it("guarda apenas material cifrado e fecha toda leitura autenticada direta", () => {
+    const sql = semComentarios(lerMigracao(ARQUIVO_0044_GOOGLE));
+
+    expect(sql).toMatch(/create table if not exists public\.google_calendar_conexao[\s\S]*?workspace_id uuid primary key references public\.workspace/i);
+    expect(sql).toMatch(/refresh_token_cifrado text not null[\s\S]*?iv text not null[\s\S]*?tag_autenticacao text not null[\s\S]*?versao_chave smallint not null/i);
+    expect(sql).toMatch(/alter table public\.google_calendar_conexao enable row level security/i);
+    expect(sql).toMatch(/revoke all on table public\.google_calendar_conexao from anon/i);
+    expect(sql).toMatch(/revoke all on table public\.google_calendar_conexao from authenticated/i);
+    expect(sql).not.toMatch(/create policy[\s\S]*?google_calendar_conexao[\s\S]*?for select/i);
+  });
+
+  it("mantém o espelho _exec_ idêntico à migration", () => {
+    expect(lerMigracao(ARQUIVO_EXEC_0044_GOOGLE)).toBe(lerMigracao(ARQUIVO_0044_GOOGLE));
+  });
+});
