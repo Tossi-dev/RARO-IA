@@ -42,14 +42,14 @@ beforeEach(() => {
 
 describe("Integrações em UAT sintético", () => {
   it("não lê a planilha real quando a sessão é audit.invalid", async () => {
-    await Integracoes();
+    await Integracoes({});
     expect(contaUatMock).toHaveBeenCalledOnce();
     expect(lerAbasMock).not.toHaveBeenCalled();
   });
 
   it("não passa pelo provider Google Sheets indireto quando o modo é planilha", async () => {
     modoDadosMock.mockReturnValue("planilha");
-    await Integracoes();
+    await Integracoes({});
     expect(listEventosMock).not.toHaveBeenCalled();
     expect(listMatriculasMock).not.toHaveBeenCalled();
     expect(listProdutosMock).not.toHaveBeenCalled();
@@ -57,11 +57,18 @@ describe("Integrações em UAT sintético", () => {
   });
 
   it("não finge sincronização nem revela metadado da planilha no UAT", async () => {
-    const html = renderToStaticMarkup(await Integracoes());
+    const html = renderToStaticMarkup(await Integracoes({}));
 
     expect(html).toContain("Diagnóstico da planilha isolado no UAT");
     expect(html).not.toContain("Abas de entrada sincronizadas");
     expect(html).not.toContain("planil…lida");
     expect(html).not.toContain("Leitura ao vivo da planilha");
+  });
+
+  it("abre o inventário completo apenas pela intenção local na URL", async () => {
+    const html = renderToStaticMarkup(await Integracoes({ searchParams: { todas: "1" } }));
+
+    expect(html).toMatch(/<details[^>]*id="diagnosticos-completos"[^>]*open/);
+    expect(lerAbasMock).not.toHaveBeenCalled();
   });
 });

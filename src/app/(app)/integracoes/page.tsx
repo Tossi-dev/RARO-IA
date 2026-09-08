@@ -102,7 +102,8 @@ function SeloConexao({ conexao }: { conexao: Conexao }) {
   return <span className={`inline-flex shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium ${classe}`}>{texto}</span>;
 }
 
-export default async function Integracoes() {
+export default async function Integracoes(props: { searchParams?: { todas?: string } }) {
+  const { searchParams } = props ?? {};
   const uatSintetico = await contaUatSinteticaAtual();
   const db = getDB();
   const podeLerProvider = !uatSintetico || modoDados() === "supabase";
@@ -321,6 +322,7 @@ export default async function Integracoes() {
         </div>
         <nav aria-label="Ações de integrações" className="flex flex-wrap items-center justify-end gap-2">
           <a href="#integracoes-por-area" className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-borda px-4 text-sm font-medium text-texto transition hover:border-primaria/60 hover:bg-painel-2"><Settings2 size={18} aria-hidden /> Guia de conexão</a>
+          <a href="/integracoes?todas=1#diagnosticos-completos" className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-borda px-4 text-sm font-medium text-texto transition hover:border-primaria/60 hover:bg-painel-2"><ListChecks size={18} aria-hidden /> Ver todas as integrações</a>
           <a href="#eventos-integracoes" className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-borda px-4 text-sm font-medium text-texto transition hover:border-primaria/60 hover:bg-painel-2"><ListChecks size={18} aria-hidden /> Ver eventos</a>
           <a href="#integracoes-por-area" className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-primaria px-5 text-sm font-medium text-white shadow-[0_10px_22px_rgba(24,99,255,.25)] transition hover:bg-primaria-2"><Link2 size={18} aria-hidden /> Configurar integração</a>
         </nav>
@@ -360,7 +362,7 @@ export default async function Integracoes() {
         {eventos.length ? <div className="mt-4 overflow-x-auto"><table className="min-w-[640px] w-full text-left text-sm"><thead className="border-b border-borda text-xs text-texto-2"><tr><th className="pb-3 font-medium">Evento</th><th className="px-3 pb-3 font-medium">Origem</th><th className="px-3 pb-3 font-medium">Recebido em</th><th className="pb-3 font-medium">Status</th></tr></thead><tbody>{eventos.slice(0, 4).map((evento) => <tr key={evento.id} className="border-b border-borda/90 last:border-0"><td className="py-3.5 font-medium capitalize">{evento.tipo}</td><td className="px-3 py-3.5 capitalize text-texto-2">{evento.gateway}</td><td className="px-3 py-3.5 text-xs text-texto-2">{fmtDateTime(evento.recebidoEm)}</td><td className="py-3.5"><Badge tom={TOM_STATUS[evento.status]}>{evento.status}</Badge></td></tr>)}</tbody></table></div> : <div className="mt-4"><Vazio>Os eventos e a conciliação aparecem quando uma origem estiver conectada.</Vazio></div>}
       </section>
 
-      <details id="diagnosticos-completos" className="mt-5 rounded-xl border border-borda bg-painel/40">
+      <details id="diagnosticos-completos" open={searchParams?.todas === "1"} className="mt-5 rounded-xl border border-borda bg-painel/40">
         <summary className="cursor-pointer list-none px-5 py-4 text-sm font-medium text-texto [&::-webkit-details-marker]:hidden">Diagnósticos e dados completos <span className="ml-2 text-xs font-normal text-texto-3">inclui detalhes de conexões, mapa, planilha e webhook</span></summary>
         <div className="border-t border-borda px-5 pb-5 pt-1">
       <PageHeader

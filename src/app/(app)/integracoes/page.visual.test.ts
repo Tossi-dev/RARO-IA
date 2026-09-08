@@ -37,6 +37,12 @@ describe("Integrações — referência aprovada", () => {
     expect(pagina).toContain("lerAbas(ABAS.map");
   });
 
+  it("oferece acesso direto e seguro ao inventário completo", () => {
+    expect(pagina).toContain("Ver todas as integrações");
+    expect(pagina).toContain('href="/integracoes?todas=1#diagnosticos-completos"');
+    expect(pagina).toContain('open={searchParams?.todas === "1"}');
+  });
+
   it("não silencia a faixa global quando a simulação estiver ligada", () => {
     expect(pagina).not.toContain('[data-faixa-simulacao] { display: none; }');
   });
