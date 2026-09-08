@@ -42,7 +42,9 @@ export async function GET(req: NextRequest) {
 
   if (!code) return paraAgenda("?erro=estado");
 
-  const r = await trocarCodigoPorTokens(code, url.origin);
+  // A troca usa a mesma URL canônica do início. Passar `url.origin` aqui faria
+  // preview e produção divergirem e o Google recusaria o callback.
+  const r = await trocarCodigoPorTokens(code);
   if (!r.ok || !r.refreshToken) {
     return paraAgenda("?erro=token");
   }

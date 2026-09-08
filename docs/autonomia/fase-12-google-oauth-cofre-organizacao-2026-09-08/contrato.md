@@ -122,6 +122,10 @@ status: aprovado
       "write_scope": [
         "repo:docs/autonomia/fase-12-google-oauth-cofre-organizacao-2026-09-08/**",
         "repo:.env.example",
+        "repo:src/app/api/agenda/google/entrar/route.ts",
+        "repo:src/app/api/agenda/google/entrar/route.test.ts",
+        "repo:src/app/api/agenda/google/retorno/route.ts",
+        "repo:src/app/api/agenda/google/retorno/route.test.ts",
         "vault:Projetos/RARO IA/Autonomia/fase-12-google-oauth-cofre-organizacao-2026-09-08/**",
         "vault:Projetos/RARO IA/Onde parei.md"
       ],

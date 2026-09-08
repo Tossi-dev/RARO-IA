@@ -23,9 +23,8 @@ export async function GET(req: NextRequest) {
   if (!estado.ok) {
     return NextResponse.redirect(new URL("/agenda?erro=conexao", req.url));
   }
-  // A origem sai da requisição: assim o mesmo código funciona em localhost, em
-  // preview da Vercel e em produção, sem variável para lembrar de trocar.
-  const origem = req.nextUrl.origin;
-
-  return NextResponse.redirect(urlDeConsentimento(estado.state, origem));
+  // Não use a origem da requisição: em preview ela faria o Google voltar para
+  // um domínio efêmero. `urlDeRetorno` usa NEXT_PUBLIC_SITE_URL (ou localhost)
+  // como endereço canônico, igual à troca de código no retorno.
+  return NextResponse.redirect(urlDeConsentimento(estado.state));
 }

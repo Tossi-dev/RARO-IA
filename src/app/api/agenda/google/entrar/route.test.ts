@@ -47,6 +47,7 @@ describe("entrada Google em UAT sintético", () => {
 
     expect(criarEstadoOAuthGoogleMock).toHaveBeenCalledOnce();
     expect(estado).toMatch(/^[a-f0-9]{64}$/);
+    expect(urlDeConsentimentoMock).toHaveBeenCalledWith(estado);
     expect(resposta.headers.get("location")).toContain(`state=${estado}`);
     expect(cookie).not.toContain("raro_google_state");
     expect(cookie).not.toContain("refresh_token");

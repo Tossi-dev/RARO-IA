@@ -50,6 +50,7 @@ describe("retorno OAuth Google", () => {
 
     expect(resposta.headers.get("location")).toBe("http://localhost:3000/agenda?conectado=1");
     expect(consumirEstadoOAuthGoogleMock).toHaveBeenCalledWith("a".repeat(64));
+    expect(trocarCodigoPorTokensMock).toHaveBeenCalledWith("codigo");
     expect(salvarRefreshTokenGoogleDaOrganizacaoMock).toHaveBeenCalledWith({
       refreshToken: "1//token-de-teste",
       escopos: [
