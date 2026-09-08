@@ -436,7 +436,7 @@ export async function sincronizarSessaoNaAgenda(formData: FormData): Promise<Res
     if (!googleAppConfigurado()) {
       return resultadoDegradado(sessaoId, evento, MOTIVO_APP_NAO_CONFIGURADO, cancelando);
     }
-    if (!googleConectado()) {
+    if (!(await googleConectado())) {
       return resultadoDegradado(sessaoId, evento, MOTIVO_SEM_CONEXAO_GOOGLE, cancelando);
     }
 

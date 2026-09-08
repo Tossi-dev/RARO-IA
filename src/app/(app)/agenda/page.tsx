@@ -146,6 +146,8 @@ const ERROS: Record<string, string> = {
   estado: "A volta do Google não bateu com o pedido. Tente entrar de novo.",
   token:
     "O Google aceitou o login mas recusou a troca de credenciais. Quase sempre é a URL de retorno cadastrada no Google Cloud diferente da URL do site.",
+  conexao:
+    "Não foi possível concluir a conexão com o Google. Confirme que você é gestor desta organização e tente novamente.",
 };
 
 export default async function AgendaPage({
@@ -177,7 +179,7 @@ export default async function AgendaPage({
   // Duas portas para a mesma agenda. O login do Google manda quando existe:
   // ele desdobra as repetições do lado do Google e não depende de ninguém
   // copiar URL nenhuma. O iCal continua valendo como alternativa.
-  const viaGoogle = !uatSintetico && googleConectado();
+  const viaGoogle = !uatSintetico && await googleConectado();
   const viaIcs = !uatSintetico && agendaConfigurada();
   const conectada = viaGoogle || viaIcs;
 

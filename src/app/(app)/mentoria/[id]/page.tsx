@@ -51,7 +51,7 @@ export default async function FichaMentorado({
     lerDocumentosDoMentorado(params.id),
   ]);
 
-  // Lido AQUI, na borda, e não dentro da visão: `googleConectado()` lê cookie,
+  // Lido AQUI, na borda, e não dentro da visão: consulta o vínculo do workspace,
   // e a visão é uma função sync pura que os testes chamam direto.
   return (
     <FichaVisao
@@ -59,7 +59,7 @@ export default async function FichaMentorado({
       historico={historico}
       documentos={documentos}
       erro={searchParams.erro}
-      agendaConectada={googleConectado()}
+      agendaConectada={await googleConectado()}
       agoraIso={agoraIso}
     />
   );

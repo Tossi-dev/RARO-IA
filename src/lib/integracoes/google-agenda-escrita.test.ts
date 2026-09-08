@@ -32,15 +32,22 @@ import path from "node:path";
 const TOKEN_DE_ACESSO = "ya29.SEGREDO-DE-ACESSO-NUNCA-PODE-APARECER";
 const REFRESH_TOKEN = "1//SEGREDO-DE-REFRESH-NUNCA-PODE-APARECER";
 
-const mockCookies = vi.fn();
-vi.mock("next/headers", () => ({ cookies: () => mockCookies() }));
+const { conexaoAtivaMock, lerRefreshTokenMock } = vi.hoisted(() => ({
+  conexaoAtivaMock: vi.fn(),
+  lerRefreshTokenMock: vi.fn(),
+}));
 
-/** Dublê do jar de cookies do Next: com ou sem o cookie de conexão do Google. */
+vi.mock("./google-conexao-servidor", () => ({
+  conexaoGoogleAtivaDaOrganizacao: conexaoAtivaMock,
+  lerRefreshTokenGoogleDaOrganizacao: lerRefreshTokenMock,
+}));
+
+/** Dublê do cofre da organização: com ou sem uma conexão Google utilizável. */
 function comCookieConectado(refresh: string | undefined) {
-  mockCookies.mockReturnValue({
-    get: (nome: string) =>
-      nome === "raro_google_agenda" && refresh !== undefined ? { value: refresh } : undefined,
-  });
+  conexaoAtivaMock.mockResolvedValue(refresh ? { ok: true } : { ok: false, motivo: "nao_conectado" });
+  lerRefreshTokenMock.mockResolvedValue(
+    refresh ? { ok: true, refreshToken: refresh } : { ok: false, motivo: "nao_conectado" },
+  );
 }
 
 const {
@@ -149,7 +156,7 @@ function patches(chamadas: Array<{ url: string; init?: RequestInit }>) {
   return chamadas.filter((c) => c.init?.method === "PATCH");
 }
 
-// `googleAppConfigurado()` (dentro de `accessTokenDoCookie`) exige as duas
+// `googleAppConfigurado()` (dentro de `accessTokenDaOrganizacao`) exige as duas
 // variáveis de ambiente — sem elas o token nunca é buscado, mesmo com
 // cookie válido, e todo teste "com cookie" cairia no mesmo motivo de "sem
 // conexão" do teste "sem cookie". `vi.stubEnv` isola isso por teste.
@@ -159,7 +166,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  mockCookies.mockReset();
+  conexaoAtivaMock.mockReset();
+  lerRefreshTokenMock.mockReset();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
@@ -318,12 +326,10 @@ describe("nunca lança — falhas de rede/JSON no refresh do token e em cookies(
       },
     },
     {
-      nome: "cookies() lança (fora de contexto de requisição)",
+      nome: "consulta ao cofre lança",
       preparar: () => {
         ligarFetch();
-        mockCookies.mockImplementation(() => {
-          throw new Error("cookies() fora de contexto de requisição");
-        });
+        conexaoAtivaMock.mockRejectedValue(new Error("cofre fora de contexto de requisição"));
       },
     },
     {
@@ -392,7 +398,7 @@ describe("motivo do erro — três causas diferentes, três mensagens diferentes
 
     expect(r.ok).toBe(false);
     expect(r.erro).toMatch(/GOOGLE_CLIENT|credencia|configurad/i);
-    // Sem credencial, `accessTokenDoCookie` nem tenta o refresh — mesma
+    // Sem credencial, `accessTokenDaOrganizacao` nem tenta o refresh — mesma
     // disciplina de "não faz fetch nenhum" quando não há como ter sucesso.
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -636,11 +642,9 @@ describe("exceção com segredo na mensagem — o segredo nunca chega ao texto d
     conferir((await cancelarEventoDaSessao("evt-existente")).erro);
   });
 
-  it("nem quando quem explode é o cookies() (a mensagem também passa pelo mesmo catch)", async () => {
+  it("nem quando a consulta ao cofre explode (a mensagem também passa pelo mesmo catch)", async () => {
     ligarFetchVenenoso();
-    mockCookies.mockImplementation(() => {
-      throw new Error(VENENO);
-    });
+    conexaoAtivaMock.mockRejectedValue(new Error(VENENO));
     conferir((await criarEventoDaSessao(EVENTO_EXEMPLO)).erro);
   });
 });
@@ -651,23 +655,23 @@ describe("exceção com segredo na mensagem — o segredo nunca chega ao texto d
 // a página precisa sair do cache e renderizar dinamicamente. Engolir esse
 // erro faria a página ser cacheada com o resultado errado, em silêncio.
 describe("bailout dinâmico do Next — relançado, não engolido", () => {
-  function cookiesComBailout() {
-    mockCookies.mockImplementation(() => {
-      const erro = new Error("Dynamic server usage: cookies");
+  function cofreComBailout() {
+    conexaoAtivaMock.mockImplementation(() => {
+      const erro = new Error("Dynamic server usage: cofre");
       (erro as Error & { digest?: string }).digest =
-        "DYNAMIC_SERVER_USAGE:cookies";
+        "DYNAMIC_SERVER_USAGE:cofre";
       throw erro;
     });
   }
 
   it("criarEventoDaSessao relança o DynamicServerError", async () => {
-    cookiesComBailout();
+    cofreComBailout();
     ligarFetch();
     await expect(criarEventoDaSessao(EVENTO_EXEMPLO)).rejects.toThrow(/Dynamic server usage/i);
   });
 
   it("atualizarEventoDaSessao relança o DynamicServerError", async () => {
-    cookiesComBailout();
+    cofreComBailout();
     ligarFetch();
     await expect(atualizarEventoDaSessao("evt-existente", EVENTO_EXEMPLO)).rejects.toThrow(
       /Dynamic server usage/i
@@ -675,15 +679,13 @@ describe("bailout dinâmico do Next — relançado, não engolido", () => {
   });
 
   it("cancelarEventoDaSessao relança o DynamicServerError", async () => {
-    cookiesComBailout();
+    cofreComBailout();
     ligarFetch();
     await expect(cancelarEventoDaSessao("evt-existente")).rejects.toThrow(/Dynamic server usage/i);
   });
 
   it("qualquer OUTRA exceção continua virando ok:false (só o bailout sobe)", async () => {
-    mockCookies.mockImplementation(() => {
-      throw new Error("cookies() fora de contexto de requisição");
-    });
+    conexaoAtivaMock.mockRejectedValue(new Error("cofre fora de contexto de requisição"));
     ligarFetch();
     const r = await criarEventoDaSessao(EVENTO_EXEMPLO);
     expect(r.ok).toBe(false);

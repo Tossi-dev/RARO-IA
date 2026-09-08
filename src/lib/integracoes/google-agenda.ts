@@ -9,14 +9,8 @@
 //
 // O QUE ESTE ARQUIVO GUARDA, E ONDE
 // ---------------------------------
-// O `refresh_token` fica num COOKIE httpOnly + secure + sameSite=lax. Isso
-// significa: o JavaScript da página NUNCA lê esse valor (httpOnly), ele só
-// trafega em HTTPS (secure) e não é enviado em requisição de outro site
-// (sameSite). É o mesmo mecanismo de uma sessão de login.
-//
-// O que NÃO é feito, de propósito: o token não vai para o Supabase, para a
-// planilha nem para variável de ambiente. Ele pertence a quem clicou em
-// "Entrar", e sair da conta é apagar o cookie — sem admin, sem suporte.
+// O `refresh_token` vai para um cofre cifrado por organização no servidor. O
+// navegador nunca recebe nem carrega o token entre requisições.
 //
 // PERMISSÃO PEDIDA (Tarefa 15 — reescrito; a versão anterior deste parágrafo
 // dizia que o app não tinha nenhuma capacidade de escrita, e isso deixou de
@@ -26,24 +20,26 @@
 // + `calendar.events`. A leitura (`lerAgendaGoogle`, abaixo) continua neste
 // arquivo; CRIAR/ATUALIZAR/CANCELAR evento mora em
 // `./google-agenda-escrita.ts`, módulo separado — mas os dois dependem do
-// MESMO cookie e do MESMO escopo concedido na tela de consentimento, então
+// MESMO cofre e do MESMO escopo concedido na tela de consentimento, então
 // não há como pedir só leitura para uns e escrita para outros: quem conecta
 // a conta autoriza os dois de uma vez.
 //
-// CONTA CONECTADA ANTES DESTA MUDANÇA: o refresh token dela só cobre
+// CONTA CONECTADA ANTES DESTA MUDANÇA: o refresh token dela pode cobrir só
 // `calendar.readonly` — a API do Google recusa (403/401) qualquer tentativa
-// de escrita com esse token, mesmo que o código deste arquivo já peça o
+// de escrita com esse token, mesmo que o código deste arquivo peça o
 // escopo novo. Não tem correção automática: quem já conectou precisa
 // reconectar (o botão "Entrar com o Google" de novo, que passa pela tela de
 // consentimento com o escopo atual). `google-agenda-escrita.ts` detecta esse
 // caso pela resposta 403/401 da própria chamada de escrita e devolve um
-// motivo humano pedindo a reconexão — não há como saber de antemão, do lado
-// de cá, se o token guardado no cookie é do escopo antigo ou do novo.
+// motivo humano pedindo a reconexão — não há como saber de antemão se o
+// vínculo cifrado usa o escopo antigo ou o novo.
 
-import { cookies } from "next/headers";
 import type { EventoAgenda } from "./ics";
+import {
+  conexaoGoogleAtivaDaOrganizacao,
+  lerRefreshTokenGoogleDaOrganizacao,
+} from "./google-conexao-servidor";
 
-export const COOKIE_GOOGLE = "raro_google_agenda";
 // Ordem importa por documentação, não por comportamento (o Google não liga
 // para ordem dentro do `scope`): readonly primeiro porque é o escopo
 // original deste arquivo, e `calendar.events` foi ACRESCENTADO na Tarefa 15
@@ -56,9 +52,9 @@ export function googleAppConfigurado(): boolean {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 
-/** Este navegador já autorizou uma conta Google? */
-export function googleConectado(): boolean {
-  return Boolean(cookies().get(COOKIE_GOOGLE)?.value);
+/** O workspace da sessão atual já autorizou uma conta Google? */
+export async function googleConectado(): Promise<boolean> {
+  return (await conexaoGoogleAtivaDaOrganizacao()).ok;
 }
 
 /**
@@ -135,8 +131,8 @@ export async function trocarCodigoPorTokens(
  * EXPORTADA a partir da Tarefa 15 — decisão consciente, além do "só o
  * escopo" que o plano previa para este arquivo.
  *
- * `google-agenda-escrita.ts` também precisa trocar o refresh token do
- * cookie por um access_token antes de cada chamada à API do Google. A
+ * `google-agenda-escrita.ts` também precisa trocar o refresh token do cofre
+ * por um access_token antes de cada chamada à API do Google. A
  * alternativa seria o módulo novo reimplementar o mesmo POST para
  * `oauth2.googleapis.com/token` — e aí o projeto passaria a ter DUAS
  * implementações do mesmo fluxo de refresh, que podem divergir (um corrige
@@ -147,16 +143,17 @@ export async function trocarCodigoPorTokens(
  * de `paredeParaInstante`/`interpretarQuando` em `mentoria/calendario.ts`).
  * Reexportar e reutilizar é a correção; duplicar seria repetir o erro.
  */
-export async function accessTokenDoCookie(): Promise<string | null> {
-  const refresh = cookies().get(COOKIE_GOOGLE)?.value;
-  if (!refresh || !googleAppConfigurado()) return null;
+export async function accessTokenDaOrganizacao(): Promise<string | null> {
+  if (!googleAppConfigurado()) return null;
+  const conexao = await lerRefreshTokenGoogleDaOrganizacao();
+  if (!conexao.ok) return null;
   const r = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       client_id: process.env.GOOGLE_CLIENT_ID!,
       client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-      refresh_token: refresh,
+      refresh_token: conexao.refreshToken,
       grant_type: "refresh_token",
     }),
     cache: "no-store",
@@ -189,7 +186,7 @@ export async function lerAgendaGoogle(
   de: Date,
   ate: Date
 ): Promise<{ ok: boolean; erro: string | null; eventos: EventoAgenda[] }> {
-  const token = await accessTokenDoCookie();
+  const token = await accessTokenDaOrganizacao();
   if (!token) {
     return {
       ok: false,

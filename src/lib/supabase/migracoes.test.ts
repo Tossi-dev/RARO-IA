@@ -4236,3 +4236,32 @@ describe("0044 — cofre Google é isolado por workspace e não expõe token ao 
     expect(lerMigracao(ARQUIVO_EXEC_0044_GOOGLE)).toBe(lerMigracao(ARQUIVO_0044_GOOGLE));
   });
 });
+
+// ============================================================
+// 0045 — state OAuth Google consumível uma única vez
+// ============================================================
+
+const ARQUIVO_0045_OAUTH_ESTADO = "0045_google_oauth_estado.sql";
+const ARQUIVO_EXEC_0045_OAUTH_ESTADO = "_exec_0045_google_oauth_estado.sql";
+
+describe("0045 — state OAuth é privado, expira e fica vinculado ao workspace", () => {
+  it("cria a migration e o espelho que será usado no SQL Editor", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0045_OAUTH_ESTADO)).toBe(true);
+    expect(readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0045_OAUTH_ESTADO)).toBe(true);
+  });
+
+  it("não dá acesso direto ao state nem permite registros sem expiração", () => {
+    const sql = semComentarios(lerMigracao(ARQUIVO_0045_OAUTH_ESTADO));
+
+    expect(sql).toMatch(/create table if not exists public\.google_oauth_estado[\s\S]*?state text primary key[\s\S]*?workspace_id uuid not null references public\.workspace[\s\S]*?usuario_id uuid not null references public\.profiles/i);
+    expect(sql).toMatch(/expira_em timestamptz not null[\s\S]*?consumido_em timestamptz/i);
+    expect(sql).toMatch(/alter table public\.google_oauth_estado enable row level security/i);
+    expect(sql).toMatch(/revoke all on table public\.google_oauth_estado from anon/i);
+    expect(sql).toMatch(/revoke all on table public\.google_oauth_estado from authenticated/i);
+    expect(sql).not.toMatch(/create policy[\s\S]*?google_oauth_estado[\s\S]*?for select/i);
+  });
+
+  it("mantém o espelho _exec_ idêntico à migration", () => {
+    expect(lerMigracao(ARQUIVO_EXEC_0045_OAUTH_ESTADO)).toBe(lerMigracao(ARQUIVO_0045_OAUTH_ESTADO));
+  });
+});

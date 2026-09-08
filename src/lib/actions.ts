@@ -17,7 +17,7 @@ import type { CategoriaCaixa, Estagio } from "./types";
 import type { AlunoDetalhe } from "./data/provider";
 import { COOKIE_SIMULACAO, SIMULACAO_MAX_AGE } from "./data/simulacao";
 import { COOKIE_DENSIDADE } from "./densidade";
-import { COOKIE_GOOGLE } from "./integracoes/google-agenda";
+import { revogarConexaoGoogleDaOrganizacao } from "./integracoes/google-conexao-servidor";
 import { COOKIE_TEMA } from "./tema";
 import { criarEventoGoogle } from "./integracoes/calendar";
 import { resumirTranscricao } from "./integracoes/ia";
@@ -792,15 +792,17 @@ export async function setTema(tema: string) {
 /**
  * Desconecta a conta Google da agenda.
  *
- * Apagar o cookie é o suficiente: o refresh_token só existia ali. Nada foi
- * gravado em banco, planilha ou variável de ambiente. Para revogar também do
- * lado do Google, o caminho é a página de contas conectadas da própria conta.
+ * A marca persistida do workspace é revogada no servidor. O cookie legado é
+ * apagado apenas como limpeza para instalações anteriores. Para revogar também
+ * no Google, o caminho é a página de contas conectadas da própria conta.
  */
 export async function desconectarGoogleAgenda() {
-  cookies().delete(COOKIE_GOOGLE);
+  const resultado = await revogarConexaoGoogleDaOrganizacao();
+  cookies().delete("raro_google_agenda");
   // A tentativa de consentimento pode ter deixado o `state` pela metade (o
   // dono abriu a tela do Google e fechou). Sair e o momento certo de limpar.
   cookies().delete("raro_google_state");
+  if (!resultado.ok) redirect("/agenda?erro=conexao");
   tudo();
   // Redireciona em vez de so revalidar: sem isto a pagina volta na forma
   // "agenda nao conectada" e nada explica por que -- quem clicou fica sem

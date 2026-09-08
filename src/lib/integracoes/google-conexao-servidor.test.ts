@@ -10,6 +10,15 @@ const {
   selectMock,
   eqMock,
   maybeSingleMock,
+  updateMock,
+  updateEqMock,
+  estadoInsertMock,
+  estadoUpdateMock,
+  estadoEqMock,
+  estadoIsMock,
+  estadoGtMock,
+  estadoSelectMock,
+  estadoMaybeSingleMock,
   authGetUserMock,
   perfilFromMock,
   perfilSelectMock,
@@ -23,6 +32,15 @@ const {
   selectMock: vi.fn(),
   eqMock: vi.fn(),
   maybeSingleMock: vi.fn(),
+  updateMock: vi.fn(),
+  updateEqMock: vi.fn(),
+  estadoInsertMock: vi.fn(),
+  estadoUpdateMock: vi.fn(),
+  estadoEqMock: vi.fn(),
+  estadoIsMock: vi.fn(),
+  estadoGtMock: vi.fn(),
+  estadoSelectMock: vi.fn(),
+  estadoMaybeSingleMock: vi.fn(),
   authGetUserMock: vi.fn(),
   perfilFromMock: vi.fn(),
   perfilSelectMock: vi.fn(),
@@ -34,7 +52,14 @@ vi.mock("@/lib/supabase/servico", () => ({ criarSupabaseServico: criarSupabaseSe
 vi.mock("@/lib/supabase/server", () => ({ criarSupabaseServer: criarSupabaseServerMock }));
 
 import { cifrarRefreshTokenGoogle, chaveDoCofreGoogle } from "./google-cofre";
-import { lerRefreshTokenGoogleDaOrganizacao, salvarRefreshTokenGoogleDaOrganizacao } from "./google-conexao-servidor";
+import {
+  conexaoGoogleAtivaDaOrganizacao,
+  consumirEstadoOAuthGoogle,
+  criarEstadoOAuthGoogle,
+  lerRefreshTokenGoogleDaOrganizacao,
+  revogarConexaoGoogleDaOrganizacao,
+  salvarRefreshTokenGoogleDaOrganizacao,
+} from "./google-conexao-servidor";
 
 const chaveValida = Buffer.alloc(32, 3).toString("base64");
 const refreshToken = "1//0gTokenDeTesteQueNuncaVaiParaOBanco";
@@ -46,8 +71,19 @@ beforeEach(() => {
   maybeSingleMock.mockReset();
   eqMock.mockReset().mockReturnValue({ maybeSingle: maybeSingleMock });
   selectMock.mockReset().mockReturnValue({ eq: eqMock });
+  updateEqMock.mockReset().mockResolvedValue({ error: null });
+  updateMock.mockReset().mockReturnValue({ eq: updateEqMock });
+  estadoInsertMock.mockReset().mockResolvedValue({ error: null });
+  estadoMaybeSingleMock.mockReset();
+  estadoSelectMock.mockReset().mockReturnValue({ maybeSingle: estadoMaybeSingleMock });
+  estadoGtMock.mockReset().mockReturnValue({ select: estadoSelectMock });
+  estadoIsMock.mockReset().mockReturnValue({ gt: estadoGtMock });
+  estadoEqMock.mockReset().mockReturnValue({ eq: estadoEqMock, is: estadoIsMock });
+  estadoUpdateMock.mockReset().mockReturnValue({ eq: estadoEqMock });
   upsertMock.mockReset();
-  fromMock.mockReset().mockReturnValue({ upsert: upsertMock, select: selectMock });
+  fromMock.mockReset().mockImplementation((tabela: string) => tabela === "google_oauth_estado"
+    ? { insert: estadoInsertMock, update: estadoUpdateMock }
+    : { upsert: upsertMock, select: selectMock, update: updateMock });
   criarSupabaseServicoMock.mockReset().mockReturnValue({ from: fromMock });
   perfilMaybeSingleMock.mockReset().mockResolvedValue({
     data: { id: usuarioId, workspace_id: workspaceId, papel: "gestor" },
@@ -153,5 +189,56 @@ describe("repositório server-only da conexão Google", () => {
     });
 
     expect(await lerRefreshTokenGoogleDaOrganizacao()).toEqual({ ok: false, motivo: "conexao_revogada" });
+  });
+
+  it("consulta conexão ativa sem decifrar token e deriva o workspace da sessão", async () => {
+    maybeSingleMock.mockResolvedValue({ data: { revogado_em: null }, error: null });
+
+    expect(await conexaoGoogleAtivaDaOrganizacao()).toEqual({ ok: true });
+    expect(selectMock).toHaveBeenCalledWith("revogado_em");
+    expect(eqMock).toHaveBeenCalledWith("workspace_id", workspaceId);
+  });
+
+  it("não anuncia conexão ativa se a chave do cofre não está configurada", async () => {
+    vi.stubEnv("GOOGLE_TOKEN_ENCRYPTION_KEY", "");
+
+    expect(await conexaoGoogleAtivaDaOrganizacao())
+      .toEqual({ ok: false, motivo: "cofre_nao_configurado" });
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it("revoga somente o vínculo do workspace da sessão", async () => {
+    expect(await revogarConexaoGoogleDaOrganizacao()).toEqual({ ok: true });
+    expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ revogado_em: expect.any(String) }));
+    expect(updateEqMock).toHaveBeenCalledWith("workspace_id", workspaceId);
+  });
+
+  it("emite state OAuth no servidor, vinculado ao usuário e workspace", async () => {
+    const resultado = await criarEstadoOAuthGoogle();
+
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.state).toMatch(/^[a-f0-9]{64}$/);
+    expect(estadoInsertMock).toHaveBeenCalledWith(expect.objectContaining({
+      state: resultado.state,
+      workspace_id: workspaceId,
+      usuario_id: usuarioId,
+      conexao: "google_calendar",
+    }));
+  });
+
+  it("consome o state uma única vez com filtros de usuário, workspace e expiração", async () => {
+    const state = "a".repeat(64);
+    estadoMaybeSingleMock
+      .mockResolvedValueOnce({ data: { state }, error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
+
+    expect(await consumirEstadoOAuthGoogle(state)).toEqual({ ok: true });
+    expect(await consumirEstadoOAuthGoogle(state))
+      .toEqual({ ok: false, motivo: "estado_invalido" });
+    expect(estadoEqMock).toHaveBeenCalledWith("workspace_id", workspaceId);
+    expect(estadoEqMock).toHaveBeenCalledWith("usuario_id", usuarioId);
+    expect(estadoIsMock).toHaveBeenCalledWith("consumido_em", null);
+    expect(estadoGtMock).toHaveBeenCalledWith("expira_em", expect.any(String));
   });
 });

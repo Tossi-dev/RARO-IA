@@ -18,22 +18,22 @@
 // sem conversão nenhuma, porque a forma é idêntica — a duplicação é só de
 // declaração de tipo, não de lógica.
 //
-// TOKEN: reaproveita `accessTokenDoCookie` e `googleAppConfigurado`,
+// TOKEN: reaproveita `accessTokenDaOrganizacao` e `googleAppConfigurado`,
 // exportadas de `./google-agenda.ts` (ver o comentário grande ao lado da
-// exportação de `accessTokenDoCookie`, lá). As três funções aqui NUNCA leem
-// o cookie diretamente nem reimplementam o POST de refresh — é o mesmo
-// cookie httpOnly, o mesmo fluxo, um só lugar que pode ter bug de token.
+// exportação de `accessTokenDaOrganizacao`, lá). As três funções aqui NUNCA
+// leem persistência diretamente nem reimplementam o POST de refresh — é o
+// mesmo cofre cifrado, o mesmo fluxo, um só lugar que pode ter bug de token.
 //
 // NUNCA LANÇA, DE VERDADE (revisão pós-laudo do revisor independente):
 // todas devolvem `{ ok, erro }` em QUALQUER circunstância — rede fora do ar,
-// JSON corrompido na resposta do Google (refresh OU escrita), `cookies()`
-// lançando (fora de contexto de requisição). A PRIMEIRA versão deste
+// JSON corrompido na resposta do Google (refresh OU escrita), consulta ao
+// cofre lançando (fora de contexto de requisição). A PRIMEIRA versão deste
 // arquivo só cobria o `fetch`/`r.json()` da chamada de ESCRITA dentro do
-// `try`; a chamada de `accessTokenDoCookie()` (que por sua vez faz outro
+// `try`; a chamada de `accessTokenDaOrganizacao()` (que por sua vez faz outro
 // fetch + outro `r.json()`, dentro de `google-agenda.ts`) ficava FORA — uma
 // rede caindo bem ali, ou o Google devolvendo um corpo que não é JSON no
 // refresh, subia como exceção crua até quem chamou a Server Action. O
-// consertos é `comTokenDoGoogle` (abaixo) envolver TUDO — leitura de cookie,
+// conserto é `comTokenDoGoogle` (abaixo) envolver TUDO — consulta ao cofre,
 // refresh de token, conferência e chamada de escrita — num único `try`. Uma
 // chamada que falha aqui não pode derrubar a Server Action que agendou a
 // sessão — a sessão já foi salva no banco antes de qualquer tentativa de
@@ -41,7 +41,7 @@
 //
 // UMA EXCEÇÃO À REGRA "NUNCA LANÇA": O BAILOUT DINÂMICO DO NEXT. Este
 // módulo é chamado de Server Actions, mas nada IMPEDE um Server Component de
-// chamá-lo durante a renderização — e ali `cookies()` lança um
+// chamá-lo durante a renderização — e ali uma API de requisição pode lançar um
 // `DynamicServerError` que não é falha nenhuma: é o Next avisando que a
 // página precisa sair do cache estático e renderizar dinamicamente. Engolir
 // esse erro faria a página ser cacheada com o resultado errado, em silêncio.
@@ -65,7 +65,7 @@
 // escrever, recusando qualquer um que não traga o carimbo. Ver o comentário
 // de `conferirOrigem` para o custo aceito e o motivo.
 
-import { accessTokenDoCookie, googleAppConfigurado, googleConectado } from "./google-agenda";
+import { accessTokenDaOrganizacao, googleAppConfigurado, googleConectado } from "./google-agenda";
 
 /** Mesmo formato de saída de `eventoDaSessao` — ver nota de layering acima. */
 export interface EventoParaGoogle {
@@ -114,19 +114,19 @@ export const VALOR_ORIGEM_EVENTO = "sessao-de-mentoria";
 // mensagens diferentes, porque cada uma tem um responsável e uma correção
 // diferentes:
 //
-//   1. SEM COOKIE — ninguém conectou a conta (ou desconectou). Quem resolve
+//   1. SEM CONEXÃO — ninguém conectou a conta (ou desconectou). Quem resolve
 //      é o dono do produto, clicando em "Entrar com o Google" de novo.
 //   2. APP SEM CREDENCIAL — `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` não
 //      estão configurados no servidor. Quem resolve é QUEM PUBLICA o
 //      sistema — nenhum clique de usuário final resolve isso, e a mensagem
 //      antiga ("Entre com a conta do Google") mandava a pessoa errada
 //      clicar num botão que nunca ia funcionar.
-//   3. CONEXÃO EXPIRADA/REVOGADA — cookie presente, app configurado, mas o
+//   3. CONEXÃO EXPIRADA/REVOGADA — vínculo presente, app configurado, mas o
 //      Google recusa o refresh (token revogado, conta removida, etc.).
 //      Resolve reconectando — mesma ação da causa 1, mas o texto deixa
 //      claro que HOUVE conexão antes (evita o dono achar que nunca chegou
 //      a conectar).
-const MOTIVO_SEM_COOKIE =
+const MOTIVO_SEM_CONEXAO =
   "A conexão com o Google não está ativa. Entre com a conta do Google (Integrações → Agenda) para sincronizar este evento.";
 
 const MOTIVO_APP_NAO_CONFIGURADO =
@@ -175,7 +175,7 @@ function motivoGenerico(acao: string, status: number): string {
   return `O Google recusou ${acao} (HTTP ${status}). Tente de novo em alguns minutos.`;
 }
 
-/** Rede caiu, JSON corrompido, `cookies()` explodiu — qualquer exceção
+/** Rede caiu, JSON corrompido, consulta ao cofre explodiu — qualquer exceção
  *  crua vira este texto humano, específico da ação tentada. O texto da
  *  exceção original nunca é exposto (poderia, em tese, ecoar cabeçalho ou
  *  corpo da requisição em algum runtime). */
@@ -239,7 +239,7 @@ const URL_EVENTOS = "https://www.googleapis.com/calendar/v3/calendars/primary/ev
  *
  * Cópia deliberada do `catch` de `simulacaoLigada` em
  * `src/lib/data/simulacao.ts` — mesmo `digest`, mesma decisão. Em
- * renderização estática, `cookies()` lança um `DynamicServerError` que o
+ * renderização estática, uma API de requisição lança um `DynamicServerError` que o
  * PRÓPRIO Next captura para desistir do cache; engolir esse erro faz a
  * página ser cacheada com o resultado errado, sem nenhum sintoma visível.
  * Não é falha a tratar: é sinalização de framework.
@@ -250,10 +250,10 @@ function relancarSeForBailoutDoNext(erro: unknown): void {
 }
 
 /**
- * Cookie + token + a operação inteira, num único `try`.
+ * Cofre + token + a operação inteira, num único `try`.
  *
  * TUDO que pode lançar mora DENTRO dele (ALTO 1 do laudo): a leitura do
- * cookie (`googleConectado`), o refresh do token (`accessTokenDoCookie` —
+ * cofre (`googleConectado`), o refresh do token (`accessTokenDaOrganizacao` —
  * que internamente faz fetch + `r.json()` em `google-agenda.ts`), e a
  * `operacao` inteira, que é onde ficam a conferência de origem, a montagem
  * do corpo do evento e o fetch de escrita. Montar o corpo aqui dentro é o
@@ -266,11 +266,11 @@ async function comTokenDoGoogle(
   operacao: (token: string) => Promise<RespostaGoogle>
 ): Promise<RespostaGoogle> {
   try {
-    if (!googleConectado()) return { ok: false, erro: MOTIVO_SEM_COOKIE };
+    if (!(await googleConectado())) return { ok: false, erro: MOTIVO_SEM_CONEXAO };
 
-    const token = await accessTokenDoCookie();
+    const token = await accessTokenDaOrganizacao();
     if (!token) {
-      // `accessTokenDoCookie` devolve `null` tanto quando falta credencial
+      // `accessTokenDaOrganizacao` devolve `null` tanto quando falta credencial
       // do app quanto quando o refresh foi recusado pelo Google — as duas
       // causas exigem mensagem (e responsável) diferentes (BAIXO 6).
       return {

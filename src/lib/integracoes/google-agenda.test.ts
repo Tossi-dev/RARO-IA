@@ -10,7 +10,13 @@
 // qualquer refactor futuro sem um único teste vermelho. Estes dois testes
 // existem para matar esse mutante.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+vi.mock("./google-conexao-servidor", () => ({
+  conexaoGoogleAtivaDaOrganizacao: async () => ({ ok: false, motivo: "nao_conectado" }),
+  lerRefreshTokenGoogleDaOrganizacao: async () => ({ ok: false, motivo: "nao_conectado" }),
+}));
 import { ESCOPO_AGENDA, urlDeConsentimento } from "./google-agenda";
 
 describe("ESCOPO_AGENDA", () => {
