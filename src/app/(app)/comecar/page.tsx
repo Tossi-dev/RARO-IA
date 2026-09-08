@@ -68,7 +68,6 @@ export default async function Comecar() {
 
   return (
     <main data-comecar-visual="referencia-aprovada" className="mx-auto max-w-[1320px] pb-10">
-      <style>{`body:has([data-comecar-visual="referencia-aprovada"]) [data-faixa-simulacao] { display: none; }`}</style>
       <p className="sr-only">Configuração guiada do espaço de trabalho. Os cadastros continuam disponíveis abaixo do resumo.</p>
 
       <header className="mb-7 flex flex-wrap items-end justify-between gap-5">

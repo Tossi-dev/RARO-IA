@@ -34,4 +34,8 @@ describe("Começar — referência aprovada", () => {
     expect(pagina).toContain('id="passos-cadastro"');
     expect(pagina).toContain("<ComecarPassos");
   });
+
+  it("não esconde o aviso global quando a simulação estiver ligada", () => {
+    expect(pagina).not.toContain('[data-faixa-simulacao] { display: none; }');
+  });
 });
