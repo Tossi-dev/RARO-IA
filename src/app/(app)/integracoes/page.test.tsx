@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
-const { lerAbasMock, contaUatMock, listEventosMock, listMatriculasMock, listProdutosMock, modoDadosMock } = vi.hoisted(() => ({
+const { lerAbasMock, contaUatMock, listEventosMock, listMatriculasMock, listProdutosMock, modoDadosMock, googleAppMock } = vi.hoisted(() => ({
   lerAbasMock: vi.fn(),
   contaUatMock: vi.fn(),
   listEventosMock: vi.fn(),
   listMatriculasMock: vi.fn(),
   listProdutosMock: vi.fn(),
   modoDadosMock: vi.fn(() => "supabase"),
+  googleAppMock: vi.fn(),
 }));
 
 vi.mock("@/lib/uat/isolamento", () => ({ contaUatSinteticaAtual: contaUatMock }));
@@ -27,6 +28,7 @@ vi.mock("@/lib/data", () => ({
   supabaseConfigurado: () => true,
 }));
 vi.mock("@/lib/sheets/mapear", () => ({ avisosDeMapeamento: () => [] }));
+vi.mock("@/lib/integracoes/google-agenda", () => ({ googleAppConfigurado: googleAppMock }));
 
 const { default: Integracoes } = await import("./page");
 
@@ -38,6 +40,7 @@ beforeEach(() => {
   listMatriculasMock.mockResolvedValue([]);
   listProdutosMock.mockResolvedValue([]);
   modoDadosMock.mockReturnValue("supabase");
+  googleAppMock.mockReturnValue(false);
 });
 
 describe("Integrações em UAT sintético", () => {
@@ -70,5 +73,36 @@ describe("Integrações em UAT sintético", () => {
 
     expect(html).toMatch(/<details[^>]*id="diagnosticos-completos"[^>]*open/);
     expect(lerAbasMock).not.toHaveBeenCalled();
+  });
+
+  it("mantém a conexão guiada ausente no UAT, sem revelar preparo do OAuth", async () => {
+    googleAppMock.mockReturnValue(true);
+    const html = renderToStaticMarkup(await Integracoes({}));
+
+    expect(html).not.toContain('data-conexao-autonoma="google-calendar"');
+    expect(html).not.toContain('href="/api/agenda/google/entrar"');
+  });
+
+  it("oferece o início OAuth ao cliente só quando o aplicativo Google está preparado", async () => {
+    contaUatMock.mockResolvedValue(false);
+    googleAppMock.mockReturnValue(true);
+
+    const html = renderToStaticMarkup(await Integracoes({}));
+
+    expect(html).toContain('data-conexao-autonoma="google-calendar"');
+    expect(html).toContain("Conecte sua agenda com o Google");
+    expect(html).toContain('href="/api/agenda/google/entrar"');
+    expect(html).toContain("Somente a tela oficial do Google recebe sua senha.");
+  });
+
+  it("não oferece botão falso quando o aplicativo Google ainda não foi preparado", async () => {
+    contaUatMock.mockResolvedValue(false);
+    googleAppMock.mockReturnValue(false);
+
+    const html = renderToStaticMarkup(await Integracoes({}));
+
+    expect(html).toContain('data-conexao-autonoma="google-calendar"');
+    expect(html).toContain("A conexão segura do Google está sendo preparada pela plataforma.");
+    expect(html).not.toContain('href="/api/agenda/google/entrar"');
   });
 });

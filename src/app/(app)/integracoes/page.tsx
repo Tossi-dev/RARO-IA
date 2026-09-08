@@ -22,6 +22,8 @@ import type { Composicao } from "@/lib/composicao";
 import { getDB, modoDados, supabaseConfigurado } from "@/lib/data";
 import { fmtBRLExato, fmtDateTime, fmtNum } from "@/lib/format";
 import { agendaConfigurada, calendarConfigurado } from "@/lib/integracoes/calendar";
+import { googleAppConfigurado } from "@/lib/integracoes/google-agenda";
+import { conexaoAssistidaPorId, inicioAssistido } from "@/lib/integracoes/conexao-assistida";
 import { iaConfigurada } from "@/lib/integracoes/ia";
 import { metaConfigurada, tiktokConfigurado } from "@/lib/integracoes/social";
 import { sttConfigurado } from "@/lib/integracoes/stt";
@@ -102,9 +104,42 @@ function SeloConexao({ conexao }: { conexao: Conexao }) {
   return <span className={`inline-flex shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium ${classe}`}>{texto}</span>;
 }
 
+function ConexaoGoogleAssistida({ oauthPronto }: { oauthPronto: boolean }) {
+  const conexao = conexaoAssistidaPorId("calendar");
+  const inicio = inicioAssistido("calendar");
+  if (!conexao || !inicio) return null;
+
+  return (
+    <section id="conexao-google-calendar" data-conexao-autonoma="google-calendar" className="mt-3 rounded-xl border border-primaria/30 bg-primaria/5 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]">
+      <div className="flex flex-wrap items-start justify-between gap-5">
+        <div className="flex min-w-0 gap-3">
+          <span className="grid size-12 shrink-0 place-items-center rounded-lg border border-primaria/45 bg-poco text-primaria-2"><CalendarDays size={22} strokeWidth={1.6} aria-hidden /></span>
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-primaria-2">Conexão guiada</p>
+            <h2 className="mt-1 text-[19px] font-semibold tracking-[-0.03em]">Conecte sua agenda com o Google</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-texto-2">{conexao.acessa} Você confere as permissões e escolhe a conta diretamente no Google.</p>
+          </div>
+        </div>
+        {oauthPronto ? (
+          <a href={inicio.href} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-primaria px-4 text-sm font-medium text-white shadow-[0_10px_22px_rgba(24,99,255,.25)] transition hover:bg-primaria-2">
+            Conectar Google Calendar <ArrowRight size={16} aria-hidden />
+          </a>
+        ) : (
+          <span className="max-w-sm rounded-lg border border-ouro/35 bg-ouro/10 px-3 py-2 text-sm leading-relaxed text-ouro">A conexão segura do Google está sendo preparada pela plataforma.</span>
+        )}
+      </div>
+      <div className="mt-4 grid gap-3 border-t border-borda pt-4 text-xs leading-relaxed text-texto-2 md:grid-cols-2">
+        <p><span className="font-medium text-texto">Antes de continuar:</span> {conexao.antesDeConectar}</p>
+        <p><span className="font-medium text-texto">Sua senha continua privada:</span> Somente a tela oficial do Google recebe sua senha.</p>
+      </div>
+    </section>
+  );
+}
+
 export default async function Integracoes(props: { searchParams?: { todas?: string } }) {
   const { searchParams } = props ?? {};
   const uatSintetico = await contaUatSinteticaAtual();
+  const googleOauthPronto = !uatSintetico && googleAppConfigurado();
   const db = getDB();
   const podeLerProvider = !uatSintetico || modoDados() === "supabase";
   const [eventos, matriculas, produtos] = podeLerProvider
@@ -313,7 +348,7 @@ export default async function Integracoes(props: { searchParams?: { todas?: stri
 
   return (
     <main data-integracoes-visual="referencia-aprovada" className="mx-auto max-w-[1320px] pb-10">
-      <p className="sr-only">Diagnóstico de integrações. Esta tela não configura serviços, não transmite credenciais e mantém o isolamento da homologação sintética.</p>
+      <p className="sr-only">Diagnóstico de integrações. Esta tela só inicia OAuth seguro quando a plataforma já estiver preparada; não recebe credenciais e mantém o isolamento da homologação sintética.</p>
 
       <header className="mb-7 flex flex-wrap items-end justify-between gap-5">
         <div>
@@ -334,6 +369,8 @@ export default async function Integracoes(props: { searchParams?: { todas?: stri
         <KpiIntegracao rotulo="Eventos processados" valor={fmtNum(processados)} detalhe={demo ? "fluxo simulado" : "na base atual"} tom="ciano"><Activity size={28} strokeWidth={1.6} aria-hidden /></KpiIntegracao>
         <KpiIntegracao rotulo="Conciliação" valor="—" detalhe="não medida sem gateway real" tom="ciano"><CircleDollarSign size={28} strokeWidth={1.6} aria-hidden /></KpiIntegracao>
       </section>
+
+      {!uatSintetico && <ConexaoGoogleAssistida oauthPronto={googleOauthPronto} />}
 
       <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.68fr)_minmax(320px,1fr)]">
         <section id="integracoes-por-area" className="rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]">

@@ -43,6 +43,16 @@ describe("Integrações — referência aprovada", () => {
     expect(pagina).toContain('open={searchParams?.todas === "1"}');
   });
 
+  it("mantém uma central guiada sem campos de segredo", () => {
+    expect(pagina).toContain('data-conexao-autonoma="google-calendar"');
+    expect(pagina).toContain("Conecte sua agenda com o Google");
+    expect(pagina).toContain("Somente a tela oficial do Google recebe sua senha.");
+    expect(pagina).toContain("só inicia OAuth seguro quando a plataforma já estiver preparada");
+    expect(pagina).not.toContain('name="GOOGLE_CLIENT_SECRET"');
+    expect(pagina).not.toContain('name="GROQ_API_KEY"');
+    expect(pagina).not.toContain('name="ANTHROPIC_API_KEY"');
+  });
+
   it("não silencia a faixa global quando a simulação estiver ligada", () => {
     expect(pagina).not.toContain('[data-faixa-simulacao] { display: none; }');
   });
