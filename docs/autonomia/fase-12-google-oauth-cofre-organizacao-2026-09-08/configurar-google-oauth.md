@@ -1,5 +1,15 @@
 # Conectar Google Calendar sem suporte técnico por cliente
 
+> **Registro de produção — 2026-09-09.** O cliente OAuth web foi criado no
+> projeto Google Cloud `raro-ia-508018`, as variáveis server-only foram
+> gravadas no cofre de Production da Vercel e o deploy público ficou `Ready`.
+> Esta configuração usa exclusivamente a URL pública canônica abaixo. Nenhum
+> segredo aparece neste documento, no Git ou em arquivos locais.
+
+> **Validação ainda necessária.** Um gestor real deve concluir o consentimento
+> na tela oficial do Google. As contas sintéticas `audit.invalid` são bloqueadas
+> intencionalmente e não servem para conectar uma agenda real.
+
 ## Resultado esperado
 
 O administrador do MentorOS configura **uma única aplicação OAuth** no Google
@@ -30,10 +40,14 @@ Não envie valores dessas variáveis por chat, e-mail, print ou Git.
    adequado à conta: externo para clientes de organizações diferentes; interno
    somente para um único Google Workspace controlado.
 4. Em **Credenciais**, crie um **ID do cliente OAuth para Aplicativo da Web**.
-5. Registre exatamente estas URIs de redirecionamento, sem barra final extra:
+5. Registre a URI de redirecionamento sem barra final extra. Para o cliente
+   de produção atual, a única URI autorizada é:
 
-   - desenvolvimento local: `http://localhost:3000/api/agenda/google/retorno`
-   - ambiente público: `https://<dominio-publico-do-mentoros>/api/agenda/google/retorno`
+   - `https://raro-ia.vercel.app/api/agenda/google/retorno`
+
+   Um futuro cliente OAuth exclusivamente local pode usar
+   `http://localhost:3000/api/agenda/google/retorno`, mas essa URI não pertence
+   ao cliente de produção e não deve substituir a URI pública.
 
 6. No gerenciador seguro de variáveis do servidor, cadastre sem aspas:
 

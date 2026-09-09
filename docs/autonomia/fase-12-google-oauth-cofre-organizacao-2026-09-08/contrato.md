@@ -3,7 +3,7 @@ tipo: contrato-autonomia
 projeto: RARO IA
 missao_id: fase-12-google-oauth-cofre-organizacao-2026-09-08
 criado: 2026-09-08
-status: aprovado
+status: configuracao-producao-concluida-homologacao-real-pendente
 ---
 
 # Cartão de execução — Google OAuth e cofre por organização
@@ -15,6 +15,21 @@ status: aprovado
 - **Próximo portão externo:** após os testes locais, Tossi autentica diretamente no Google Cloud para criar/configurar o cliente OAuth. O Client Secret será inserido somente pela pessoa administradora no gerenciador seguro de variáveis — nunca no chat ou em arquivo versionado.
 - **Célula / pulso:** até 55 min por tarefa; pulso até 30 min; telemetria sem teto de bloqueio.
 - **Revisão:** obrigatória e independente para código, migration ou comportamento.
+
+## Registro externo autorizado — 2026-09-09
+
+- **Google Cloud:** criado o cliente web `MentorOS — Agenda Google (produção)`
+  no projeto `raro-ia-508018`, com somente a URI de retorno
+  `https://raro-ia.vercel.app/api/agenda/google/retorno`.
+- **Vercel Production:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+  `GOOGLE_TOKEN_ENCRYPTION_KEY` e `NEXT_PUBLIC_SITE_URL` foram configuradas
+  no cofre do projeto. Nenhum valor foi registrado neste contrato, no Git ou
+  em arquivo local.
+- **Publicação:** deploy `dpl_3JnC6bxb1JnD3vNczrbnQcATdCck` ficou `Ready`
+  com o alias `https://raro-ia.vercel.app` em 2026-09-09.
+- **Pendente deliberado:** uma conta real com papel de gestor precisa concluir
+  o consentimento na tela oficial do Google. Contas UAT `audit.invalid`
+  permanecem recusadas para esse fluxo por isolamento de segurança.
 
 <!-- LOOP-CONTRACT:START
 {
