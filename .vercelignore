@@ -11,3 +11,21 @@ _to_delete/
 _entrega/
 *.tar.gz
 docs/
+
+# Caches e builds locais podem ocupar centenas de MB e nunca fazem parte
+# do código-fonte enviado para a Vercel.
+.next/
+.next-*/
+node_modules/
+*.tsbuildinfo
+
+# Sessões locais e credenciais nunca pertencem a um deploy.
+agente-whatsapp/
+agente-whatsapp.zip
+.env
+.env.*
+*.key
+*.pem
+secret-*.txt
+service_role_secret.txt
+*_secret*.txt

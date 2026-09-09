@@ -13,6 +13,8 @@ out/
 *.key
 *.pem
 secret-*.txt
+service_role_secret.txt
+/*_secret*.txt
 *.tsbuildinfo
 
 # vercel
