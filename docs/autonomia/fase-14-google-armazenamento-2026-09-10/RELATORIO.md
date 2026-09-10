@@ -1,5 +1,7 @@
 # T-142 — diagnóstico Google Calendar (2026-09-10)
 
+> Atualização posterior: o usuário substituiu a chave e a revalidação retornou HTTP200/[] nas duas tabelas. Consulte a [continuação T-142V/T-142P](../fase-14-google-validacao-chave-2026-09-10/RELATORIO.md). O restante deste arquivo preserva o diagnóstico anterior, não o estado atualizado da credencial.
+
 ## Resultado
 
 Conexão **ainda não concluída**. Causa confirmada em preflight dentro de Vercel Production: `HTTP 401`, `legacy_disabled` / `chave_legacy_desativada` nas duas tabelas técnicas. A variável `SUPABASE_SERVICE_ROLE_KEY` ainda é recusada como chave legada desativada.
