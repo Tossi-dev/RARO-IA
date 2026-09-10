@@ -28,3 +28,7 @@ GET200/[] comprova o acesso vazio ao schema técnico com a configuração atual.
 A pessoa agora deve abrir [Agenda](https://raro-ia.vercel.app/agenda) e iniciar Conectar com o Google. Login e consentimento não são automatizados em nome dela. Nenhuma migration, alteração de RLS, troca de segredo/cofre, evento Calendar ou heartbeat foi executado.
 
 O histórico anterior permanece na missão fase-14-google-armazenamento-2026-09-10. Esta continuação foi criada porque o controlador não reabre diretamente tarefa pausada; não houve edição retroativa de ledger nem novo congelamento fictício. Telemetria de unidades é estimativa, não consumo medido.
+
+## Fechamento do registro
+
+T-142V e T-142P estão concluídas no ledger, ambas com revisão independente aprovada. Os registros iniciais foram sincronizados em `c624a356e4c4a16a7081ceb78c78b85d2af11f07`, confirmado em `origin/mentoros`. Este complemento espelha o ledger final e as evidências por ele referenciadas. Encerrar estas células não encerra a homologação funcional OAuth, cujo consentimento e retorno seguem pendentes.
