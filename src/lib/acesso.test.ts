@@ -95,6 +95,9 @@ describe("rotaLivre", () => {
     // Sem isto, o portão redireciona /acesso para /acesso, para sempre.
     expect(rotaLivre("/acesso")).toBe(true);
     expect(rotaLivre("/login")).toBe(true);
+    expect(rotaLivre("/criar-conta")).toBe(true);
+    expect(rotaLivre("/auth/confirm")).toBe(true);
+    expect(rotaLivre("/auth/confirm/nao-e-rota-publica")).toBe(false);
     expect(rotaLivre("/privacidade")).toBe(true);
   });
 
