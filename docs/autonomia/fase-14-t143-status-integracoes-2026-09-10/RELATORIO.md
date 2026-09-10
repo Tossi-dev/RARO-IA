@@ -21,3 +21,9 @@ Regressão do coordenador: **108/108 testes em 10 arquivos**, TypeScript exit 0.
 A publicação do reparo é a tarefa T-143P, posterior à aprovação local. Build, candidato, promoção e SHA remoto serão registrados separadamente com evidências reais; este registro inicial não declara deploy.
 
 A liberação OAuth para clientes fora da lista de testadores continua pendente. Ver [preparação do Google público](evidencias/preparacao-oauth-publico.md): política ainda em rascunho, apresentação pública/domínio e revisão de permissões precisam ser preparados. A correção visual do status não publica nem verifica o aplicativo no Google.
+
+## Atualização — publicação executada
+
+O código `9d07f9bffeb99abc9b665c9c41bd30f6b199be45` foi enviado e confirmado em `origin/mentoros`. O build remoto terminou Ready; Sol aprovou o candidato `dpl_2Z3W8dR8rRHjuEg9ziuvmChnnHPj`. Após essa revisão, a promoção retornou Success e o GET exato do alias confirmou `raro-ia.vercel.app` nesse deployment e no projeto correto.
+
+Conferência na sessão do usuário: abrir novamente [Integrações](https://raro-ia.vercel.app/integracoes). A nova UI foi testada em renderização sintética e revisada, mas não inspecionada na sessão real pelo agente. O usuário não precisa refazer a conexão Google por causa da correção. Evidências de candidato, promoção e revisão estão neste diretório; OAuth público permanece pendente.
