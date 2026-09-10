@@ -11,6 +11,12 @@ import { contaUatSinteticaAtual } from "@/lib/uat/isolamento";
 
 export const dynamic = "force-dynamic";
 
+function erroPublicoDaEntrada(motivo: string): string {
+  if (motivo === "nao_autorizado") return "sem-permissao";
+  if (motivo === "cofre_nao_configurado") return "cofre";
+  return "conexao";
+}
+
 export async function GET(req: NextRequest) {
   if (await contaUatSinteticaAtual()) {
     return NextResponse.json({ erro: "não autorizado" }, { status: 403 });
@@ -21,7 +27,10 @@ export async function GET(req: NextRequest) {
 
   const estado = await criarEstadoOAuthGoogle();
   if (!estado.ok) {
-    return NextResponse.redirect(new URL("/agenda?erro=conexao", req.url));
+    // Motivo fechado e sem dados da sessão. O navegador recebe apenas a
+    // categoria pública abaixo, nunca contexto, pessoa, workspace ou segredo.
+    console.warn("google_calendar_oauth_start_failed", { motivo: estado.motivo });
+    return NextResponse.redirect(new URL(`/agenda?erro=${erroPublicoDaEntrada(estado.motivo)}`, req.url));
   }
   // Não use a origem da requisição: em preview ela faria o Google voltar para
   // um domínio efêmero. `urlDeRetorno` usa NEXT_PUBLIC_SITE_URL (ou localhost)

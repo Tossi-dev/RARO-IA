@@ -142,6 +142,10 @@ function CompromissoGrade({ item, horaInicial, data }: { item: EventoNaGrade; ho
 const ERROS: Record<string, string> = {
   "sem-credenciais":
     "O login com o Google ainda não foi habilitado nesta instalação: faltam as credenciais do app.",
+  "sem-permissao":
+    "Somente quem administra este espaço pode conectar a agenda Google. Entre com uma conta de dono ou gestor.",
+  cofre:
+    "A proteção de credenciais da agenda não está configurada corretamente no servidor. Peça à administração para revisar essa configuração.",
   recusado: "Você cancelou na tela do Google. Nada foi conectado.",
   estado: "A volta do Google não bateu com o pedido. Tente entrar de novo.",
   token:
