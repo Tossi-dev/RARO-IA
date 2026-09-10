@@ -89,9 +89,10 @@ describe("retorno OAuth Google", () => {
     expect(resposta.headers.get("location")).toBe("http://localhost:3000/agenda?erro=conexao");
     expect(resposta.headers.get("location")).not.toContain("token-que-nao-pode-vazar");
     expect(resposta.headers.get("location")).not.toContain("erro_de_armazenamento");
-    expect(aviso).toHaveBeenCalledWith("google_calendar_oauth_persist_failed", {
-      motivo: "erro_de_armazenamento",
-    });
+    expect(aviso.mock.calls).toEqual([[
+      "google_calendar_oauth_persist_failed",
+      { motivo: "erro_de_armazenamento" },
+    ]]);
     aviso.mockRestore();
   });
 
