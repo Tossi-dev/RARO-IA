@@ -1,20 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
-const { lerAgendaGoogleMock, lerAgendaIcsMock, contaUatMock } = vi.hoisted(() => ({
+const { lerAgendaGoogleMock, lerAgendaIcsMock, contaUatMock, googleConectadoMock, agendaConfiguradaMock } = vi.hoisted(() => ({
   lerAgendaGoogleMock: vi.fn(),
   lerAgendaIcsMock: vi.fn(),
   contaUatMock: vi.fn(),
+  googleConectadoMock: vi.fn(() => true),
+  agendaConfiguradaMock: vi.fn(() => true),
 }));
 
 vi.mock("@/lib/uat/isolamento", () => ({ contaUatSinteticaAtual: contaUatMock }));
 vi.mock("@/lib/integracoes/google-agenda", () => ({
   googleAppConfigurado: () => true,
-  googleConectado: () => true,
+  googleConectado: googleConectadoMock,
   lerAgendaGoogle: lerAgendaGoogleMock,
 }));
 vi.mock("@/lib/integracoes/calendar", () => ({
-  agendaConfigurada: () => true,
+  agendaConfigurada: agendaConfiguradaMock,
   lerAgenda: lerAgendaIcsMock,
 }));
 vi.mock("@/lib/actions", () => ({ desconectarGoogleAgenda: vi.fn() }));
@@ -24,6 +26,8 @@ const { default: AgendaPage } = await import("./page");
 beforeEach(() => {
   vi.clearAllMocks();
   contaUatMock.mockResolvedValue(true);
+  googleConectadoMock.mockReturnValue(true);
+  agendaConfiguradaMock.mockReturnValue(true);
 });
 
 describe("Agenda em UAT sintético", () => {
@@ -40,6 +44,18 @@ describe("Agenda em UAT sintético", () => {
     expect(html).toContain("Agenda isolada na homologação");
     expect(html).not.toContain("Conectar com o Google");
     expect(html).not.toContain("Endereço secreto no formato iCal");
+  });
+});
+
+describe("Agenda — falha antes do consentimento Google", () => {
+  it("não afirma que o Google autorizou quando a entrada falha", async () => {
+    contaUatMock.mockResolvedValue(false);
+    googleConectadoMock.mockReturnValue(false);
+    agendaConfiguradaMock.mockReturnValue(false);
+    const html = renderToStaticMarkup(await AgendaPage({ searchParams: { erro: "conexao" } }));
+
+    expect(html).toContain("Não foi possível preparar a conexão com o Google neste momento.");
+    expect(html).not.toContain("O Google autorizou a conta");
   });
 });
 
