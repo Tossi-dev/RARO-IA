@@ -140,6 +140,11 @@ export function inicioAssistido(id: string): { tipo: "oauth"; href: string } | n
   return { tipo: "oauth", href: "/api/agenda/google/entrar" };
 }
 
+/** A página consulta este limite sem expor a configuração que o sustenta. */
+export function gatewayConfigurado(): boolean {
+  return Boolean(process.env.WEBHOOK_SECRET);
+}
+
 /**
  * O iCal é uma alternativa legada de leitura. Quando o Calendar foi ligado
  * por OAuth, ele não deve virar uma segunda "conexão" nem bloquear o próximo

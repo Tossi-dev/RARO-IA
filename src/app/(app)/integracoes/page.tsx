@@ -23,7 +23,7 @@ import { getDB, modoDados, supabaseConfigurado } from "@/lib/data";
 import { fmtBRLExato, fmtDateTime, fmtNum } from "@/lib/format";
 import { googleAppConfigurado } from "@/lib/integracoes/google-agenda";
 import { conexaoGoogleAtivaDaOrganizacao, type ResultadoConexaoGoogle } from "@/lib/integracoes/google-conexao-servidor";
-import { conexaoAssistidaPorId, inicioAssistido, proximaConexaoAssistidaPendente, type ConexaoAssistida } from "@/lib/integracoes/conexao-assistida";
+import { conexaoAssistidaPorId, gatewayConfigurado, inicioAssistido, proximaConexaoAssistidaPendente, type ConexaoAssistida } from "@/lib/integracoes/conexao-assistida";
 import { iaConfigurada } from "@/lib/integracoes/ia";
 import { metaConfigurada, tiktokConfigurado } from "@/lib/integracoes/social";
 import { sttConfigurado } from "@/lib/integracoes/stt";
@@ -102,6 +102,55 @@ function SeloConexao({ conexao }: { conexao: Conexao }) {
   const classe = pendente ? conexao.conectado ? "border-ouro/45 bg-ouro/10 text-ouro" : "border-borda bg-poco text-texto-2" : "border-positivo/45 bg-positivo/10 text-positivo";
   const texto = conexao.selo ?? (conexao.conectado ? "Conectada" : "Configurar");
   return <span className={`inline-flex shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium ${classe}`}>{texto}</span>;
+}
+
+type OrientacaoPendente = {
+  motivo: string;
+  responsavel: string;
+  proximoPasso: string;
+};
+
+/** Textos da página principal: orientam sem transformar a tela em manual técnico. */
+function orientacaoPendente(conexao: Conexao, resultadoGoogle: ResultadoConexaoGoogle | null, uatSintetico: boolean): OrientacaoPendente {
+  if (uatSintetico) {
+    return {
+      motivo: "Esta integração está isolada neste login de homologação.",
+      responsavel: "Ambiente de homologação",
+      proximoPasso: "Mantenha a integração suspensa neste login sintético.",
+    };
+  }
+  switch (conexao.id) {
+    case "supabase":
+      return { motivo: "A base segura da organização ainda não está conectada.", responsavel: "Equipe da plataforma", proximoPasso: "Preparar a organização no ambiente seguro antes de usar dados reais." };
+    case "planilha":
+      return conexao.conectado
+        ? { motivo: "A leitura está ativa, mas a escrita ainda não está pronta.", responsavel: "Equipe da plataforma", proximoPasso: "Concluir a preparação da escrita e validar com dados de teste." }
+        : { motivo: "A planilha da operação ainda não está conectada.", responsavel: "Equipe da plataforma", proximoPasso: "Preparar a conexão por organização e validar com dados de teste." };
+    case "gateway":
+      return { motivo: "A confirmação automática de Pix ainda depende da escolha do fornecedor.", responsavel: "Responsável pela operação e equipe da plataforma", proximoPasso: "Definir o fornecedor e aprovar um teste em ambiente de homologação." };
+    case "calendar":
+      if (!resultadoGoogle || resultadoGoogle.ok) return { motivo: "Não há conexão Google ativa confirmada para esta organização.", responsavel: "Administrador da organização", proximoPasso: "Quando a plataforma estiver preparada, usar apenas a tela oficial do Google." };
+      if (resultadoGoogle.motivo === "conexao_revogada") return { motivo: "A conexão Google desta organização foi revogada.", responsavel: "Administrador da organização", proximoPasso: "Reconectar somente pela tela oficial do Google quando for apropriado." };
+      if (resultadoGoogle.motivo === "nao_conectado") return { motivo: "Não há conexão Google ativa confirmada para esta organização.", responsavel: "Administrador da organização", proximoPasso: "Quando a plataforma estiver preparada, usar apenas a tela oficial do Google." };
+      return { motivo: "Não foi possível confirmar o estado da conexão Google desta organização.", responsavel: "Equipe da plataforma", proximoPasso: "Verificar a plataforma antes de qualquer nova tentativa." };
+    case "stt":
+      return { motivo: "A transcrição automática ainda não está disponível para esta organização.", responsavel: "Equipe da plataforma", proximoPasso: "Definir o uso seguro e confirmar os consentimentos antes de habilitar." };
+    case "ia":
+      return { motivo: "O apoio automático por IA ainda não está disponível para esta organização.", responsavel: "Equipe da plataforma", proximoPasso: "Definir o uso seguro e confirmar os consentimentos antes de habilitar." };
+    case "meta":
+      return { motivo: "As métricas de Instagram e Facebook ainda não foram autorizadas.", responsavel: "Equipe da plataforma", proximoPasso: "Preparar a autorização da conta comercial e testar em ambiente seguro." };
+    case "tiktok":
+      return { motivo: "As métricas do TikTok ainda não foram autorizadas.", responsavel: "Equipe da plataforma", proximoPasso: "Preparar a autorização da conta comercial e testar em ambiente seguro." };
+    default:
+      return { motivo: "Esta integração ainda precisa de preparação.", responsavel: "Equipe da plataforma", proximoPasso: "Conferir a preparação segura antes de habilitar." };
+  }
+}
+
+function resumoHumano(conexao: Conexao, resultadoGoogle: ResultadoConexaoGoogle | null, uatSintetico: boolean): string {
+  if (uatSintetico && conexao.id !== "supabase") return "Bloqueada neste login de homologação; nenhuma comunicação externa é realizada.";
+  if (!conexao.conectado || conexao.pendencia) return orientacaoPendente(conexao, resultadoGoogle, uatSintetico).motivo;
+  if (conexao.id === "calendar" && resultadoGoogle?.ok) return "Vínculo autenticado da organização confirmado.";
+  return "Configuração local detectada; homologação com o fornecedor não confirmada.";
 }
 
 function rotuloEstadoDoCatalogo(estado: ConexaoAssistida["estado"]): string {
@@ -232,6 +281,7 @@ export default async function Integracoes(props: { searchParams?: { todas?: stri
   const planilhaEhABase = modoDados() === "planilha";
   const avisosConversao = planilhaEhABase ? avisosDeMapeamento() : [];
 
+  const gatewayConectado = gatewayConfigurado();
   const conexoesConfiguradas: Conexao[] = [
     {
       id: "supabase",
@@ -274,8 +324,8 @@ export default async function Integracoes(props: { searchParams?: { todas?: stri
       id: "gateway",
       nome: "Confirmação automática de Pix",
       categoria: "pagamento",
-      conectado: Boolean(process.env.WEBHOOK_SECRET),
-      detalhe: process.env.WEBHOOK_SECRET
+      conectado: gatewayConectado,
+      detalhe: gatewayConectado
         ? "Endpoint /api/webhooks/pagamento validando assinatura."
         : "Não existe gateway de infoproduto neste negócio: o dono recebe só por Pix. A confirmação automática precisa vir de API de banco, PSP ou agregador de Open Finance — caminho ainda não decidido.",
       passo:
@@ -370,9 +420,6 @@ export default async function Integracoes(props: { searchParams?: { todas?: stri
   const conciliadas = Math.min(vendasEvt.length, matriculas.length);
   const divergencia = 0;
   const processados = eventos.filter((e) => e.status === "processado").length;
-  const idsEmDestaque = new Set(["supabase", "planilha", "calendar", "stt"]);
-  const conexoesDestaque = conexoes.filter((conexao) => idsEmDestaque.has(conexao.id));
-  const conexoesComplementares = conexoes.filter((conexao) => !idsEmDestaque.has(conexao.id));
   const alertasConfiguracao = conexoes.filter((conexao) => !conexao.conectado || Boolean(conexao.pendencia));
   const eventosRecentes = [...eventos].sort((a, b) => b.recebidoEm.localeCompare(a.recebidoEm)).slice(0, 3);
 
@@ -403,7 +450,7 @@ export default async function Integracoes(props: { searchParams?: { todas?: stri
         </div>
         <nav aria-label="Ações de integrações" className="flex flex-wrap items-center justify-end gap-2">
           <a href="#integracoes-por-area" className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-borda px-4 text-sm font-medium text-texto transition hover:border-primaria/60 hover:bg-painel-2"><Settings2 size={18} aria-hidden /> Guia de conexão</a>
-          <a href="/integracoes?todas=1#diagnosticos-completos" className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-borda px-4 text-sm font-medium text-texto transition hover:border-primaria/60 hover:bg-painel-2"><ListChecks size={18} aria-hidden /> Ver todas as integrações</a>
+          <a href="#todas-integracoes-pendentes" className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-borda px-4 text-sm font-medium text-texto transition hover:border-primaria/60 hover:bg-painel-2"><ListChecks size={18} aria-hidden /> Ver todas as integrações</a>
           <a href="#eventos-integracoes" className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-borda px-4 text-sm font-medium text-texto transition hover:border-primaria/60 hover:bg-painel-2"><ListChecks size={18} aria-hidden /> Ver eventos</a>
           <a href="#integracoes-por-area" className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-primaria px-5 text-sm font-medium text-white shadow-[0_10px_22px_rgba(24,99,255,.25)] transition hover:bg-primaria-2"><Link2 size={18} aria-hidden /> Configurar integração</a>
         </nav>
@@ -426,18 +473,18 @@ export default async function Integracoes(props: { searchParams?: { todas?: stri
       )}
 
       <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.68fr)_minmax(320px,1fr)]">
-        <section id="integracoes-por-area" className="rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]">
-          <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Integrações por área</h2>
+        <section id="integracoes-por-area" data-integracoes-inventario="completo" className="rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]">
+          <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Todas as integrações ({conexoes.length})</h2>
           <ul className="mt-4 divide-y divide-borda">
-            {conexoesDestaque.map((conexao) => <li key={conexao.id} className="flex items-center gap-3 py-3.5 first:pt-0 last:pb-0"><span className="grid size-14 shrink-0 place-items-center rounded-lg border border-borda bg-poco text-primaria-2"><IconeConexao id={conexao.id} /></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-texto">{conexao.nome}</span><span className="mt-1 block line-clamp-1 text-xs text-texto-2">{conexao.detalhe}</span></span><SeloConexao conexao={conexao} /><ArrowRight size={16} aria-hidden className="shrink-0 text-texto-3" /></li>)}
+            {conexoes.map((conexao) => <li key={conexao.id} className="flex items-start gap-3 py-3.5 first:pt-0 last:pb-0"><span className="grid size-14 shrink-0 place-items-center rounded-lg border border-borda bg-poco text-primaria-2"><IconeConexao id={conexao.id} /></span><span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-texto">{conexao.nome}</span><span className="mt-1 block text-xs leading-relaxed text-texto-2">{resumoHumano(conexao, conexaoGoogle, uatSintetico)}</span></span><SeloConexao conexao={conexao} /></li>)}
           </ul>
-          {conexoesComplementares.length ? <p className="mt-4 border-t border-borda pt-3 text-xs text-texto-3">Mais {fmtNum(conexoesComplementares.length)} conexão(ões) no diagnóstico completo abaixo.</p> : null}
+          <p className="mt-4 border-t border-borda pt-3 text-xs leading-relaxed text-texto-3">O status mostra a preparação local conhecida nesta abertura. Uma conexão preparada não substitui a homologação com o fornecedor nem executa comunicação externa.</p>
         </section>
 
         <aside className="grid content-start gap-3">
-          <section className="rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]">
-            <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Requer atenção</h2>
-            {alertasConfiguracao.length ? <ul className="mt-3 divide-y divide-borda">{alertasConfiguracao.slice(0, 2).map((conexao) => <li key={conexao.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"><CircleAlert size={22} aria-hidden className="mt-0.5 shrink-0 text-ouro" /><span className="min-w-0 flex-1"><span className="block text-sm font-medium">{conexao.nome}</span><span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-texto-2">{conexao.pendencia ?? conexao.passo}</span></span><ArrowRight size={16} aria-hidden className="mt-1 shrink-0 text-texto-3" /></li>)}</ul> : <p className="mt-4 text-sm text-texto-3">Nenhuma configuração pendente neste momento.</p>}
+          <section id="todas-integracoes-pendentes" data-integracoes-pendentes="todas" className="rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]">
+            <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Todas as integrações pendentes ({alertasConfiguracao.length})</h2>
+            {alertasConfiguracao.length ? <ul className="mt-3 divide-y divide-borda">{alertasConfiguracao.map((conexao) => { const orientacao = orientacaoPendente(conexao, conexaoGoogle, uatSintetico); return <li key={conexao.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"><CircleAlert size={22} aria-hidden className="mt-0.5 shrink-0 text-ouro" /><span className="min-w-0 flex-1"><span className="block text-sm font-medium">{conexao.nome}</span><span className="mt-1 block text-xs leading-relaxed text-texto-2">{orientacao.motivo}</span><span className="mt-1 block text-xs leading-relaxed text-texto-2"><strong className="font-medium text-texto">Quem resolve:</strong> {orientacao.responsavel}</span><span className="mt-1 block text-xs leading-relaxed text-texto-2"><strong className="font-medium text-texto">Próximo passo seguro:</strong> {orientacao.proximoPasso}</span></span></li>; })}</ul> : <p className="mt-4 text-sm text-texto-3">Nenhuma integração pendente neste momento.</p>}
           </section>
 
           <section className="rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]">

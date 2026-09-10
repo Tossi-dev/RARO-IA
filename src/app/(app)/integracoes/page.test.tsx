@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
-const { lerAbasMock, contaUatMock, listEventosMock, listMatriculasMock, listProdutosMock, modoDadosMock, googleAppMock, googleConexaoMock, sheetsConfiguradoMock, sheetsEscritaConfiguradaMock } = vi.hoisted(() => ({
+const { lerAbasMock, contaUatMock, listEventosMock, listMatriculasMock, listProdutosMock, modoDadosMock, googleAppMock, googleConexaoMock, sheetsConfiguradoMock, sheetsEscritaConfiguradaMock, sttConfiguradoMock, iaConfiguradaMock, metaConfiguradaMock, tiktokConfiguradoMock, gatewayConfiguradoMock } = vi.hoisted(() => ({
   lerAbasMock: vi.fn(),
   contaUatMock: vi.fn(),
   listEventosMock: vi.fn(),
@@ -12,6 +12,11 @@ const { lerAbasMock, contaUatMock, listEventosMock, listMatriculasMock, listProd
   googleConexaoMock: vi.fn(),
   sheetsConfiguradoMock: vi.fn(),
   sheetsEscritaConfiguradaMock: vi.fn(),
+  sttConfiguradoMock: vi.fn(),
+  iaConfiguradaMock: vi.fn(),
+  metaConfiguradaMock: vi.fn(),
+  tiktokConfiguradoMock: vi.fn(),
+  gatewayConfiguradoMock: vi.fn(),
 }));
 
 vi.mock("@/lib/uat/isolamento", () => ({ contaUatSinteticaAtual: contaUatMock }));
@@ -33,11 +38,28 @@ vi.mock("@/lib/data", () => ({
 vi.mock("@/lib/sheets/mapear", () => ({ avisosDeMapeamento: () => [] }));
 vi.mock("@/lib/integracoes/google-agenda", () => ({ googleAppConfigurado: googleAppMock }));
 vi.mock("@/lib/integracoes/google-conexao-servidor", () => ({ conexaoGoogleAtivaDaOrganizacao: googleConexaoMock }));
+vi.mock("@/lib/integracoes/stt", () => ({ sttConfigurado: sttConfiguradoMock }));
+vi.mock("@/lib/integracoes/ia", () => ({ iaConfigurada: iaConfiguradaMock }));
+vi.mock("@/lib/integracoes/social", () => ({ metaConfigurada: metaConfiguradaMock, tiktokConfigurado: tiktokConfiguradoMock }));
+vi.mock("@/lib/integracoes/conexao-assistida", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/integracoes/conexao-assistida")>()),
+  gatewayConfigurado: gatewayConfiguradoMock,
+}));
 
 const { default: Integracoes } = await import("./page");
 
 function blocoConexaoGuiada(html: string): string {
   return html.match(/<section id="conexao-google-calendar"[\s\S]*?<\/section>/)?.[0] ?? "";
+}
+
+function paginaPrincipal(html: string): string {
+  const inicio = html.indexOf('data-integracoes-inventario="completo"');
+  return html.slice(inicio, html.indexOf("<aside", inicio));
+}
+
+function pendenciasVisiveis(html: string): string {
+  const inicio = html.indexOf('data-integracoes-pendentes="todas"');
+  return html.slice(inicio, html.indexOf("</aside>", inicio));
 }
 
 beforeEach(() => {
@@ -52,6 +74,11 @@ beforeEach(() => {
   googleConexaoMock.mockResolvedValue({ ok: false, motivo: "nao_conectado" });
   sheetsConfiguradoMock.mockReturnValue(true);
   sheetsEscritaConfiguradaMock.mockReturnValue(true);
+  sttConfiguradoMock.mockReturnValue(false);
+  iaConfiguradaMock.mockReturnValue(false);
+  metaConfiguradaMock.mockReturnValue(false);
+  tiktokConfiguradoMock.mockReturnValue(false);
+  gatewayConfiguradoMock.mockReturnValue(false);
 });
 
 describe("Integrações em UAT sintético", () => {
@@ -172,5 +199,116 @@ describe("Integrações em UAT sintético", () => {
     expect(html).toContain('data-conexao-autonoma="google-calendar"');
     expect(html).toContain("A conexão segura do Google está sendo preparada pela plataforma.");
     expect(html).not.toContain('href="/api/agenda/google/entrar"');
+  });
+
+  it("mantém o inventário inteiro e todas as pendências visíveis antes do diagnóstico", async () => {
+    const html = renderToStaticMarkup(await Integracoes({}));
+    const principal = paginaPrincipal(html);
+    const pendencias = pendenciasVisiveis(html);
+    const nomes = [
+      "Supabase (banco de dados)",
+      "Planilha do Google (Base_Financeira_Operacao)",
+      "Confirmação automática de Pix",
+      "Google Calendar",
+      "Transcrição de áudio (Groq Whisper)",
+      "IA de resumo e copy (Anthropic)",
+      "Instagram / Facebook (Meta)",
+      "TikTok",
+    ];
+
+    for (const nome of nomes) {
+      expect(principal).toContain(nome);
+    }
+    expect((principal.match(/<li(?: |>)/g) ?? [])).toHaveLength(8);
+    expect(principal).not.toContain('data-integracoes-pendentes="todas"');
+    for (const nome of nomes.slice(1)) expect(pendencias).toContain(nome);
+    expect(pendencias).not.toContain("Supabase (banco de dados)");
+    expect(pendencias).toContain("Todas as integrações pendentes");
+    expect(pendencias).toContain("Todas as integrações pendentes (7)");
+    expect(html).toContain('href="#todas-integracoes-pendentes"');
+    expect(html).toContain('id="todas-integracoes-pendentes"');
+    expect(pendencias).not.toContain("RARO_SHEETS_");
+    expect(pendencias).toContain("Quem resolve");
+    expect(pendencias).toContain("Próximo passo seguro");
+  });
+
+  it("inclui uma conexão parcial e exclui Google conectado das pendências visíveis", async () => {
+    contaUatMock.mockResolvedValue(false);
+    googleConexaoMock.mockResolvedValue({ ok: true });
+    sheetsEscritaConfiguradaMock.mockReturnValue(false);
+
+    const pendencias = pendenciasVisiveis(renderToStaticMarkup(await Integracoes({})));
+
+    expect(pendencias).toContain("Planilha do Google (Base_Financeira_Operacao)");
+    expect(pendencias).toContain("A leitura está ativa, mas a escrita ainda não está pronta.");
+    expect(pendencias).not.toContain("Google Calendar</span>");
+  });
+
+  it("mantém o inventário e as pendências explicitamente isolados no UAT", async () => {
+    const html = renderToStaticMarkup(await Integracoes({}));
+    const inventario = paginaPrincipal(html);
+    const pendencias = pendenciasVisiveis(html);
+
+    expect((inventario.match(/<li(?: |>)/g) ?? [])).toHaveLength(8);
+    expect(inventario).toContain("Bloqueada neste login de homologação");
+    expect(pendencias).toContain("Esta integração está isolada neste login de homologação.");
+    expect(pendencias).toContain("Ambiente de homologação");
+    expect(pendencias).not.toContain("Conectar Google Calendar");
+    expect(pendencias).not.toContain("testar com dados de teste");
+  });
+
+  it("não contradiz o Supabase permitido no inventário do UAT", async () => {
+    const inventario = paginaPrincipal(renderToStaticMarkup(await Integracoes({})));
+    const inicioSupabase = inventario.indexOf("Supabase (banco de dados)");
+    const linhaSupabase = inventario.slice(inicioSupabase, inventario.indexOf("Planilha do Google", inicioSupabase));
+
+    expect(linhaSupabase).toContain("Configuração local detectada; homologação com o fornecedor não confirmada.");
+    expect(linhaSupabase).not.toContain("Bloqueada neste login de homologação");
+  });
+
+  it.each([
+    ["conexao_revogada", "A conexão Google desta organização foi revogada."],
+    ["erro_de_armazenamento", "Não foi possível confirmar o estado da conexão Google desta organização."],
+    ["nao_autorizado", "Não foi possível confirmar o estado da conexão Google desta organização."],
+  ] as const)("fecha o motivo da pendência Google em %s", async (motivo, esperado) => {
+    contaUatMock.mockResolvedValue(false);
+    googleConexaoMock.mockResolvedValue({ ok: false, motivo });
+
+    const pendencias = pendenciasVisiveis(renderToStaticMarkup(await Integracoes({})));
+
+    expect(pendencias).toContain(esperado);
+    expect(pendencias).not.toContain("Esta organização ainda não autorizou o Google Calendar.");
+    expect(pendencias).not.toContain("Google conectado");
+  });
+
+  it("não confunde flags globais com vínculo ou homologação da organização", async () => {
+    contaUatMock.mockResolvedValue(false);
+    googleConexaoMock.mockResolvedValue({ ok: true });
+    gatewayConfiguradoMock.mockReturnValue(true);
+    sttConfiguradoMock.mockReturnValue(true);
+    iaConfiguradaMock.mockReturnValue(true);
+    metaConfiguradaMock.mockReturnValue(true);
+    tiktokConfiguradoMock.mockReturnValue(true);
+
+    const inventario = paginaPrincipal(renderToStaticMarkup(await Integracoes({})));
+
+    expect(inventario).toContain("Vínculo autenticado da organização confirmado.");
+    expect(inventario).toContain("Configuração local detectada; homologação com o fornecedor não confirmada.");
+    expect(inventario).not.toContain("Conexão ativa para esta organização.");
+  });
+
+  it("mostra o estado vazio honesto quando as oito integrações estão completas", async () => {
+    contaUatMock.mockResolvedValue(false);
+    googleConexaoMock.mockResolvedValue({ ok: true });
+    gatewayConfiguradoMock.mockReturnValue(true);
+    sttConfiguradoMock.mockReturnValue(true);
+    iaConfiguradaMock.mockReturnValue(true);
+    metaConfiguradaMock.mockReturnValue(true);
+    tiktokConfiguradoMock.mockReturnValue(true);
+
+    const principal = pendenciasVisiveis(renderToStaticMarkup(await Integracoes({})));
+
+    expect(principal).toContain("Todas as integrações pendentes (0)");
+    expect(principal).toContain("Nenhuma integração pendente neste momento.");
   });
 });

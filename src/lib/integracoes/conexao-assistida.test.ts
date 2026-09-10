@@ -4,6 +4,7 @@ import {
   conexaoAssistidaPorId,
   INTEGRACOES_ASSISTIDAS,
   inicioAssistido,
+  gatewayConfigurado,
   proximaConexaoAssistidaPendente,
   type IdConexaoAssistida,
 } from "./conexao-assistida";
@@ -59,5 +60,9 @@ describe("catálogo de conexão assistida", () => {
 
   it("não inventa uma próxima conexão quando todas já foram tratadas", () => {
     expect(proximaConexaoAssistidaPendente(IDS_ESPERADOS)).toBeNull();
+  });
+
+  it("expõe apenas uma resposta booleana para o estado do gateway", () => {
+    expect(typeof gatewayConfigurado()).toBe("boolean");
   });
 });
