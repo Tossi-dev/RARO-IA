@@ -27,3 +27,7 @@ A liberação OAuth para clientes fora da lista de testadores continua pendente.
 O código `9d07f9bffeb99abc9b665c9c41bd30f6b199be45` foi enviado e confirmado em `origin/mentoros`. O build remoto terminou Ready; Sol aprovou o candidato `dpl_2Z3W8dR8rRHjuEg9ziuvmChnnHPj`. Após essa revisão, a promoção retornou Success e o GET exato do alias confirmou `raro-ia.vercel.app` nesse deployment e no projeto correto.
 
 Conferência na sessão do usuário: abrir novamente [Integrações](https://raro-ia.vercel.app/integracoes). A nova UI foi testada em renderização sintética e revisada, mas não inspecionada na sessão real pelo agente. O usuário não precisa refazer a conexão Google por causa da correção. Evidências de candidato, promoção e revisão estão neste diretório; OAuth público permanece pendente.
+
+T-143 e T-143P concluídas no ledger após as revisões independentes. Os snapshots de evidências e seus hashes foram preservados no espelho documental. Telemetria: 5 unidades estimadas, não medição de cobrança. O fechamento documental não exige novo deploy nem reativa o heartbeat.
+
+Integridade do arquivo histórico: o snapshot inicial `20260910T200354920Z-T-143-executor-validacao-t143.md` mantém sua linha vazia final para preservar o SHA-256 registrado no ledger. É a única exceção documental ao aviso `blank-at-eof`; os seis hashes de evidência foram conferidos.
