@@ -21,9 +21,9 @@ import { Badge, Card, PageHeader, Stat, Tabela, Td, Th, Vazio, type Tom } from "
 import type { Composicao } from "@/lib/composicao";
 import { getDB, modoDados, supabaseConfigurado } from "@/lib/data";
 import { fmtBRLExato, fmtDateTime, fmtNum } from "@/lib/format";
-import { agendaConfigurada, calendarConfigurado } from "@/lib/integracoes/calendar";
 import { googleAppConfigurado } from "@/lib/integracoes/google-agenda";
-import { conexaoAssistidaPorId, inicioAssistido } from "@/lib/integracoes/conexao-assistida";
+import { conexaoGoogleAtivaDaOrganizacao, type ResultadoConexaoGoogle } from "@/lib/integracoes/google-conexao-servidor";
+import { conexaoAssistidaPorId, inicioAssistido, proximaConexaoAssistidaPendente, type ConexaoAssistida } from "@/lib/integracoes/conexao-assistida";
 import { iaConfigurada } from "@/lib/integracoes/ia";
 import { metaConfigurada, tiktokConfigurado } from "@/lib/integracoes/social";
 import { sttConfigurado } from "@/lib/integracoes/stt";
@@ -104,10 +104,29 @@ function SeloConexao({ conexao }: { conexao: Conexao }) {
   return <span className={`inline-flex shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium ${classe}`}>{texto}</span>;
 }
 
-function ConexaoGoogleAssistida({ oauthPronto }: { oauthPronto: boolean }) {
+function rotuloEstadoDoCatalogo(estado: ConexaoAssistida["estado"]): string {
+  if (estado === "em_preparacao") return "Em preparação";
+  if (estado === "decisao_pendente") return "Aguardando definição";
+  return "Disponível quando preparada";
+}
+
+function ConexaoGoogleAssistida({
+  oauthPronto,
+  resultado,
+  proxima,
+  pendenciaOperacional,
+}: {
+  oauthPronto: boolean;
+  resultado: ResultadoConexaoGoogle;
+  proxima: ConexaoAssistida | null;
+  pendenciaOperacional?: string;
+}) {
   const conexao = conexaoAssistidaPorId("calendar");
   const inicio = inicioAssistido("calendar");
   if (!conexao || !inicio) return null;
+  const revogada = !resultado.ok && resultado.motivo === "conexao_revogada";
+  const naoConectada = !resultado.ok && resultado.motivo === "nao_conectado";
+  const falhaFechada = !resultado.ok && !revogada && !naoConectada;
 
   return (
     <section id="conexao-google-calendar" data-conexao-autonoma="google-calendar" className="mt-3 rounded-xl border border-primaria/30 bg-primaria/5 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]">
@@ -116,21 +135,47 @@ function ConexaoGoogleAssistida({ oauthPronto }: { oauthPronto: boolean }) {
           <span className="grid size-12 shrink-0 place-items-center rounded-lg border border-primaria/45 bg-poco text-primaria-2"><CalendarDays size={22} strokeWidth={1.6} aria-hidden /></span>
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-primaria-2">Conexão guiada</p>
-            <h2 className="mt-1 text-[19px] font-semibold tracking-[-0.03em]">Conecte sua agenda com o Google</h2>
-            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-texto-2">{conexao.acessa} Você confere as permissões e escolhe a conta diretamente no Google.</p>
+            <h2 className="mt-1 text-[19px] font-semibold tracking-[-0.03em]">{resultado.ok ? "Google conectado" : "Conecte sua agenda com o Google"}</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-texto-2">
+              {resultado.ok
+                ? "Esta organização já autorizou uma conta Google. A leitura e a criação de eventos de sessão usam este mesmo vínculo; o iCal legado não é necessário."
+                : revogada
+                  ? "A conexão Google desta organização foi revogada. Reconecte somente pela tela oficial do Google."
+                  : naoConectada
+                    ? `${conexao.acessa} Você confere as permissões e escolhe a conta diretamente no Google.`
+                    : "Não foi possível confirmar a conexão Google desta organização agora. Nenhum status de sucesso foi assumido."}
+            </p>
           </div>
         </div>
-        {oauthPronto ? (
+        {resultado.ok ? (
+          <div className="flex flex-wrap gap-2">
+            <a href="/agenda" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-primaria px-4 text-sm font-medium text-white shadow-[0_10px_22px_rgba(24,99,255,.25)] transition hover:bg-primaria-2">
+              Ver agenda <ArrowRight size={16} aria-hidden />
+            </a>
+            <a href="/agenda" className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-borda px-4 text-sm font-medium text-texto transition hover:border-primaria/60 hover:bg-painel-2">
+              Gerenciar conexão
+            </a>
+          </div>
+        ) : oauthPronto && !falhaFechada ? (
           <a href={inicio.href} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-primaria px-4 text-sm font-medium text-white shadow-[0_10px_22px_rgba(24,99,255,.25)] transition hover:bg-primaria-2">
-            Conectar Google Calendar <ArrowRight size={16} aria-hidden />
+            {revogada ? "Reconectar Google Calendar" : "Conectar Google Calendar"} <ArrowRight size={16} aria-hidden />
           </a>
         ) : (
-          <span className="max-w-sm rounded-lg border border-ouro/35 bg-ouro/10 px-3 py-2 text-sm leading-relaxed text-ouro">A conexão segura do Google está sendo preparada pela plataforma.</span>
+          <span className="max-w-sm rounded-lg border border-ouro/35 bg-ouro/10 px-3 py-2 text-sm leading-relaxed text-ouro">{falhaFechada ? "Confira a sessão e a configuração segura da plataforma antes de tentar novamente." : "A conexão segura do Google está sendo preparada pela plataforma."}</span>
         )}
       </div>
       <div className="mt-4 grid gap-3 border-t border-borda pt-4 text-xs leading-relaxed text-texto-2 md:grid-cols-2">
-        <p><span className="font-medium text-texto">Antes de continuar:</span> {conexao.antesDeConectar}</p>
-        <p><span className="font-medium text-texto">Sua senha continua privada:</span> Somente a tela oficial do Google recebe sua senha.</p>
+        {resultado.ok ? (
+          <>
+            <p><span className="font-medium text-texto">Próxima integração:</span> {proxima ? `${proxima.nome} — ${rotuloEstadoDoCatalogo(proxima.estado)}. ${pendenciaOperacional ?? proxima.antesDeConectar}` : "Nenhuma pendência disponível no catálogo atual."}</p>
+            <p><span className="font-medium text-texto">Próximo passo:</span> {proxima ? pendenciaOperacional ?? proxima.proximoPasso : "As opções do catálogo já foram concluídas ou tratadas como opcionais."}</p>
+          </>
+        ) : (
+          <>
+            <p><span className="font-medium text-texto">Antes de continuar:</span> {conexao.antesDeConectar}</p>
+            <p><span className="font-medium text-texto">Sua senha continua privada:</span> Somente a tela oficial do Google recebe sua senha.</p>
+          </>
+        )}
       </div>
     </section>
   );
@@ -140,6 +185,14 @@ export default async function Integracoes(props: { searchParams?: { todas?: stri
   const { searchParams } = props ?? {};
   const uatSintetico = await contaUatSinteticaAtual();
   const googleOauthPronto = !uatSintetico && googleAppConfigurado();
+  // A UI recebe somente o resultado fechado da consulta autenticada por
+  // organização; a função não seleciona nem desserializa tokens ou eventos.
+  const conexaoGoogle = uatSintetico
+    ? null
+    : await conexaoGoogleAtivaDaOrganizacao().catch((): ResultadoConexaoGoogle => ({
+        ok: false,
+        motivo: "erro_de_armazenamento",
+      }));
   const db = getDB();
   const podeLerProvider = !uatSintetico || modoDados() === "supabase";
   const [eventos, matriculas, produtos] = podeLerProvider
@@ -229,33 +282,16 @@ export default async function Integracoes(props: { searchParams?: { todas?: stri
         "Escolher por onde o Pix é confirmado: API de banco (Inter/Sicoob/BB — mais barato, exige conta PJ), PSP (aceita PF, taxa maior) ou Open Finance (lê PF, consentimento vence). Depois definir WEBHOOK_SECRET e apontar o webhook para /api/webhooks/pagamento.",
     },
     {
-      id: "agenda-leitura",
-      nome: "Agenda do Google (leitura)",
-      categoria: "agenda",
-      conectado: agendaConfigurada(),
-      detalhe: agendaConfigurada()
-        ? "A tela /agenda lê os compromissos direto do calendário, em dia, semana e mês."
-        : "A tela /agenda existe, mas está sem calendário para ler.",
-      passo:
-        "Google Agenda → três pontinhos do calendário → Configurações e compartilhamento → Integrar agenda → copiar o Endereço secreto no formato iCal e gravar em RARO_AGENDA_ICS_URL. Não exige projeto no Google Cloud nem tela de autorização — e é SÓ LEITURA.",
-    },
-    {
       id: "calendar",
-      nome: "Google Calendar (criar reunião)",
+      nome: "Google Calendar",
       categoria: "agenda",
-      conectado: calendarConfigurado(),
-      // Esta linha fala do caminho por VARIÁVEL DE AMBIENTE
-      // (GOOGLE_REFRESH_TOKEN, em `integracoes/calendar.ts`) — a conta fixa do
-      // negócio, que cria reunião sem ninguém logar. Ela não fala do caminho
-      // do cookie (`google-agenda.ts` + `google-agenda-escrita.ts`), que desde
-      // a Tarefa 15 escreve o evento das sessões. A frase antiga ("ainda não
-      // escreve no Google — só leitura está ligada") era verdadeira sobre ESTE
-      // caminho, mas aparecia colada na linha da agenda do Google e se lia
-      // como "o sistema não escreve na sua agenda", o que virou falso.
-      detalhe: calendarConfigurado()
-        ? "Reuniões criadas direto na agenda conectada (conta fixa do negócio, por variável de ambiente)."
-        : "Este caminho — a conta fixa do negócio, por GOOGLE_REFRESH_TOKEN — ainda não cria reunião. A agenda conectada pelo login do Google (tela /agenda) é outra conexão, e essa já escreve o evento das sessões sincronizadas.",
-      passo: "Definir GOOGLE_CLIENT_ID/SECRET + refresh token do calendário do Jefson.",
+      conectado: conexaoGoogle?.ok ?? false,
+      detalhe: conexaoGoogle?.ok
+        ? "Conectada por OAuth para esta organização; lê a agenda e cria os eventos de sessão autorizados."
+        : "Sem conexão OAuth ativa para esta organização. O iCal legado, quando existir, continua sendo apenas uma alternativa separada de leitura.",
+      passo: "Conectar pela tela oficial do Google quando a plataforma estiver preparada para esta organização.",
+      selo: conexaoGoogle?.ok ? "Conectada" : "Não conectada",
+      seloTom: conexaoGoogle?.ok ? "verde" : "cinza",
     },
     {
       id: "stt",
@@ -312,6 +348,16 @@ export default async function Integracoes(props: { searchParams?: { todas?: stri
   const nomesAtivas = conexoes.filter((c) => c.conectado).map((c) => c.nome);
   const nomesPendentes = conexoes.filter((c) => !c.conectado).map((c) => c.nome);
   const nomesPelaMetade = conexoes.filter((c) => c.conectado && c.pendencia).map((c) => c.nome);
+  const idsConcluidosNoCatalogo = conexoesConfiguradas
+    .filter((conexao) => conexao.conectado && !conexao.pendencia)
+    .map((conexao) => conexao.id);
+  if (conexaoGoogle?.ok) idsConcluidosNoCatalogo.push("agenda-leitura");
+  const proximaConexao = proximaConexaoAssistidaPendente(idsConcluidosNoCatalogo);
+  const pendenciaDaProxima = conexoesConfiguradas.find((conexao) => conexao.id === proximaConexao?.id)?.pendencia;
+  const orientacaoGuiadaDaProxima =
+    proximaConexao?.id === "planilha" && pendenciaDaProxima
+      ? "A leitura já está ativa; a escrita ainda precisa ser preparada pela plataforma. Você não precisa fornecer chaves."
+      : pendenciaDaProxima;
 
   // ---- conciliação: eventos do gateway × vendas registradas ----
   const vendasEvt = eventos.filter((e) => e.tipo === "venda" && e.status === "processado");
@@ -324,7 +370,7 @@ export default async function Integracoes(props: { searchParams?: { todas?: stri
   const conciliadas = Math.min(vendasEvt.length, matriculas.length);
   const divergencia = 0;
   const processados = eventos.filter((e) => e.status === "processado").length;
-  const idsEmDestaque = new Set(["supabase", "planilha", "agenda-leitura", "stt"]);
+  const idsEmDestaque = new Set(["supabase", "planilha", "calendar", "stt"]);
   const conexoesDestaque = conexoes.filter((conexao) => idsEmDestaque.has(conexao.id));
   const conexoesComplementares = conexoes.filter((conexao) => !idsEmDestaque.has(conexao.id));
   const alertasConfiguracao = conexoes.filter((conexao) => !conexao.conectado || Boolean(conexao.pendencia));
@@ -370,7 +416,14 @@ export default async function Integracoes(props: { searchParams?: { todas?: stri
         <KpiIntegracao rotulo="Conciliação" valor="—" detalhe="não medida sem gateway real" tom="ciano"><CircleDollarSign size={28} strokeWidth={1.6} aria-hidden /></KpiIntegracao>
       </section>
 
-      {!uatSintetico && <ConexaoGoogleAssistida oauthPronto={googleOauthPronto} />}
+      {!uatSintetico && (
+        <ConexaoGoogleAssistida
+          oauthPronto={googleOauthPronto}
+          resultado={conexaoGoogle!}
+          proxima={proximaConexao}
+          pendenciaOperacional={orientacaoGuiadaDaProxima}
+        />
+      )}
 
       <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.68fr)_minmax(320px,1fr)]">
         <section id="integracoes-por-area" className="rounded-xl border border-borda bg-painel/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,.12)]">
@@ -417,8 +470,8 @@ export default async function Integracoes(props: { searchParams?: { todas?: stri
           deltaPct={null}
           hint=""
           formato="numero"
-          composicao={`${ativas} de ${conexoes.length} integrações mapeadas estão conectadas. De pé: ${nomesAtivas.join(", ") || "nenhuma"}. Ainda desligadas: ${nomesPendentes.join(", ") || "nenhuma"}.${nomesPelaMetade.length ? ` Conectadas pela metade (contam como de pé, mas ainda têm pendência): ${nomesPelaMetade.join(", ")}.` : ""} O status não vem do banco: cada linha é a checagem de presença da variável de ambiente correspondente, feita a cada carregamento da página.`}
-          origem="Checagem de variáveis de ambiente em tempo de requisição: supabaseConfigurado(), sheetsConfigurado(), WEBHOOK_SECRET, calendarConfigurado(), sttConfigurado(), iaConfigurada(), metaConfigurada() e tiktokConfigurado() · lista fixa de 8 integrações do Módulo J"
+          composicao={`${ativas} de ${conexoes.length} integrações mapeadas estão conectadas. De pé: ${nomesAtivas.join(", ") || "nenhuma"}. Ainda desligadas: ${nomesPendentes.join(", ") || "nenhuma"}.${nomesPelaMetade.length ? ` Conectadas pela metade (contam como de pé, mas ainda têm pendência): ${nomesPelaMetade.join(", ")}.` : ""} Google Calendar usa a checagem autenticada do vínculo desta organização, sem expor token nem consultar eventos; as demais linhas usam suas verificações locais.`}
+          origem="Checagem em tempo de requisição: supabaseConfigurado(), sheetsConfigurado(), WEBHOOK_SECRET, conexaoGoogleAtivaDaOrganizacao(), sttConfigurado(), iaConfigurada(), metaConfigurada() e tiktokConfigurado() · lista fixa de integrações do Módulo J"
         />
         {/* total de eventos = processados + pendentes + com erro (o status só
             admite estes três valores, então a soma fecha exatamente) */}

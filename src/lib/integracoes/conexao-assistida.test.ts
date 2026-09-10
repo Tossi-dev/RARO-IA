@@ -4,6 +4,7 @@ import {
   conexaoAssistidaPorId,
   INTEGRACOES_ASSISTIDAS,
   inicioAssistido,
+  proximaConexaoAssistidaPendente,
   type IdConexaoAssistida,
 } from "./conexao-assistida";
 
@@ -47,5 +48,16 @@ describe("catálogo de conexão assistida", () => {
     expect(conexaoAssistidaPorId("tiktok")?.modo).toBe("oauth");
     expect(conexaoAssistidaPorId("planilha")?.modo).toBe("oauth");
     expect(conexaoAssistidaPorId("gateway")?.modo).toBe("decisao_de_fornecedor");
+  });
+
+  it("pula o iCal opcional quando o OAuth do Calendar já cobre a leitura", () => {
+    expect(proximaConexaoAssistidaPendente(["supabase", "calendar"])).toMatchObject({
+      id: "planilha",
+      estado: "em_preparacao",
+    });
+  });
+
+  it("não inventa uma próxima conexão quando todas já foram tratadas", () => {
+    expect(proximaConexaoAssistidaPendente(IDS_ESPERADOS)).toBeNull();
   });
 });

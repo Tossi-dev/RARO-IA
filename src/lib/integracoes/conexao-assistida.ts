@@ -139,3 +139,16 @@ export function inicioAssistido(id: string): { tipo: "oauth"; href: string } | n
   if (id !== "calendar") return null;
   return { tipo: "oauth", href: "/api/agenda/google/entrar" };
 }
+
+/**
+ * O iCal é uma alternativa legada de leitura. Quando o Calendar foi ligado
+ * por OAuth, ele não deve virar uma segunda "conexão" nem bloquear o próximo
+ * item útil do catálogo.
+ */
+export function proximaConexaoAssistidaPendente(
+  concluidas: readonly string[],
+): ConexaoAssistida | null {
+  const concluidasSet = new Set(concluidas);
+  if (concluidasSet.has("calendar")) concluidasSet.add("agenda-leitura");
+  return INTEGRACOES_ASSISTIDAS.find((conexao) => !concluidasSet.has(conexao.id)) ?? null;
+}
