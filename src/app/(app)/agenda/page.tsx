@@ -147,7 +147,7 @@ const ERROS: Record<string, string> = {
   token:
     "O Google aceitou o login mas recusou a troca de credenciais. Quase sempre é a URL de retorno cadastrada no Google Cloud diferente da URL do site.",
   conexao:
-    "Não foi possível concluir a conexão com o Google. Confirme que você é gestor desta organização e tente novamente.",
+    "O Google autorizou a conta, mas o MentorOS não conseguiu salvar a conexão protegida. Tente novamente; se persistir, peça à administração para verificar a configuração do servidor.",
 };
 
 export default async function AgendaPage({

@@ -53,5 +53,10 @@ export async function GET(req: NextRequest) {
     refreshToken: r.refreshToken,
     escopos: ESCOPO_AGENDA.split(" "),
   });
+  if (!persistencia.ok) {
+    // Categoria operacional permitida: suficiente para a equipe corrigir a
+    // configuração, sem registrar código OAuth, token, pessoa ou workspace.
+    console.warn("google_calendar_oauth_persist_failed", { motivo: persistencia.motivo });
+  }
   return persistencia.ok ? paraAgenda("?conectado=1") : paraAgenda("?erro=conexao");
 }

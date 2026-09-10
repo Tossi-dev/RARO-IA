@@ -80,14 +80,19 @@ describe("retorno OAuth Google", () => {
   });
 
   it("não expõe token nem motivo interno quando o cofre recusa a persistência", async () => {
+    const aviso = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     trocarCodigoPorTokensMock.mockResolvedValue({ ok: true, refreshToken: "1//token-que-nao-pode-vazar" });
-    salvarRefreshTokenGoogleDaOrganizacaoMock.mockResolvedValue({ ok: false, motivo: "nao_autorizado" });
+    salvarRefreshTokenGoogleDaOrganizacaoMock.mockResolvedValue({ ok: false, motivo: "erro_de_armazenamento" });
 
     const resposta = await GET(requisicao({ code: "codigo", state: "d".repeat(64) }));
 
     expect(resposta.headers.get("location")).toBe("http://localhost:3000/agenda?erro=conexao");
     expect(resposta.headers.get("location")).not.toContain("token-que-nao-pode-vazar");
-    expect(resposta.headers.get("location")).not.toContain("nao_autorizado");
+    expect(resposta.headers.get("location")).not.toContain("erro_de_armazenamento");
+    expect(aviso).toHaveBeenCalledWith("google_calendar_oauth_persist_failed", {
+      motivo: "erro_de_armazenamento",
+    });
+    aviso.mockRestore();
   });
 
   it("continua fechada para UAT sintético", async () => {
