@@ -4265,3 +4265,55 @@ describe("0045 — state OAuth é privado, expira e fica vinculado ao workspace"
     expect(lerMigracao(ARQUIVO_EXEC_0045_OAUTH_ESTADO)).toBe(lerMigracao(ARQUIVO_0045_OAUTH_ESTADO));
   });
 });
+
+// ============================================================
+// 0046 — provisionamento isolado por workspace no cadastro SaaS
+// ============================================================
+
+const ARQUIVO_0046_WORKSPACE_SAAS = "0046_provisionamento_workspace_saas.sql";
+const ARQUIVO_EXEC_0046_WORKSPACE_SAAS = "_exec_0046_provisionamento_workspace_saas.sql";
+
+describe("0046 — cada cadastro SaaS cria um workspace isolado", () => {
+  it("cria a migration e o espelho que será usado no SQL Editor", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0046_WORKSPACE_SAAS)).toBe(true);
+    expect(readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0046_WORKSPACE_SAAS)).toBe(true);
+  });
+
+  it("não aceita papel nem workspace do navegador e usa UUID gerado pelo banco", () => {
+    const sql = semComentarios(lerMigracao(ARQUIVO_0046_WORKSPACE_SAAS));
+
+    expect(sql).toMatch(/create or replace function public\.handle_new_user\(\)[\s\S]*?returns trigger[\s\S]*?security definer[\s\S]*?set search_path = public/is);
+    expect(sql).toMatch(/new\.raw_user_meta_data\s*->>\s*'criar_workspace'/i);
+    expect(sql).toMatch(/insert into public\.workspace\s*\(nome\)\s*values/i);
+    expect(sql).toMatch(/returning id into ws/i);
+    expect(sql).toMatch(/insert into public\.profiles\s*\(id, nome, papel, workspace_id\)[\s\S]*?'dono'[\s\S]*?ws/is);
+    expect(sql).not.toMatch(/new\.raw_user_meta_data\s*->>\s*'papel'/i);
+    expect(sql).not.toMatch(/new\.raw_user_meta_data\s*->>\s*'workspace_id'/i);
+  });
+
+  it("faz as escritas futuras derivarem workspace da sessão, sem reclassificar linhas existentes", () => {
+    const sql = semComentarios(lerMigracao(ARQUIVO_0046_WORKSPACE_SAAS));
+
+    expect(sql).toMatch(/information_schema\.columns/i);
+    expect(sql).toMatch(/column_name\s*=\s*'workspace_id'/i);
+    expect(sql).toMatch(/table_name\s*<>\s*'profiles'/i);
+    expect(sql).toMatch(/table_name\s*<>\s*'captura'/i);
+    expect(sql).toMatch(/alter table public\.%I alter column workspace_id set default public\.workspace_atual\(\)/i);
+    expect(sql).not.toMatch(/\bupdate\s+public\./i);
+  });
+
+  it("fecha leitura e escrita de workspace ao próprio inquilino", () => {
+    const sql = semComentarios(lerMigracao(ARQUIVO_0046_WORKSPACE_SAAS));
+
+    expect(sql).toMatch(/drop policy if exists "workspace: leitura autenticada" on public\.workspace/i);
+    expect(sql).toMatch(/create policy "workspace: leitura do próprio inquilino" on public\.workspace\s+for select to authenticated\s+using \(id = public\.workspace_atual\(\)\)/is);
+    expect(sql).toMatch(/create policy "workspace: atualização do próprio dono" on public\.workspace\s+for update to authenticated\s+using \(id = public\.workspace_atual\(\) and public\.papel_atual\(\) = 'dono'\)\s+with check \(id = public\.workspace_atual\(\) and public\.papel_atual\(\) = 'dono'\)/is);
+    expect(sql).not.toMatch(/on public\.workspace\s+for all to authenticated\s+using \(public\.papel_atual\(\) = 'dono'\)/is);
+  });
+
+  it("mantém o espelho _exec_ idêntico à migration", () => {
+    expect(lerMigracao(ARQUIVO_EXEC_0046_WORKSPACE_SAAS)).toBe(
+      lerMigracao(ARQUIVO_0046_WORKSPACE_SAAS),
+    );
+  });
+});
