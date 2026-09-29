@@ -13,31 +13,20 @@
 // `src/lib/integracoes/*` antes de escrever — e não o que uma política
 // genérica de internet diria.
 //
-// POR QUE HÁ MARCADORES `[PREENCHER: ...]`
-// -------------------------------------------
-// Razão social, CNPJ, endereço e e-mail do encarregado são dado da EMPRESA
-// do dono, não do código. Inventar um valor aqui seria pior do que deixar
-// em branco: um CNPJ fictício parece real até alguém conferir, e essa
-// política vai ser lida por gente de fora. Um marcador gritante é honesto;
-// um dado inventado é uma mentira que passa despercebida.
-
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Marca } from "@/components/sidebar";
 
 export const metadata: Metadata = {
   title: "Política de Privacidade — MentorOS",
-  // Mesma razão do robots do layout raiz: página institucional, não precisa
-  // de resultado de busca — e como ainda tem campo a preencher (ver aviso no
-  // topo), indexar agora publicaria uma versão incompleta.
-  robots: { index: false, follow: false },
+  robots: { index: true, follow: true },
 };
 
 // Data de UMA atualização de verdade, escrita à mão. NUNCA `new Date()`
 // aqui: uma política cuja data muda sozinha a cada visita é uma mentira
 // jurídica — ela precisa dizer quando o TEXTO mudou de verdade, e só quem
 // edita o texto sabe quando isso aconteceu.
-const DATA_ULTIMA_ATUALIZACAO = "9 de agosto de 2026";
+const DATA_ULTIMA_ATUALIZACAO = "29 de setembro de 2026";
 
 export default function PoliticaDePrivacidadePage() {
   return (
@@ -46,8 +35,6 @@ export default function PoliticaDePrivacidadePage() {
         <div className="mb-6">
           <Marca />
         </div>
-
-        <AvisoRascunho />
 
         <header className="mt-6">
           <h1 className="font-display text-[26px] font-fino leading-tight tracking-tight text-texto">
@@ -61,19 +48,18 @@ export default function PoliticaDePrivacidadePage() {
         <article className="mt-8 space-y-8">
           <Secao titulo="Quem somos">
             <P>
-              Esta política é da <Preencher>razão social</Preencher>, inscrita no CNPJ{" "}
-              <Preencher>CNPJ</Preencher>, com sede em <Preencher>endereço completo</Preencher>{" "}
-              ("nós"). Ela vale para o sistema MentorOS que você está usando — seja como aluno,
-              responsável/afiliado ou integrante do time.
+              Esta política é de <strong className="text-texto">Guilherme Oliveira Lima Tossi</strong>,
+              responsável pela operação do MentorOS como pessoa física ("nós"). Ela vale para o
+              sistema MentorOS que você está usando — seja como aluno, responsável/afiliado ou
+              integrante do time.
             </P>
           </Secao>
 
           <Secao titulo="O que este sistema faz, em uma frase">
             <P>
-              O MentorOS é o painel de gestão interno da mentoria: ele organiza quem são os alunos,
-              o que cada um comprou, quem paga o quê, as reuniões marcadas e o andamento
-              financeiro do negócio. Ele não é uma rede social nem um produto voltado ao público —
-              é uma ferramenta de uso da própria empresa.
+              O MentorOS é uma ferramenta de apoio para profissionais e pessoas acompanhadas em
+              jornadas de mentoria: ele organiza clientes, sessões, metas, tarefas, conteúdos e
+              informações operacionais necessárias ao acompanhamento.
             </P>
           </Secao>
 
@@ -87,12 +73,11 @@ export default function PoliticaDePrivacidadePage() {
 
           <Secao titulo="Onde esses dados ficam guardados">
             <P>
-              A base principal do sistema é uma <strong className="text-texto">planilha do
-              Google (Google Sheets)</strong>, de propriedade da própria empresa — não é um
-              serviço de terceiro contratado só para isso, é o arquivo de trabalho do negócio.
-              Quando o banco de dados <strong className="text-texto">Supabase</strong> (que roda
-              sobre Postgres) estiver ativado, parte dos dados passa a ficar armazenada lá também,
-              como evolução do mesmo sistema — não como um destino novo e separado.
+              Os dados operacionais do MentorOS são armazenados no
+              <strong className="text-texto"> Supabase</strong>, uma plataforma baseada em
+              Postgres. Em workspaces que ainda usam uma planilha de operação, dados podem também
+              ser lidos de uma <strong className="text-texto">planilha Google</strong> configurada
+              pelo responsável do workspace.
             </P>
             <P>
               O aplicativo em si (as telas que você está vendo) roda hospedado na{" "}
@@ -185,16 +170,19 @@ export default function PoliticaDePrivacidadePage() {
             </ul>
             <P className="mt-3">
               Para exercer qualquer um desses direitos, entre em contato pelo e-mail{" "}
-              <Preencher>e-mail do encarregado (DPO)</Preencher>. Vamos responder dentro do prazo
-              previsto em lei.
+              <a className="underline underline-offset-2 hover:text-texto" href="mailto:guilhermetossi2@gmail.com">
+                guilhermetossi2@gmail.com
+              </a>. Vamos responder dentro do prazo previsto em lei.
             </P>
           </Secao>
 
           <Secao titulo="Encarregado de proteção de dados (DPO)">
             <P>
-              O encarregado responsável por essa política, e por quem você pode falar sobre
-              qualquer dúvida de privacidade, é <Preencher>nome do encarregado</Preencher>,
-              contato <Preencher>e-mail do encarregado (DPO)</Preencher>.
+              Para dúvidas sobre privacidade ou sobre esta política, fale diretamente com
+              Guilherme Oliveira Lima Tossi pelo e-mail{" "}
+              <a className="underline underline-offset-2 hover:text-texto" href="mailto:guilhermetossi2@gmail.com">
+                guilhermetossi2@gmail.com
+              </a>.
             </P>
           </Secao>
 
@@ -210,35 +198,13 @@ export default function PoliticaDePrivacidadePage() {
           <Link href="/" className="trans toque underline underline-offset-2 hover:text-texto-2">
             Voltar para o início
           </Link>
+          <span className="px-2" aria-hidden="true">·</span>
+          <Link href="/termos" className="trans toque underline underline-offset-2 hover:text-texto-2">
+            Termos de Uso
+          </Link>
         </footer>
       </div>
     </main>
-  );
-}
-
-/**
- * Aviso fixo, no topo, avisando que a política ainda tem campo a preencher.
- *
- * NÃO some sozinho quando os marcadores forem preenchidos — de propósito.
- * Detectar "todo marcador foi trocado" em runtime, dentro de um Server
- * Component estático, seria mais código e mais lugar de bug só para
- * automatizar uma decisão de duas linhas: quando o dono preencher razão
- * social, CNPJ, endereço e e-mail do encarregado (procure `[PREENCHER:` no
- * texto ou em `<Preencher>` neste arquivo), é remover este bloco à mão antes
- * de divulgar a página.
- */
-function AvisoRascunho() {
-  return (
-    <div className="rounded-2xl border border-aviso/40 bg-aviso/10 p-4">
-      <p className="text-sm font-medium text-aviso">Rascunho — ainda não divulgar este link</p>
-      <p className="mt-1.5 text-sm leading-relaxed text-texto-2">
-        Esta política ainda tem campos marcados como{" "}
-        <code className="font-mono text-xs text-negativo">[PREENCHER: ...]</code> — razão social,
-        CNPJ, endereço e e-mail do encarregado. Preencha todos antes de divulgar esta página para
-        aluno, responsável ou qualquer pessoa de fora da equipe. Depois de preencher, remova este
-        aviso manualmente (ele não some sozinho).
-      </p>
-    </div>
   );
 }
 
@@ -253,15 +219,6 @@ function Secao({ titulo, children }: { titulo: string; children: React.ReactNode
 
 function P({ children, className }: { children: React.ReactNode; className?: string }) {
   return <p className={`text-sm leading-relaxed text-texto-2 ${className ?? ""}`}>{children}</p>;
-}
-
-/** Marca visível de campo que só o dono do sistema pode preencher — nunca dado inventado. */
-function Preencher({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-md bg-negativo/15 px-1.5 py-0.5 font-mono text-[13px] font-medium text-negativo">
-      [PREENCHER: {children}]
-    </span>
-  );
 }
 
 function ItemIntegracao({ titulo, children }: { titulo: string; children: React.ReactNode }) {

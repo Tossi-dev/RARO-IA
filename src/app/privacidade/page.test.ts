@@ -19,6 +19,20 @@ import { describe, expect, it } from "vitest";
 const texto = readFileSync(path.join(__dirname, "page.tsx"), "utf-8");
 
 describe("política de privacidade — agenda do Google", () => {
+  it("identifica o responsável pessoa física e oferece um canal público de contato", () => {
+    expect(texto).toContain("Guilherme Oliveira Lima Tossi");
+    expect(texto).toContain("guilhermetossi2@gmail.com");
+    expect(texto).not.toContain("[PREENCHER:");
+    expect(texto).not.toContain("ainda não divulgar este link");
+    expect(texto).toContain("29 de setembro de 2026");
+  });
+
+  it("descreve a infraestrutura atual sem apresentar a planilha como base principal", () => {
+    expect(texto).toContain("Supabase");
+    expect(texto).not.toContain("A base principal do sistema é uma");
+    expect(texto).not.toContain("ferramenta de uso da própria empresa");
+  });
+
   it("não promete mais 'só de leitura' sozinho: o app também escreve na agenda", () => {
     // Mata o mutante "reverter a frase para a versão antiga": a asserção
     // negativa sozinha não bastaria (poderia sobreviver removendo a

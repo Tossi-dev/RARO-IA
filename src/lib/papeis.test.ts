@@ -371,7 +371,7 @@ describe("rotaPermitida — travessia codificada é recusada para quem não é d
   });
 });
 
-// Item 7 — LAÇO DE REDIRECIONAMENTO. `/login`, `/acesso` e `/privacidade`
+// Item 7 — LAÇO DE REDIRECIONAMENTO. `/login`, `/acesso`, `/privacidade` e `/termos`
 // são as `ROTAS_LIVRES` de `src/lib/acesso.ts`: se o middleware barra um
 // mentorado e manda pra uma delas, e este módulo também barra essas rotas
 // pro mentorado, o navegador é barrado de novo — o mesmo laço que
@@ -379,9 +379,9 @@ describe("rotaPermitida — travessia codificada é recusada para quem não é d
 // `rotaLivre` (sem tocar em `acesso.ts`) e libera essas três rotas para
 // qualquer papel, ANTES do resto da lógica.
 describe("rotaPermitida — rotas livres nunca causam laço de redirecionamento (item 7)", () => {
-  const rotasLivres = ["/login", "/acesso", "/privacidade"];
+  const rotasLivres = ["/login", "/acesso", "/privacidade", "/termos"];
 
-  it("os seis papéis conseguem abrir as três rotas livres", () => {
+  it("os seis papéis conseguem abrir as rotas livres", () => {
     for (const papel of TODOS_OS_PAPEIS) {
       for (const rota of rotasLivres) {
         expect(rotaPermitida(papel, rota)).toBe(true);

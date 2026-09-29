@@ -99,6 +99,7 @@ describe("rotaLivre", () => {
     expect(rotaLivre("/auth/confirm")).toBe(true);
     expect(rotaLivre("/auth/confirm/nao-e-rota-publica")).toBe(false);
     expect(rotaLivre("/privacidade")).toBe(true);
+    expect(rotaLivre("/termos")).toBe(true);
   });
 
   it("o resto do sistema passa pelo portão", () => {

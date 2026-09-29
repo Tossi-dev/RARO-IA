@@ -235,8 +235,11 @@ describe("decidirAcessoSupabase", () => {
   // assimetria: a MESMA página fica pública para logado e trancada para
   // anônimo, o oposto do que a página de privacidade precisa ser.
   describe("MÉDIO 1 — rotaLivre entra ANTES de 'sem usuário -> /login'", () => {
-    it("anônimo em /privacidade e /acesso passa, sem precisar logar", () => {
+    it("anônimo em /privacidade, /termos e /acesso passa, sem precisar logar", () => {
       expect(decidirAcessoSupabase({ pathname: "/privacidade", usuario: null })).toEqual({
+        tipo: "passa",
+      });
+      expect(decidirAcessoSupabase({ pathname: "/termos", usuario: null })).toEqual({
         tipo: "passa",
       });
       expect(decidirAcessoSupabase({ pathname: "/acesso", usuario: null })).toEqual({
