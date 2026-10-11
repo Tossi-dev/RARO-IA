@@ -69,9 +69,15 @@ export function temDadoReal(env: AmbienteAcesso): boolean {
 }
 
 export function modoAcesso(env: AmbienteAcesso): ModoAcesso {
+  // Esta é uma exceção deliberada de operação: alguém declarou
+  // RARO_ACESSO_ABERTO=1 sabendo que abriria inclusive uma instalação com
+  // Supabase. A declaração explícita deve vencer todas as camadas seguintes;
+  // caso contrário, a variável dá uma falsa impressão de que o acesso foi
+  // liberado quando, na prática, o middleware continua redirecionando ao
+  // login.
+  if (env.abertoDeclarado === "1") return "aberto";
   if (env.supabaseUrl && env.supabaseKey) return "supabase";
   if (senhaValida(env.senha)) return "senha";
-  if (env.abertoDeclarado === "1") return "aberto";
   // Nada configurado: só fica aberto se não houver nada a proteger.
   return temDadoReal(env) ? "trancado" : "aberto";
 }

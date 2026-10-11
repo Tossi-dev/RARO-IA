@@ -20,6 +20,12 @@ describe("modoAcesso", () => {
     expect(modoAcesso({ ...SUPA, senha: SENHA_BOA })).toBe("supabase");
   });
 
+  it("abre por decisão explícita mesmo com Supabase configurado", () => {
+    // Este modo só existe para uma liberação operacional declarada no
+    // ambiente. Sem o `1` exato, Supabase continua obrigatório.
+    expect(modoAcesso({ ...SUPA, abertoDeclarado: "1" })).toBe("aberto");
+  });
+
   it("sem Supabase mas com senha, o sistema pede a senha", () => {
     expect(modoAcesso({ senha: SENHA_BOA, sheetsId: "abc" })).toBe("senha");
   });
