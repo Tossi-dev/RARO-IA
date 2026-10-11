@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const signUp = vi.hoisted(() => vi.fn());
-const criarSupabaseServer = vi.hoisted(() => vi.fn(() => ({ auth: { signUp } })));
+const resetPasswordForEmail = vi.hoisted(() => vi.fn());
+const getUser = vi.hoisted(() => vi.fn());
+const updateUser = vi.hoisted(() => vi.fn());
+const criarSupabaseServer = vi.hoisted(() => vi.fn(() => ({ auth: { signUp, resetPasswordForEmail, getUser, updateUser } })));
 const supabaseConfigurado = vi.hoisted(() => vi.fn());
 const redirect = vi.hoisted(() => vi.fn());
 
@@ -9,7 +12,7 @@ vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("./data", () => ({ supabaseConfigurado }));
 vi.mock("./supabase/server", () => ({ criarSupabaseServer }));
 
-import { criarContaSaas } from "./acoes-acesso";
+import { criarContaSaas, redefinirSenha, solicitarRedefinicaoSenha } from "./acoes-acesso";
 
 function formulario(campos: Record<string, string>) {
   const dados = new FormData();
@@ -20,6 +23,9 @@ function formulario(campos: Record<string, string>) {
 describe("criarContaSaas", () => {
   beforeEach(() => {
     signUp.mockReset().mockResolvedValue({ error: null });
+    resetPasswordForEmail.mockReset().mockResolvedValue({ error: null });
+    getUser.mockReset().mockResolvedValue({ data: { user: { id: "u-1" } }, error: null });
+    updateUser.mockReset().mockResolvedValue({ error: null });
     criarSupabaseServer.mockClear();
     supabaseConfigurado.mockReturnValue(true);
     redirect.mockReset();
@@ -84,5 +90,49 @@ describe("criarContaSaas", () => {
     );
 
     expect(redirect).toHaveBeenCalledWith("/criar-conta?sucesso=1");
+  });
+});
+
+describe("recuperação de senha", () => {
+  beforeEach(() => {
+    resetPasswordForEmail.mockReset().mockResolvedValue({ error: null });
+    getUser.mockReset().mockResolvedValue({ data: { user: { id: "u-1" } }, error: null });
+    updateUser.mockReset().mockResolvedValue({ error: null });
+    criarSupabaseServer.mockClear();
+    supabaseConfigurado.mockReturnValue(true);
+    redirect.mockReset();
+    process.env.NEXT_PUBLIC_SITE_URL = "https://raro-ia.vercel.app";
+  });
+
+  it("pede ao Supabase um link que retorna apenas à tela de redefinição", async () => {
+    await solicitarRedefinicaoSenha(formulario({ email: "marina@example.com" }));
+
+    expect(resetPasswordForEmail).toHaveBeenCalledWith("marina@example.com", {
+      redirectTo: "https://raro-ia.vercel.app/auth/confirm?next=%2Fredefinir-senha",
+    });
+    expect(redirect).toHaveBeenCalledWith("/esqueci-senha?sucesso=1");
+  });
+
+  it("não chama o provedor quando o e-mail de recuperação é inválido", async () => {
+    await solicitarRedefinicaoSenha(formulario({ email: "nao-e-email" }));
+
+    expect(resetPasswordForEmail).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith("/esqueci-senha?erro=campos");
+  });
+
+  it("só atualiza uma senha após confirmar sessão de recuperação", async () => {
+    await redefinirSenha(formulario({ senha: "senha-segura-123", confirmarSenha: "senha-segura-123" }));
+
+    expect(getUser).toHaveBeenCalledOnce();
+    expect(updateUser).toHaveBeenCalledWith({ password: "senha-segura-123" });
+    expect(redirect).toHaveBeenCalledWith("/login?redefinida=1");
+  });
+
+  it("falha fechada quando o link não gerou uma sessão", async () => {
+    getUser.mockResolvedValue({ data: { user: null }, error: null });
+    await redefinirSenha(formulario({ senha: "senha-segura-123", confirmarSenha: "senha-segura-123" }));
+
+    expect(updateUser).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith("/login?erro=recuperacao");
   });
 });

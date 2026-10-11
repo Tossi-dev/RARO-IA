@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default function LoginPage({
   searchParams,
 }: {
-  searchParams: { erro?: string; confirmado?: string };
+  searchParams: { erro?: string; confirmado?: string; redefinida?: string };
 }) {
   // "Sem Supabase" não é mais sinônimo de demonstração: com a planilha ligada o
   // app roda com o dado real do dono, e sem configuração nenhuma ele não roda com
@@ -93,8 +93,16 @@ export default function LoginPage({
               {searchParams.confirmado && (
                 <p className="text-xs text-positivo">E-mail confirmado. Agora entre com a senha que você criou.</p>
               )}
+              {searchParams.redefinida && (
+                <p className="text-xs text-positivo">Senha atualizada. Entre com a nova senha.</p>
+              )}
               <Botao className="w-full">Entrar</Botao>
             </form>
+            <p className="mt-4 text-center text-sm text-texto-2">
+              <Link className="font-medium text-primaria-2 hover:text-texto" href="/esqueci-senha">
+                Esqueci minha senha
+              </Link>
+            </p>
             <p className="mt-5 text-center text-sm text-texto-2">
               Ainda não tem um espaço?{" "}
               <Link className="font-medium text-primaria-2 hover:text-texto" href="/criar-conta">

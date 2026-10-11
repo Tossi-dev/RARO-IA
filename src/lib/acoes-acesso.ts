@@ -30,6 +30,28 @@ function urlDeConfirmacao(): string | undefined {
   }
 }
 
+function urlDeRedefinicao(): string | undefined {
+  const base = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!base) return undefined;
+
+  try {
+    const url = new URL("/auth/confirm", base);
+    url.searchParams.set("next", "/redefinir-senha");
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+const RedefinicaoSchema = z
+  .object({
+    senha: z.string().min(12).max(128),
+    confirmarSenha: z.string().min(1).max(128),
+  })
+  .refine((dados) => dados.senha === dados.confirmarSenha, {
+    path: ["confirmarSenha"],
+  });
+
 export async function criarContaSaas(formData: FormData) {
   if (!supabaseConfigurado()) return redirect("/login");
 
@@ -63,4 +85,42 @@ export async function criarContaSaas(formData: FormData) {
   // servidor, sem e-mail, senha ou outro dado da pessoa.
   if (error) console.warn("[cadastro] Supabase recusou a criação:", error.code ?? "sem-codigo");
   return redirect("/criar-conta?sucesso=1");
+}
+
+/**
+ * Dispara a recuperação sem revelar se o e-mail possui conta. A resposta
+ * uniforme evita que a tela se torne uma forma de descobrir usuários do
+ * MentorOS; o Supabase decide silenciosamente se há link a enviar.
+ */
+export async function solicitarRedefinicaoSenha(formData: FormData) {
+  if (!supabaseConfigurado()) return redirect("/login");
+
+  const email = String(formData.get("email") ?? "").trim();
+  if (!z.string().email().max(160).safeParse(email).success) {
+    return redirect("/esqueci-senha?erro=campos");
+  }
+
+  const { error } = await criarSupabaseServer().auth.resetPasswordForEmail(email, {
+    redirectTo: urlDeRedefinicao(),
+  });
+  if (error) console.warn("[recuperacao-senha] Supabase recusou a solicitação:", error.code ?? "sem-codigo");
+  return redirect("/esqueci-senha?sucesso=1");
+}
+
+export async function redefinirSenha(formData: FormData) {
+  if (!supabaseConfigurado()) return redirect("/login");
+
+  const resultado = RedefinicaoSchema.safeParse({
+    senha: String(formData.get("senha") ?? ""),
+    confirmarSenha: String(formData.get("confirmarSenha") ?? ""),
+  });
+  if (!resultado.success) return redirect("/redefinir-senha?erro=campos");
+
+  const supabase = criarSupabaseServer();
+  const { data: usuario, error: erroUsuario } = await supabase.auth.getUser();
+  if (erroUsuario || !usuario.user) return redirect("/login?erro=recuperacao");
+
+  const { error } = await supabase.auth.updateUser({ password: resultado.data.senha });
+  if (error) return redirect("/redefinir-senha?erro=salvar");
+  return redirect("/login?redefinida=1");
 }
