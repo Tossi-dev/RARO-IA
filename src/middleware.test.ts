@@ -97,6 +97,17 @@ function req(pathname: string, cookie?: string) {
 }
 
 describe("middleware — portão de acesso", () => {
+  it("recuperação de senha não consulta Auth antes de responder", async () => {
+    limparAmbiente();
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://exemplo.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "chave-publica";
+
+    const res = await middleware(req("/esqueci-senha"));
+
+    expect(res.headers.get("location")).toBeNull();
+    expect(getUserMock).not.toHaveBeenCalled();
+  });
+
   it("rota livre passa em qualquer modo (aqui: trancado)", async () => {
     limparAmbiente();
     process.env.RARO_SHEETS_ID = "planilha-real";

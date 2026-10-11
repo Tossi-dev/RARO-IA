@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   modoAcesso,
+  rotaSemConsultaDeSessao,
   rotaLivre,
   selo,
   seloConfere,
@@ -53,6 +54,17 @@ describe("modoAcesso", () => {
   });
 });
 
+describe("rotaSemConsultaDeSessao", () => {
+  it("libera apenas o fluxo que já possui token próprio", () => {
+    expect(rotaSemConsultaDeSessao("/esqueci-senha")).toBe(true);
+    expect(rotaSemConsultaDeSessao("/redefinir-senha")).toBe(true);
+    expect(rotaSemConsultaDeSessao("/auth/confirm")).toBe(true);
+    expect(rotaSemConsultaDeSessao("/auth/confirm/invalida")).toBe(false);
+    expect(rotaSemConsultaDeSessao("/login")).toBe(false);
+    expect(rotaSemConsultaDeSessao("/painel")).toBe(false);
+  });
+});
+
 describe("temDadoReal", () => {
   it("planilha conectada é dado real; demonstração não é", () => {
     expect(temDadoReal({ sheetsId: "abc" })).toBe(true);
@@ -96,6 +108,8 @@ describe("rotaLivre", () => {
     expect(rotaLivre("/acesso")).toBe(true);
     expect(rotaLivre("/login")).toBe(true);
     expect(rotaLivre("/criar-conta")).toBe(true);
+    expect(rotaLivre("/esqueci-senha")).toBe(true);
+    expect(rotaLivre("/redefinir-senha")).toBe(true);
     expect(rotaLivre("/auth/confirm")).toBe(true);
     expect(rotaLivre("/auth/confirm/nao-e-rota-publica")).toBe(false);
     expect(rotaLivre("/privacidade")).toBe(true);

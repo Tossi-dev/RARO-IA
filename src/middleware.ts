@@ -13,7 +13,7 @@
 
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { ambienteAtual, COOKIE_ACESSO, modoAcesso, seloConfere } from "@/lib/acesso";
+import { ambienteAtual, COOKIE_ACESSO, modoAcesso, rotaSemConsultaDeSessao, seloConfere } from "@/lib/acesso";
 import { papelDe, PAPEL_PADRAO } from "@/lib/papeis";
 import { decidirAcesso, decidirAcessoSupabase } from "@/lib/portao";
 
@@ -21,6 +21,11 @@ export async function middleware(req: NextRequest) {
   const modo = modoAcesso(ambienteAtual());
 
   if (modo === "supabase") {
+    // Recuperação e callback trocam um token próprio do Supabase; não são
+    // sessão normal. Tentar renová-la antes dessa etapa só adiciona uma
+    // chamada remota que pode expirar e impedir justamente a recuperação.
+    if (rotaSemConsultaDeSessao(req.nextUrl.pathname)) return NextResponse.next();
+
     // Comportamento de hoje, intocado: cada pessoa tem login próprio, com
     // sessão renovada a cada request. É o destino final do portão — os
     // outros três modos existem só para os degraus até aqui.

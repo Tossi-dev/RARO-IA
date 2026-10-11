@@ -191,7 +191,25 @@ export const VALIDADE_ACESSO_SEGUNDOS = 60 * 60 * 24 * 30;
  * de enumeração valem o pipeline inteiro. */
 // Tarefa 72: quem recebeu um link de campanha não tem conta. A rota só chama
 // a RPC estreita de clique e valida o destino antes de redirecionar.
-export const ROTAS_LIVRES = ["/acesso", "/login", "/criar-conta", "/auth/confirm", "/privacidade", "/termos", "/certificado", "/proposta", "/l"];
+// Recuperação de senha não lê dado da organização: antes de a pessoa provar
+// que controla o e-mail, ela só pode pedir um link; depois, o token de uso
+// único vindo do Supabase é que autoriza a troca. Se essas rotas passarem pelo
+// portão, o middleware redireciona de volta para /login e a recuperação vira
+// um ciclo impossível.
+export const ROTAS_LIVRES = ["/acesso", "/login", "/criar-conta", "/esqueci-senha", "/redefinir-senha", "/auth/confirm", "/privacidade", "/termos", "/certificado", "/proposta", "/l"];
+
+// Estas três rotas iniciam ou concluem um fluxo que tem autenticação própria.
+// Consultar `auth.getUser()` no middleware antes de atendê-las é inútil e,
+// quando o Auth estiver lento, transforma a recuperação de senha numa tela de
+// login ou num timeout. Não incluímos `/login`: nela, uma sessão já existente
+// ainda deve redirecionar a pessoa para a área correspondente ao seu papel.
+export const ROTAS_SEM_CONSULTA_DE_SESSAO = ["/esqueci-senha", "/redefinir-senha", "/auth/confirm"];
+
+export function rotaSemConsultaDeSessao(pathname: string): boolean {
+  return ROTAS_SEM_CONSULTA_DE_SESSAO.some((rota) =>
+    rota === "/auth/confirm" ? pathname === rota : pathname === rota || pathname.startsWith(`${rota}/`)
+  );
+}
 
 export function rotaLivre(pathname: string): boolean {
   return ROTAS_LIVRES.some((r) =>
