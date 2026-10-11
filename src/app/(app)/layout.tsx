@@ -44,11 +44,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const modo = modoDadosEfetivo();
   const tema = getTema();
   const densidade = getDensidade();
-  // A sessão só existe onde existe Supabase Auth. Nos modos planilha, demo e
-  // vazio não há projeto Supabase, e chamar o cliente aqui derrubaria o layout
-  // inteiro ("supabaseUrl is required") — por isso a guarda é
-  // supabaseConfigurado(), e não uma negação de modo.
-  const temAuth = supabaseConfigurado();
+  // Uma contingência de demonstração pode coexistir com variáveis antigas do
+  // Supabase. Nesse caso a fonte efetiva é demo e nenhuma chamada de Auth
+  // pode acontecer: o endpoint antigo pode estar indisponível e derrubaria o
+  // layout antes de qualquer tela renderizar.
+  const temAuth = supabaseConfigurado() && modo !== "demo";
   let usuario = "";
   if (temAuth) {
     const s = criarSupabaseServer();
@@ -82,7 +82,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     {
       grupo: "Navegação",
       rotulo: "Início",
-      href: "/",
+      href: "/inicio",
       extra: "A tela com todos os aplicativos do sistema",
     },
     { grupo: "Navegação", rotulo: "Dashboard", href: "/painel" },

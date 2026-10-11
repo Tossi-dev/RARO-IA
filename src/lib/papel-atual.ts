@@ -27,12 +27,15 @@
 // seria mais seguro, seria simplesmente ERRADO: cortaria a navegação do
 // próprio dono pela metade no dia em que esta tarefa entrar no ar, antes
 // mesmo de o login por pessoa (Supabase) estar em operação.
-import { supabaseConfigurado } from "@/lib/data";
+import { dadosTemporariosAtivos, supabaseConfigurado } from "@/lib/data";
 import { papelDe, PAPEL_PADRAO, type Papel } from "@/lib/papeis";
 import { criarSupabaseServer } from "@/lib/supabase/server";
 
 export async function papelAtual(): Promise<Papel> {
-  if (!supabaseConfigurado()) return "dono";
+  // Na contingência, o aplicativo usa exclusivamente dados fictícios e não
+  // deve fazer nenhuma chamada ao Supabase que acabou de falhar. O papel de
+  // operação garante que a área do mentor continue navegável nessa prévia.
+  if (dadosTemporariosAtivos() || !supabaseConfigurado()) return "dono";
 
   try {
     const supabase = criarSupabaseServer();

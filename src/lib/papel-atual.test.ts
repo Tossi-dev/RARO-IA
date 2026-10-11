@@ -7,12 +7,13 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { getUserMock, maybeSingleMock, criarSupabaseServerMock, supabaseConfiguradoMock } =
+const { getUserMock, maybeSingleMock, criarSupabaseServerMock, supabaseConfiguradoMock, dadosTemporariosAtivosMock } =
   vi.hoisted(() => ({
     getUserMock: vi.fn(),
     maybeSingleMock: vi.fn(),
     criarSupabaseServerMock: vi.fn(),
     supabaseConfiguradoMock: vi.fn(),
+    dadosTemporariosAtivosMock: vi.fn(),
   }));
 
 vi.mock("./supabase/server", () => ({
@@ -21,6 +22,7 @@ vi.mock("./supabase/server", () => ({
 
 vi.mock("./data", () => ({
   supabaseConfigurado: supabaseConfiguradoMock,
+  dadosTemporariosAtivos: dadosTemporariosAtivosMock,
 }));
 
 const { papelAtual } = await import("./papel-atual");
@@ -40,6 +42,7 @@ function ligarClienteFalso() {
 
 afterEach(() => {
   vi.resetAllMocks();
+  dadosTemporariosAtivosMock.mockReturnValue(false);
 });
 
 describe("papelAtual — sem Supabase configurado (modo planilha/senha)", () => {
@@ -57,6 +60,14 @@ describe("papelAtual — sem Supabase configurado (modo planilha/senha)", () => 
 });
 
 describe("papelAtual — com Supabase configurado", () => {
+  it("na contingência demo, devolve dono sem consultar o Supabase indisponível", async () => {
+    supabaseConfiguradoMock.mockReturnValue(true);
+    dadosTemporariosAtivosMock.mockReturnValue(true);
+
+    expect(await papelAtual()).toBe("dono");
+    expect(criarSupabaseServerMock).not.toHaveBeenCalled();
+  });
+
   it("sessão de gestor: devolve 'gestor'", async () => {
     supabaseConfiguradoMock.mockReturnValue(true);
     ligarClienteFalso();

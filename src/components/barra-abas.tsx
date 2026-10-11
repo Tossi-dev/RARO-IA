@@ -49,7 +49,7 @@ export function BarraAbas({ pendencias = 0 }: { pendencias?: number }) {
     >
       <div className="mx-auto flex max-w-[520px] items-stretch">
         <Link
-          href="/"
+          href="/inicio"
           aria-current={naInicial ? "page" : undefined}
           className={cx(CLASSE_ALVO, naInicial ? "text-primaria-2" : "text-texto-3")}
         >

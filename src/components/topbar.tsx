@@ -228,7 +228,7 @@ export function Topbar({
   return (
     <header className="vidro sticky top-0 z-40 hidden h-16 items-center gap-3 border-b border-borda-sutil px-5 md:flex">
       <Link
-        href="/"
+        href="/inicio"
         aria-label="Tela inicial"
         className="trans flex items-center gap-2.5 transition-opacity hover:opacity-80"
       >

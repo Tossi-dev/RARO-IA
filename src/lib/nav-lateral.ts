@@ -65,7 +65,7 @@ const GRUPOS_COMPLETOS: GrupoNavLateral[] = [
   {
     titulo: "Visão geral",
     itens: [
-      { href: "/", rotulo: "Início", icone: "LayoutGrid" },
+      { href: "/inicio", rotulo: "Início", icone: "LayoutGrid" },
       // B3.2 — logo depois de "Início": para mentorado/afiliado/aluno é a
       // primeira rota do próprio papel (`primeiraRotaDe`, em papeis.ts), a
       // casa deles; para dono/gestor é o preview do que o cliente vê.

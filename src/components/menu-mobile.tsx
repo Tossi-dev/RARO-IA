@@ -181,7 +181,7 @@ export function MenuMobile({
           </button>
         ) : (
           <Link
-            href="/"
+            href="/inicio"
             aria-label="Voltar para a tela inicial"
             className="toque trans flex h-10 shrink-0 items-center gap-1 rounded-lg border border-borda-sutil bg-poco pl-2 pr-2.5 text-[13px] text-texto-2 transition-colors hover:text-texto"
           >

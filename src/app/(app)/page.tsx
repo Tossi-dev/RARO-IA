@@ -29,10 +29,11 @@ import { appsDoPapel, CATALOGO_APPS, CATALOGO_SISTEMA } from "@/lib/apps";
 import { getDB } from "@/lib/data";
 import { inadimplencia } from "@/lib/metrics";
 import { papelAtual } from "@/lib/papel-atual";
+import { permanentRedirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function Inicio() {
+export async function AreaTrabalho() {
   const papel = await papelAtual();
   const db = getDB();
   const [reunioes, tarefas, dc] = await Promise.all([
@@ -115,4 +116,9 @@ export default async function Inicio() {
       )}
     </>
   );
+}
+
+/** A raiz agora é a escolha de área; os ícones continuam em `/inicio`. */
+export default function EntradaRaiz() {
+  permanentRedirect("/entrada");
 }
