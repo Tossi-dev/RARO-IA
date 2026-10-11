@@ -12,7 +12,7 @@
 
 import { describe, expect, it } from "vitest";
 import { demoProvider } from "./demo-db";
-import { getDB, modoDados, planilhaConfigurada, supabaseConfigurado } from "./index";
+import { dadosTemporariosAtivos, getDB, modoDados, planilhaConfigurada, supabaseConfigurado } from "./index";
 import { vazioProvider } from "./vazio-db";
 
 /** Roda o corpo com as variaveis pedidas e devolve o ambiente como estava. */
@@ -92,6 +92,28 @@ describe("modoDados — precedencia Supabase > planilha > demo (sob pedido) > va
   it("RARO_MODO=demo tambem perde para a planilha", () => {
     comAmbiente({ RARO_MODO: "demo", RARO_SHEETS_ID: "1abcDEF" }, () => {
       expect(modoDados()).toBe("planilha");
+    });
+  });
+
+  it("a contingencia temporária substitui uma fonte configurada que caiu", () => {
+    comAmbiente(
+      {
+        RARO_DADOS_TEMPORARIOS: "demo",
+        NEXT_PUBLIC_SUPABASE_URL: "https://exemplo.supabase.co",
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "chave-anonima",
+      },
+      () => {
+        expect(dadosTemporariosAtivos()).toBe(true);
+        expect(modoDados()).toBe("demo");
+        expect(getDB()).toBe(demoProvider);
+      }
+    );
+  });
+
+  it("a contingencia só aceita o valor demo", () => {
+    comAmbiente({ RARO_DADOS_TEMPORARIOS: "1" }, () => {
+      expect(dadosTemporariosAtivos()).toBe(false);
+      expect(modoDados()).toBe("vazio");
     });
   });
 

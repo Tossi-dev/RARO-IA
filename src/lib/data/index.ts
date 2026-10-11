@@ -2,6 +2,8 @@
 // - Com NEXT_PUBLIC_SUPABASE_URL + ANON_KEY: dados reais (Postgres + RLS)
 // - Com RARO_SHEETS_ID: dados reais lidos da planilha Base_Financeira_Operacao
 // - Com RARO_MODO=demo: dados fictícios em memória, pedidos explicitamente
+// - Com RARO_DADOS_TEMPORARIOS=demo: contingência operacional explícita,
+//   inclusive quando uma configuração antiga do Supabase ainda existe
 // - Sem nenhuma das três: modo VAZIO — nada na tela, e a tela diz que é nada
 //
 // Este módulo é NEUTRO (sem diretiva de cliente) de propósito: ele exporta valor
@@ -40,7 +42,21 @@ export function demoPedidoExplicitamente(): boolean {
 }
 
 /**
- * Precedência: Supabase > planilha > demo (só sob pedido) > vazio.
+ * Contingência temporária para quando uma fonte configurada deixa de
+ * responder. Diferente de `RARO_MODO=demo`, este sinal tem precedência: ele
+ * existe justamente para não deixar uma URL antiga do Supabase derrubar a
+ * aplicação inteira enquanto a infraestrutura é recuperada.
+ *
+ * Não é ligado por ausência, falha de rede ou tentativa automática. Só o
+ * valor literal `demo` muda a origem, mantendo a troca auditável e reversível
+ * pela remoção da variável de ambiente.
+ */
+export function dadosTemporariosAtivos(): boolean {
+  return process.env.RARO_DADOS_TEMPORARIOS === "demo";
+}
+
+/**
+ * Precedência: contingência demo > Supabase > planilha > demo (sob pedido) > vazio.
  *
  * Por que Supabase ganha da planilha quando os dois estão configurados: só o
  * banco relacional tem integridade referencial (chave estrangeira, unicidade,
@@ -62,6 +78,7 @@ export function demoPedidoExplicitamente(): boolean {
  * `vazio` — que não mente nem por omissão.
  */
 export function modoDados(): ModoDados {
+  if (dadosTemporariosAtivos()) return "demo";
   if (supabaseConfigurado()) return "supabase";
   if (planilhaConfigurada()) return "planilha";
   if (demoPedidoExplicitamente()) return "demo";
