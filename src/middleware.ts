@@ -22,6 +22,11 @@ function controleSaasAtivo(): boolean {
   return process.env.MENTOROS_SAAS_TESTES_ATIVOS === "1";
 }
 
+// A autenticação remota não pode transformar a própria tela de login em um
+// 504. Quando o Auth demora além deste limite, seguimos como sessão ausente:
+// rotas protegidas continuam fechadas e /login continua utilizável.
+export const LIMITE_SESSAO_MS = 2_000;
+
 export async function middleware(req: NextRequest) {
   const modo = modoAcesso(ambienteAtual());
 
@@ -56,9 +61,16 @@ export async function middleware(req: NextRequest) {
       },
     });
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let temporizador: ReturnType<typeof setTimeout> | undefined;
+    const sessao = await Promise.race([
+      supabase.auth.getUser(),
+      new Promise<{ data: { user: null } }>((resolve) => {
+        temporizador = setTimeout(() => resolve({ data: { user: null } }), LIMITE_SESSAO_MS);
+      }),
+    ]).finally(() => {
+      if (temporizador) clearTimeout(temporizador);
+    });
+    const user = sessao.data.user;
 
     // Sessão existe, mas sessão não é papel: `/financeiro` não é "logado
     // abre", é "dono e gestor abrem". A linha de `profiles` é quem sabe o

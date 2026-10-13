@@ -69,7 +69,7 @@ vi.mock("@/lib/papeis", async (importOriginal) => {
   };
 });
 
-const { config: configDoMiddleware, middleware } = await import("./middleware");
+const { LIMITE_SESSAO_MS, config: configDoMiddleware, middleware } = await import("./middleware");
 
 const VARS = [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -236,6 +236,20 @@ describe("middleware — ramo supabase (sessão + papel)", () => {
     const res = await middleware(req("/financeiro"));
     expect(res.headers.get("location")).toBe("http://localhost:3000/login");
     expect(maybeSingleMock).not.toHaveBeenCalled();
+  });
+
+  it("Auth lento não derruba /login: após o prazo, trata como sessão ausente", async () => {
+    ligarSupabase();
+    vi.useFakeTimers();
+    getUserMock.mockImplementation(() => new Promise(() => {}));
+
+    const respostaPendente = middleware(req("/login"));
+    await vi.advanceTimersByTimeAsync(LIMITE_SESSAO_MS);
+    const res = await respostaPendente;
+
+    expect(res.headers.get("location")).toBeNull();
+    expect(maybeSingleMock).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 
   it("consulta devolve papel fora do enum ('chefe-supremo'): tratado como mentorado, /financeiro redireciona para /sem-acesso — mata M3", async () => {
