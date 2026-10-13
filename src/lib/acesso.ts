@@ -218,6 +218,9 @@ export function rotaSemConsultaDeSessao(pathname: string): boolean {
 }
 
 export function rotaLivre(pathname: string): boolean {
+  // A landing comercial é a exceção de raiz: incluí-la em ROTAS_LIVRES faria
+  // todo pathname começar por "/" e abriria o aplicativo inteiro.
+  if (pathname === "/") return true;
   return ROTAS_LIVRES.some((r) =>
     r === "/auth/confirm" ? pathname === r : pathname === r || pathname.startsWith(`${r}/`)
   );

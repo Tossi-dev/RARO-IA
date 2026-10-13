@@ -123,7 +123,7 @@ describe("rotaLivre", () => {
   });
 
   it("o resto do sistema passa pelo portão", () => {
-    expect(rotaLivre("/")).toBe(false);
+    expect(rotaLivre("/")).toBe(true);
     expect(rotaLivre("/painel")).toBe(false);
     expect(rotaLivre("/crm/aluno-1")).toBe(false);
     // "/acessos" não é "/acesso": prefixo tem que respeitar a barra.

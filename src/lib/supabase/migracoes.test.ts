@@ -4317,3 +4317,42 @@ describe("0046 — cada cadastro SaaS cria um workspace isolado", () => {
     );
   });
 });
+
+// ============================================================
+// 0047 — teste grátis, assinatura e administração de plataforma
+// ============================================================
+
+const ARQUIVO_0047_SAAS = "0047_saas_teste_assinatura.sql";
+const ARQUIVO_EXEC_0047_SAAS = "_exec_0047_saas_teste_assinatura.sql";
+
+describe("0047 — teste SaaS permanece separado dos workspaces", () => {
+  it("cria controle de teste, evento idempotente e espelho do SQL Editor", () => {
+    expect(existeArquivoDeMigracao(ARQUIVO_0047_SAAS)).toBe(true);
+    expect(readdirSync(MIGRATIONS_DIR).includes(ARQUIVO_EXEC_0047_SAAS)).toBe(true);
+
+    const sql = semComentarios(lerMigracao(ARQUIVO_0047_SAAS));
+    expect(sql).toMatch(/create table if not exists public\.saas_teste[\s\S]*?workspace_id uuid primary key references public\.workspace/i);
+    expect(sql).toMatch(/termina_em timestamptz not null[\s\S]*?status text not null default 'teste'/i);
+    expect(sql).toMatch(/check \(dono_whatsapp ~ '\^\[1-9\]\[0-9\]\{9,14\}\$'\)/i);
+    expect(sql).toMatch(/check \(consentimento_comercial\)/i);
+    expect(sql).toMatch(/create table if not exists public\.saas_evento_pagamento[\s\S]*?unique \(provedor, evento_externo_id\)/i);
+    expect(sql).toMatch(/alter table public\.saas_teste enable row level security/i);
+    expect(sql).toMatch(/revoke insert, update, delete on table public\.saas_teste from authenticated/i);
+  });
+
+  it("abre o teste só no trigger de cadastro SaaS e mantém prazo no banco", () => {
+    const sql = semComentarios(lerMigracao(ARQUIVO_0047_SAAS));
+    expect(sql).toMatch(/new\.raw_user_meta_data\s*->>\s*'whatsapp'/i);
+    expect(sql).toMatch(/new\.raw_user_meta_data\s*->>\s*'consentimento_comercial'/i);
+    expect(sql).toMatch(/insert into public\.saas_teste[\s\S]*?now\(\) \+ interval '7 days'/i);
+    expect(sql).toMatch(/if whatsapp !~ '\^\[1-9\]\[0-9\]\{9,14\}\$' then/i);
+    expect(sql).toMatch(/if not consentimento then/i);
+    expect(sql).toMatch(/create or replace function public\.workspace_atual\(\)[\s\S]*?st\.status = 'teste' and st\.termina_em > now\(\)/i);
+    expect(sql).not.toMatch(/new\.raw_user_meta_data\s*->>\s*'papel'/i);
+    expect(sql).not.toMatch(/new\.raw_user_meta_data\s*->>\s*'workspace_id'/i);
+  });
+
+  it("mantém o espelho idêntico à migration", () => {
+    expect(lerMigracao(ARQUIVO_EXEC_0047_SAAS)).toBe(lerMigracao(ARQUIVO_0047_SAAS));
+  });
+});

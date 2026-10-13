@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Papel } from "@/lib/papeis";
-import { decidirAcesso, decidirAcessoSupabase, rotaSegura } from "./portao";
+import { decidirAcesso, decidirAcessoAssinatura, decidirAcessoSupabase, rotaSegura } from "./portao";
 
 describe("decidirAcesso", () => {
   it("rota livre passa em qualquer modo, mesmo trancado", () => {
@@ -61,6 +61,17 @@ describe("rotaSegura", () => {
     expect(rotaSegura("")).toBe("/");
     expect(rotaSegura(null)).toBe("/");
     expect(rotaSegura(undefined)).toBe("/");
+  });
+});
+
+describe("decidirAcessoAssinatura", () => {
+  it("bloqueia o workspace vencido, mas mantém a assinatura acessível", () => {
+    expect(decidirAcessoAssinatura("/painel", false)).toEqual({ tipo: "redireciona", para: "/assinatura" });
+    expect(decidirAcessoAssinatura("/assinatura", false)).toEqual({ tipo: "passa" });
+  });
+
+  it("não interfere em workspace com teste válido ou assinatura ativa", () => {
+    expect(decidirAcessoAssinatura("/crm", true)).toEqual({ tipo: "passa" });
   });
 });
 

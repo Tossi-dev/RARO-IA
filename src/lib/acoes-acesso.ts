@@ -10,12 +10,21 @@ const CadastroSaasSchema = z
     nome: z.string().trim().min(2).max(120),
     workspaceNome: z.string().trim().min(2).max(120),
     email: z.string().trim().email().max(160),
+    whatsapp: z.string().regex(/^[1-9][0-9]{9,14}$/),
     senha: z.string().min(12).max(128),
     confirmarSenha: z.string().min(1).max(128),
+    consentimento: z.literal("sim"),
   })
   .refine((dados) => dados.senha === dados.confirmarSenha, {
     path: ["confirmarSenha"],
   });
+
+function normalizarWhatsapp(valor: string): string {
+  // Remove apenas formatação de telefone legítima. Letras ou outros símbolos
+  // não podem virar um número aparentemente válido depois da normalização.
+  if (!/^[0-9+()\s-]+$/.test(valor.trim())) return "";
+  return valor.replace(/\D/g, "");
+}
 
 function urlDeConfirmacao(): string | undefined {
   const base = process.env.NEXT_PUBLIC_SITE_URL;
@@ -59,20 +68,24 @@ export async function criarContaSaas(formData: FormData) {
     nome: String(formData.get("nome") ?? ""),
     workspaceNome: String(formData.get("workspaceNome") ?? ""),
     email: String(formData.get("email") ?? ""),
+    whatsapp: normalizarWhatsapp(String(formData.get("whatsapp") ?? "")),
     senha: String(formData.get("senha") ?? ""),
     confirmarSenha: String(formData.get("confirmarSenha") ?? ""),
+    consentimento: String(formData.get("consentimento") ?? ""),
   });
 
   if (!resultado.success) return redirect("/criar-conta?erro=campos");
 
   const dados = resultado.data;
-  const { error } = await criarSupabaseServer().auth.signUp({
+  const { data, error } = await criarSupabaseServer().auth.signUp({
     email: dados.email,
     password: dados.senha,
     options: {
       data: {
         nome: dados.nome,
         workspace_nome: dados.workspaceNome,
+        whatsapp: dados.whatsapp,
+        consentimento_comercial: true,
         criar_workspace: true,
       },
       emailRedirectTo: urlDeConfirmacao(),
@@ -84,6 +97,10 @@ export async function criarContaSaas(formData: FormData) {
   // provedor mostram o mesmo próximo passo. O detalhe fica só no log do
   // servidor, sem e-mail, senha ou outro dado da pessoa.
   if (error) console.warn("[cadastro] Supabase recusou a criação:", error.code ?? "sem-codigo");
+  // Quando a confirmação de e-mail estiver desativada, o Supabase já devolve
+  // a sessão (e o cliente SSR grava os cookies). Nesse caso o teste começa
+  // imediatamente, sem instruir a pessoa a esperar um e-mail que não virá.
+  if (!error && data?.session) return redirect("/entrada");
   return redirect("/criar-conta?sucesso=1");
 }
 

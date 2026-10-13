@@ -22,7 +22,7 @@ function formulario(campos: Record<string, string>) {
 
 describe("criarContaSaas", () => {
   beforeEach(() => {
-    signUp.mockReset().mockResolvedValue({ error: null });
+    signUp.mockReset().mockResolvedValue({ data: { session: null }, error: null });
     resetPasswordForEmail.mockReset().mockResolvedValue({ error: null });
     getUser.mockReset().mockResolvedValue({ data: { user: { id: "u-1" } }, error: null });
     updateUser.mockReset().mockResolvedValue({ error: null });
@@ -38,8 +38,10 @@ describe("criarContaSaas", () => {
         nome: "Marina Costa",
         workspaceNome: "Mentoria Marina",
         email: "marina@example.com",
+        whatsapp: "+55 (11) 99999-9999",
         senha: "senha-segura-123",
         confirmarSenha: "senha-segura-123",
+        consentimento: "sim",
         papel: "dono",
         workspace_id: "nao-pode-entrar",
       }),
@@ -52,6 +54,8 @@ describe("criarContaSaas", () => {
         data: {
           nome: "Marina Costa",
           workspace_nome: "Mentoria Marina",
+          whatsapp: "5511999999999",
+          consentimento_comercial: true,
           criar_workspace: true,
         },
         emailRedirectTo: "https://raro-ia.vercel.app/auth/confirm?next=%2Flogin%3Fconfirmado%3D1",
@@ -66,8 +70,10 @@ describe("criarContaSaas", () => {
         nome: "Marina Costa",
         workspaceNome: "Mentoria Marina",
         email: "marina@example.com",
+        whatsapp: "5511999999999",
         senha: "curta",
         confirmarSenha: "outra",
+        consentimento: "sim",
       }),
     );
 
@@ -84,12 +90,51 @@ describe("criarContaSaas", () => {
         nome: "Marina Costa",
         workspaceNome: "Mentoria Marina",
         email: "marina@example.com",
+        whatsapp: "5511999999999",
         senha: "senha-segura-123",
         confirmarSenha: "senha-segura-123",
+        consentimento: "sim",
       }),
     );
 
     expect(redirect).toHaveBeenCalledWith("/criar-conta?sucesso=1");
+  });
+
+  it("exige WhatsApp válido e consentimento antes de criar conta", async () => {
+    await criarContaSaas(
+      formulario({
+        nome: "Marina Costa",
+        workspaceNome: "Mentoria Marina",
+        email: "marina@example.com",
+        whatsapp: "(11) 99999-9999",
+        senha: "senha-segura-123",
+        confirmarSenha: "senha-segura-123",
+        consentimento: "",
+      }),
+    );
+
+    expect(signUp).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith("/criar-conta?erro=campos");
+  });
+
+  it("recusa letras no WhatsApp, mesmo que sobrem dígitos válidos", async () => {
+    await criarContaSaas(formulario({
+      nome: "Marina Costa", workspaceNome: "Mentoria Marina", email: "marina@example.com",
+      whatsapp: "abc +55 11 99999-9999", senha: "senha-segura-123", confirmarSenha: "senha-segura-123", consentimento: "sim",
+    }));
+
+    expect(signUp).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith("/criar-conta?erro=campos");
+  });
+
+  it("informa criação imediata quando o provedor devolve uma sessão", async () => {
+    signUp.mockResolvedValue({ data: { session: { access_token: "nao-exibir" } }, error: null });
+    await criarContaSaas(formulario({
+      nome: "Marina Costa", workspaceNome: "Mentoria Marina", email: "marina@example.com",
+      whatsapp: "+55 11 99999-9999", senha: "senha-segura-123", confirmarSenha: "senha-segura-123", consentimento: "sim",
+    }));
+
+    expect(redirect).toHaveBeenCalledWith("/entrada");
   });
 });
 

@@ -13,9 +13,14 @@
 
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { ambienteAtual, COOKIE_ACESSO, modoAcesso, rotaSemConsultaDeSessao, seloConfere } from "@/lib/acesso";
+import { ambienteAtual, COOKIE_ACESSO, modoAcesso, rotaLivre, rotaSemConsultaDeSessao, seloConfere } from "@/lib/acesso";
 import { papelDe, PAPEL_PADRAO } from "@/lib/papeis";
-import { decidirAcesso, decidirAcessoSupabase } from "@/lib/portao";
+import { decidirAcesso, decidirAcessoAssinatura, decidirAcessoSupabase } from "@/lib/portao";
+import { acessoSaasLiberado, type EstadoSaas } from "@/lib/saas/estado";
+
+function controleSaasAtivo(): boolean {
+  return process.env.MENTOROS_SAAS_TESTES_ATIVOS === "1";
+}
 
 export async function middleware(req: NextRequest) {
   const modo = modoAcesso(ambienteAtual());
@@ -68,11 +73,12 @@ export async function middleware(req: NextRequest) {
     // caso possível é um usuário legítimo ver menos do que devia por um
     // instante, nunca mais do que devia.
     let papel = PAPEL_PADRAO;
+    let workspaceId = "";
     if (user) {
       try {
         const { data: perfil, error } = await supabase
           .from("profiles")
-          .select("papel")
+          .select("papel, workspace_id")
           .eq("id", user.id)
           .maybeSingle();
         // `maybeSingle()` do supabase-js NÃO lança em erro de RLS/rede — ele
@@ -92,6 +98,7 @@ export async function middleware(req: NextRequest) {
           );
         }
         papel = papelDe(perfil?.papel);
+        workspaceId = typeof perfil?.workspace_id === "string" ? perfil.workspace_id : "";
       } catch {
         // Exceção nunca derruba o middleware — o site inteiro ficaria fora
         // do ar por um soluço de rede. O papel padrão, já falho fechado,
@@ -109,22 +116,41 @@ export async function middleware(req: NextRequest) {
     // carrega os cookies renovados que os callbacks `set`/`remove` acima
     // foram escrevendo durante `getUser()`. Um `NextResponse.next()` novo
     // aqui perderia essa renovação e deslogaria o usuário aos poucos.
-    if (decisao.tipo === "passa") return res;
+    if (decisao.tipo !== "passa") {
+      const resposta = NextResponse.redirect(new URL(decisao.para, req.url));
+      for (const cookie of res.cookies.getAll()) resposta.cookies.set(cookie);
+      return resposta;
+    }
 
-    // Redirecionamento é uma resposta NOVA (`NextResponse.redirect` cria o
-    // seu próprio objeto) — os cookies que os callbacks `set`/`remove`
-    // escreveram em `res` durante `getUser()` ficariam presos nele e
-    // desapareceriam aqui, exatamente pelo mesmo motivo do comentário acima,
-    // só que para o caso que ele esqueceu. Se o Supabase rotacionar o
-    // refresh token durante `getUser()` e a decisão for redirecionar (ex.:
-    // mentorado indo para /sem-acesso), o navegador nunca recebe o token
-    // novo: deslogamento intermitente e, com detecção de reuso de refresh
-    // token, a família inteira de tokens pode ser revogada. Por isso todo
-    // cookie que `res` acumulou é copiado para a resposta de redirect antes
-    // dela sair.
-    const resposta = NextResponse.redirect(new URL(decisao.para, req.url));
-    for (const cookie of res.cookies.getAll()) resposta.cookies.set(cookie);
-    return resposta;
+    // A cobrança só entra em vigor depois de a migration estar aplicada e a
+    // variável privada ligar o controle. Antes disso, o produto legado segue
+    // intacto; depois disso, uma falha de leitura bloqueia a operação em vez
+    // de liberar por acidente um teste vencido.
+    if (user && controleSaasAtivo() && !rotaLivre(req.nextUrl.pathname) && !req.nextUrl.pathname.startsWith("/assinatura")) {
+      let estado: EstadoSaas | null = null;
+      let leituraFalhou = workspaceId === "";
+      if (!leituraFalhou) {
+        try {
+          const { data, error } = await supabase
+            .from("saas_teste")
+            .select("status, termina_em")
+            .eq("workspace_id", workspaceId)
+            .maybeSingle();
+          if (error) leituraFalhou = true;
+          else if (data) estado = { status: data.status as EstadoSaas["status"], terminaEm: data.termina_em };
+        } catch {
+          leituraFalhou = true;
+        }
+      }
+      const decisaoSaas = decidirAcessoAssinatura(req.nextUrl.pathname, !leituraFalhou && acessoSaasLiberado(estado));
+      if (decisaoSaas.tipo !== "passa") {
+        const resposta = NextResponse.redirect(new URL(decisaoSaas.para, req.url));
+        for (const cookie of res.cookies.getAll()) resposta.cookies.set(cookie);
+        return resposta;
+      }
+    }
+
+    return res;
   }
 
   // Demais modos (senha / aberto / trancado): a decisão em si é pura — vive

@@ -2,6 +2,6 @@
 // agora é a escolha entre a área do mentor e o Portal do mentorado; manter
 // esta página evita que essa decisão visual descarte a navegação aprovada.
 
-import { AreaTrabalho } from "../page";
+import { AreaTrabalho } from "./area-trabalho";
 
 export default AreaTrabalho;

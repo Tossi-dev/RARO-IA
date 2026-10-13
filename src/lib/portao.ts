@@ -100,6 +100,16 @@ export interface EntradaPortaoSupabase {
   usuario: { papel: Papel } | null;
 }
 
+/**
+ * Portão adicional do SaaS. Só é usado depois de autenticação e papel terem
+ * sido resolvidos. A página de assinatura fica acessível para uma sessão
+ * bloqueada justamente para não criar um laço de redirecionamento.
+ */
+export function decidirAcessoAssinatura(pathname: string, liberado: boolean): DecisaoAcesso {
+  if (ehRotaOuSubrota(pathname, "/assinatura")) return { tipo: "passa" };
+  return liberado ? { tipo: "passa" } : { tipo: "redireciona", para: "/assinatura" };
+}
+
 /** `pathname` é `prefixo` ou um segmento abaixo dele — mesma regra de
  *  fronteira usada em `rotaLivre` (src/lib/acesso.ts) e `comecaNoPrefixo`
  *  (src/lib/papeis.ts): sem isso, "/login" casaria por texto com
@@ -167,14 +177,21 @@ export function decidirAcessoSupabase(entrada: EntradaPortaoSupabase): DecisaoAc
     return { tipo: "redireciona", para: primeiraRotaDe(usuario.papel) };
   }
 
-  if (rotaLivre(pathname)) return { tipo: "passa" };
-
-  if (!usuario) return { tipo: "redireciona", para: "/login" };
-
-  if (pathname === "/") {
+  // A landing é pública para quem chega sem sessão, mas não deve virar a
+  // área inicial de alguém já autenticado: cada papel segue para sua própria
+  // primeira rota, sem expor a vitrine comercial durante o trabalho.
+  if (pathname === "/" && usuario) {
     const primeira = primeiraRotaDe(usuario.papel);
     if (primeira !== "/") return { tipo: "redireciona", para: primeira };
   }
+
+  if (rotaLivre(pathname)) return { tipo: "passa" };
+
+  if (ehRotaOuSubrota(pathname, "/assinatura")) {
+    return usuario ? { tipo: "passa" } : { tipo: "redireciona", para: "/login" };
+  }
+
+  if (!usuario) return { tipo: "redireciona", para: "/login" };
 
   return rotaPermitida(usuario.papel, pathname)
     ? { tipo: "passa" }
